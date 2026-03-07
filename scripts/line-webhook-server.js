@@ -79,6 +79,7 @@ function googleApiRequest(method, url, body, token, contentType) {
 }
 
 // 月別サブフォルダを取得 or 作成（例: "2026年03月"）
+const _folderLocks = {};
 async function getOrCreateMonthFolder(parentFolderId, token, dateStr) {
   // dateStr = "YYYY-MM-DD" or undefined (today)
   const d = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
@@ -86,23 +87,37 @@ async function getOrCreateMonthFolder(parentFolderId, token, dateStr) {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const folderName = `${year}年${month}月`;
 
-  // Search for existing folder
-  const query = encodeURIComponent(`name='${folderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const searchResult = await googleApiRequest("GET",
-    `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`,
-    null, token, null);
-
-  if (searchResult.files && searchResult.files.length > 0) {
-    return searchResult.files[0].id;
+  // 同時リクエストでフォルダ重複作成を防ぐロック
+  if (_folderLocks[folderName]) {
+    return _folderLocks[folderName];
   }
 
-  // Create new folder
-  const newFolder = await googleApiRequest("POST",
-    "https://www.googleapis.com/drive/v3/files",
-    JSON.stringify({ name: folderName, mimeType: "application/vnd.google-apps.folder", parents: [parentFolderId] }),
-    token, "application/json");
-  console.log(`Created month folder: ${folderName} (${newFolder.id})`);
-  return newFolder.id;
+  const promise = (async () => {
+    // Search for existing folder
+    const query = encodeURIComponent(`name='${folderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+    const searchResult = await googleApiRequest("GET",
+      `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`,
+      null, token, null);
+
+    if (searchResult.files && searchResult.files.length > 0) {
+      return searchResult.files[0].id;
+    }
+
+    // Create new folder
+    const newFolder = await googleApiRequest("POST",
+      "https://www.googleapis.com/drive/v3/files",
+      JSON.stringify({ name: folderName, mimeType: "application/vnd.google-apps.folder", parents: [parentFolderId] }),
+      token, "application/json");
+    console.log(`Created month folder: ${folderName} (${newFolder.id})`);
+    return newFolder.id;
+  })();
+
+  _folderLocks[folderName] = promise;
+  try {
+    return await promise;
+  } finally {
+    delete _folderLocks[folderName];
+  }
 }
 
 async function uploadToDrive(filePath, fileName, mimeType, folderId, token) {
@@ -557,6 +572,185 @@ const server = http.createServer((req, res) => {
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ error: "処理に失敗しました" }));
       }
+    });
+  } else if (req.method === "POST" && req.url === "/api/receipt-quick") {
+    // iPhoneショートカット用: 即レスポンス→バックグラウンド処理→LINE通知
+    const authHeader = req.headers["authorization"] || "";
+    const authToken = authHeader.replace("Bearer ", "");
+    if (authToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      const body = Buffer.concat(chunks);
+      if (body.length < 100) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "No image data" }));
+        return;
+      }
+
+      // 即レスポンス（ショートカットがタイムアウトしない）
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ accepted: true, message: "受付完了。処理結果はLINEで通知します。" }));
+
+      // バックグラウンドで処理
+      (async () => {
+        const uploadDir = path.join(REPO_DIR, "logs", ".uploads");
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+        const ext = ".jpg";
+        const safeName = `receipt_${Date.now()}${ext}`;
+        const filePath = path.join(uploadDir, safeName);
+        fs.writeFileSync(filePath, body);
+
+        console.log(`[${new Date().toISOString()}] Quick receipt: ${body.length} bytes`);
+
+        // 画像が大きすぎる場合はリサイズ（OCRの精度と速度向上）
+        try {
+          const stats = fs.statSync(filePath);
+          if (stats.size > 2 * 1024 * 1024) {
+            execSync(`sips --resampleWidth 1600 --setProperty formatOptions 70 "${filePath}" --out "${filePath}"`, { timeout: 10000 });
+            const newSize = fs.statSync(filePath).size;
+            console.log(`Resized: ${stats.size} -> ${newSize} bytes`);
+          }
+        } catch (e) { console.error("Resize failed:", e.message); }
+
+        const ocrPrompt = `以下のレシート画像を Read ツールで読み取り、内容を分析してください。
+ファイルパス: ${filePath}
+
+## 勘定科目の判定ルール（個人事業主・青色申告）
+- 仕入高: コーヒー生豆、焙煎資材、民泊アメニティ仕入れ
+- 地代家賃: 家賃、レンタルスペース利用料
+- 水道光熱費: 電気、ガス、水道
+- 旅費交通費: ガソリン、高速道路、ETC、電車、駐車場
+- 通信費: 携帯電話、インターネット、サーバー、SaaS月額
+- 広告宣伝費: 広告、チラシ、名刺印刷
+- 接待交際費: 取引先との飲食、手土産、謝礼
+- 消耗品費: 事務用品、10万円未満の備品、清掃用品
+- 新聞図書費: 書籍、オンライン講座
+- 支払手数料: 各種手数料、振込手数料
+- 損害保険料: 火災保険、賠償責任保険
+- 修繕費: 物件修繕、設備修理
+- 車両費: 車検、整備、自動車税
+- 外注工賃: 業務委託、クリーニング外注
+- 租税公課: 印紙代、事業税
+- 雑費: 上記に該当しないもの
+
+## 店名ヒント
+- ガソスタ/ENEOS/出光/コスモ → 旅費交通費 or 車両費
+- コンビニ/スーパー → 内容により消耗品費/仕入高/雑費
+- ホームセンター → 消耗品費 or 修繕費
+- 飲食店 → 接待交際費（事業関連）
+
+## 税区分
+- 課税仕入10%: 標準税率の経費
+- 課税仕入8%: 食品等（軽減税率）
+- 非課税仕入: 保険料等
+- 対象外: 租税公課等
+
+以下のJSON形式で返してください（JSONのみ返すこと）:
+{
+  "date": "YYYY-MM-DD形式の日付",
+  "store": "店名",
+  "amount": 合計金額（数値、税込）,
+  "items": "主な品目（カンマ区切り）",
+  "account": "勘定科目（上記ルールに基づく）",
+  "tax_class": "課税仕入10%/課税仕入8%/非課税仕入/対象外",
+  "payment": "現金/クレジットカード/電子マネー/不明",
+  "note": "特記事項",
+  "business": "えんがわ/三十日珈琲/SATOYAMA AI BASE/共通/不明"
+}
+
+読み取れない項目は "不明" としてください。金額は必ず数値のみ（カンマ・円記号なし）。`;
+
+        const promptFile = path.join(REPO_DIR, "logs", ".receipt-prompt.txt");
+        fs.writeFileSync(promptFile, ocrPrompt, "utf-8");
+
+        const execEnv = Object.assign({}, process.env, {
+          PATH: `/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+          HOME: "/Users/Inaryo",
+        });
+        delete execEnv.CLAUDECODE;
+
+        let ocrResult;
+        try {
+          const raw = execSync(
+            `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
+            { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
+          );
+          const jsonMatch = raw.match(/\{[\s\S]*?"date"[\s\S]*?\}/);
+          ocrResult = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+        } catch (e) {
+          console.error("OCR error:", e.message);
+        }
+
+        // LINE Push で結果通知
+        const sendLine = (text) => {
+          const payload = JSON.stringify({
+            to: USER_ID,
+            messages: [{ type: "text", text }],
+          });
+          const lineReq = https.request("https://api.line.me/v2/bot/message/push", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+              "Content-Length": Buffer.byteLength(payload),
+            },
+          });
+          lineReq.write(payload);
+          lineReq.end();
+        };
+
+        if (!ocrResult) {
+          sendLine("レシートの読み取りに失敗しました。もう一度撮影してみてね。");
+          try { fs.unlinkSync(filePath); } catch {}
+          return;
+        }
+
+        // Upload to Google Drive & Sheets
+        let driveLink = "";
+        try {
+          const gToken = await getGoogleAccessToken();
+          const monthFolderId = await getOrCreateMonthFolder(env.GOOGLE_RECEIPT_FOLDER_ID, gToken, ocrResult.date);
+          const driveFileName = `${ocrResult.date || "unknown"}_${ocrResult.store || "receipt"}${ext}`;
+          const driveResult = await uploadToDrive(filePath, driveFileName, "image/jpeg", monthFolderId, gToken);
+          driveLink = driveResult.webViewLink || `https://drive.google.com/file/d/${driveResult.id}`;
+
+          const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          const account = ocrResult.account || "雑費";
+          const taxClass = ocrResult.tax_class || "課税仕入10%";
+          const payment = ocrResult.payment || "不明";
+          let creditAccount = "事業主借";
+          if (payment === "クレジットカード") creditAccount = "未払金";
+          else if (payment === "現金") creditAccount = "現金";
+          else if (payment === "口座引落") creditAccount = "普通預金";
+
+          await appendToSheet(env.GOOGLE_EXPENSE_SHEET_ID, "MF仕訳帳", [
+            ocrResult.date || "不明", account, "", taxClass, ocrResult.amount || 0,
+            creditAccount, "", taxClass, ocrResult.amount || 0,
+            `${ocrResult.store || ""}${ocrResult.items ? " " + ocrResult.items : ""}`,
+            ocrResult.note || "", ocrResult.business || "",
+          ], gToken);
+
+          await appendToSheet(env.GOOGLE_EXPENSE_SHEET_ID, "レシート原本", [
+            ocrResult.date || "不明", ocrResult.store || "不明", ocrResult.amount || 0,
+            ocrResult.items || "不明", account, taxClass, payment,
+            ocrResult.note || "", driveLink, now, ocrResult.business || "不明",
+          ], gToken);
+        } catch (e) {
+          console.error("Google API error:", e.message);
+        }
+
+        try { fs.unlinkSync(filePath); } catch {}
+
+        // LINE通知で結果を送信
+        const amount = ocrResult.amount ? Number(ocrResult.amount).toLocaleString() + "円" : "不明";
+        sendLine(`レシート登録完了\n\n${ocrResult.store || "不明"}\n${ocrResult.date || "不明"} / ${amount}\n勘定科目: ${ocrResult.account || "雑費"}\n税区分: ${ocrResult.tax_class || "不明"}\n事業: ${ocrResult.business || "不明"}`);
+      })().catch(e => console.error("Background receipt error:", e.message));
     });
   } else if (req.method === "POST" && req.url === "/api/upload") {
     // ファイルアップロード（画像・PDF等）
