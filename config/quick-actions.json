@@ -28,5 +28,35 @@
     "label": "ブレスト",
     "icon": "idea",
     "prompt": "アイデアの壁打ちをしたい"
+  },
+  {
+    "label": "SNS投稿",
+    "icon": "share",
+    "prompt": "SNSに投稿したい。写真の説明を伝えるから、Instagram向けのキャプションを3パターン作って。ハッシュタグ付きで"
+  },
+  {
+    "label": "ブログ下書き",
+    "icon": "write",
+    "prompt": "ブログ記事の下書きを作りたい。テーマを伝えるから、SATOYAMA AI BASEのブログ記事として書いて"
+  },
+  {
+    "label": "ゲスト返信",
+    "icon": "message",
+    "prompt": "Airbnbゲストへの返信を作って。ゲストからのメッセージ内容を伝えるね"
+  },
+  {
+    "label": "定型文",
+    "icon": "template",
+    "prompt": "定型文テンプレートの一覧を見せて"
+  },
+  {
+    "label": "体調記録",
+    "icon": "health",
+    "prompt": "今日の体調を記録したい"
+  },
+  {
+    "label": "えんがわ稼働",
+    "icon": "house",
+    "prompt": "えんがわの予約状況と稼働率を教えて"
   }
 ]

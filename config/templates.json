@@ -1,0 +1,44 @@
+[
+  {
+    "id": "engawa-checkin",
+    "label": "チェックイン案内",
+    "category": "えんがわ",
+    "template": "{{name}}様\n\nえんがわへのご予約ありがとうございます。\nチェックインについてご案内します。\n\n【チェックイン】{{checkinDate}} 15:00〜\n【チェックアウト】翌日 10:00まで\n\n【アクセス】\n最寄駅: JR中央本線 梁川駅（徒歩約10分）\nお車の場合: 敷地内に駐車スペースあり\n\n【Wi-Fi】\nSSID: engawa-guest\nパスワード: お部屋にカードがあります\n\n何かご不明点があればお気軽にご連絡ください。\nお会いできるのを楽しみにしています！\n\nRyo"
+  },
+  {
+    "id": "engawa-checkout-thanks",
+    "label": "チェックアウトお礼",
+    "category": "えんがわ",
+    "template": "{{name}}様\n\nこの度はえんがわにお越しいただきありがとうございました！\nごゆっくりお過ごしいただけましたでしょうか。\n\nもしよろしければ、Airbnbでのレビューをいただけると大変嬉しいです。\nまたのお越しを心よりお待ちしております。\n\nRyo"
+  },
+  {
+    "id": "airbnb-inquiry-reply",
+    "label": "Airbnb 問い合わせ返信（英語）",
+    "category": "えんがわ",
+    "template": "Hi {{name}},\n\nThank you for your interest in Engawa!\n\nYes, the dates you mentioned are available. Engawa is a traditional Japanese house (kominka) located in Otsuki City, Yamanashi Prefecture — about 90 minutes from Tokyo by train.\n\nThe house features:\n- Traditional tatami rooms\n- A beautiful garden\n- Modern amenities (Wi-Fi, hot water, etc.)\n- Free parking\n\nI live on-site and am happy to help with anything during your stay. Feel free to ask any questions!\n\nBest regards,\nRyo"
+  },
+  {
+    "id": "misoca-booking-confirm",
+    "label": "焙煎体験 予約確認",
+    "category": "三十日珈琲",
+    "template": "{{name}}様\n\n三十日珈琲の焙煎体験のご予約ありがとうございます。\n\n【日時】{{date}} {{time}}\n【場所】えんがわ（山梨県大月市梁川町）\n【所要時間】約90分\n【料金】お一人様 3,000円（焙煎した豆200gのお土産付き）\n\n【持ち物】特になし（エプロンはこちらでご用意します）\n\n当日は焙煎の基礎から丁寧にお伝えしますので、初めての方でも安心してお越しください。\n\nご不明点があればお気軽にご連絡ください。\n\nRyo / 三十日珈琲"
+  },
+  {
+    "id": "meeting-request",
+    "label": "打ち合わせ依頼",
+    "category": "汎用",
+    "template": "{{name}}さん\n\nお世話になっております。\n{{topic}}についてお打ち合わせをお願いしたく、ご連絡いたしました。\n\n以下の日程でご都合いかがでしょうか？\n{{dates}}\n\nよろしくお願いいたします。\n\nRyo"
+  },
+  {
+    "id": "event-invitation",
+    "label": "イベント案内文",
+    "category": "汎用",
+    "template": "【{{eventName}}のご案内】\n\n{{description}}\n\n■ 日時: {{date}} {{time}}\n■ 場所: {{location}}\n■ 参加費: {{fee}}\n■ 定員: {{capacity}}\n\n■ お申し込み方法:\n{{registrationMethod}}\n\nお気軽にご参加ください！\nご質問があればお気軽にどうぞ。"
+  },
+  {
+    "id": "satoyama-inquiry-reply",
+    "label": "問い合わせ返信",
+    "category": "SATOYAMA AI BASE",
+    "template": "{{name}}様\n\nSATOYAMA AI BASEにお問い合わせいただきありがとうございます。\n\n{{content}}\n\n詳しいヒアリングをさせていただければ、より具体的なご提案が可能です。\n30分ほどのオンライン相談（無料）はいかがでしょうか？\n\nご都合の良い日時をいくつかお知らせいただければ、調整いたします。\n\nRyo / SATOYAMA AI BASE"
+  }
+]

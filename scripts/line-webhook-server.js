@@ -1836,6 +1836,371 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     });
+  // ========== POST /api/expense-memo — ワンタップ経費メモ ==========
+  } else if (req.method === "POST" && req.url === "/api/expense-memo") {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
+
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const { token, text } = JSON.parse(body);
+        if (token !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(401, corsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+        if (!text || typeof text !== "string") {
+          res.writeHead(400, corsHeaders);
+          res.end(JSON.stringify({ error: "text is required" }));
+          return;
+        }
+
+        // テキストから金額・支払方法・メモを抽出
+        const amountMatch = text.match(/(\d[\d,]+)\s*円?/);
+        if (!amountMatch) {
+          res.writeHead(400, corsHeaders);
+          res.end(JSON.stringify({ error: "金額が見つかりません" }));
+          return;
+        }
+        const amount = parseInt(amountMatch[1].replace(/,/g, ""), 10);
+
+        const paymentKeywords = ["現金", "PayPay", "JCBデビット", "Mastercardデビット"];
+        let payment = "JCBデビット"; // デフォルト
+        for (const kw of paymentKeywords) {
+          if (text.includes(kw)) { payment = kw; break; }
+        }
+
+        // メモ: 金額と支払方法を除いた残り
+        let memo = text
+          .replace(/(\d[\d,]+)\s*円?/, "")
+          .replace(/現金|PayPay|JCBデビット|Mastercardデビット/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!memo) memo = "経費メモ";
+
+        // 日付 (Asia/Tokyo)
+        const now = new Date();
+        const jstDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+        const date = `${jstDate.getFullYear()}/${String(jstDate.getMonth() + 1).padStart(2, "0")}/${String(jstDate.getDate()).padStart(2, "0")}`;
+
+        // Google Sheets に追記
+        (async () => {
+          try {
+            const gToken = await getGoogleAccessToken();
+            // MF仕訳帳: A=日付, B=借方勘定科目, C=借方補助科目, D=借方部門, E=借方金額, F=借方税区分, G=貸方勘定科目, H=貸方補助科目, I=貸方部門, J=摘要, K=仕訳メモ, L=タグ, M=MF仕訳タイプ, N=決算整理仕訳
+            await appendToSheet(env.GOOGLE_EXPENSE_SHEET_ID, "MF仕訳帳", [
+              date, "消耗品費", "", "", amount, "対象外", "", payment, "", memo, "", "", "", "",
+            ], gToken);
+            console.log(`[${new Date().toISOString()}] Expense memo: ${memo} ${amount}円 (${payment})`);
+            res.writeHead(200, corsHeaders);
+            res.end(JSON.stringify({ success: true, amount, memo, payment, date }));
+          } catch (e) {
+            console.error("Expense memo Sheets error:", e.message);
+            res.writeHead(500, corsHeaders);
+            res.end(JSON.stringify({ error: "スプレッドシートへの書き込みに失敗しました" }));
+          }
+        })();
+      } catch (e) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+
+  // ========== POST /api/condition — 体調記録 ==========
+  } else if (req.method === "POST" && req.url === "/api/condition") {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
+
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const { token, score, note } = JSON.parse(body);
+        if (token !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(401, corsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+        if (!score || score < 1 || score > 5 || !Number.isInteger(score)) {
+          res.writeHead(400, corsHeaders);
+          res.end(JSON.stringify({ error: "score must be an integer between 1 and 5" }));
+          return;
+        }
+
+        const conditionFile = path.join(REPO_DIR, "logs", "condition.json");
+        let entries = [];
+        try { entries = JSON.parse(fs.readFileSync(conditionFile, "utf-8")); } catch {}
+
+        const now = new Date();
+        const jst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+        const dateStr = `${jst.getFullYear()}-${String(jst.getMonth() + 1).padStart(2, "0")}-${String(jst.getDate()).padStart(2, "0")}`;
+        const timeStr = `${String(jst.getHours()).padStart(2, "0")}:${String(jst.getMinutes()).padStart(2, "0")}`;
+
+        entries.push({ date: dateStr, time: timeStr, score, note: note || "" });
+
+        // 最大365件保持
+        if (entries.length > 365) entries.splice(0, entries.length - 365);
+        fs.writeFileSync(conditionFile, JSON.stringify(entries, null, 2));
+
+        console.log(`[${new Date().toISOString()}] Condition logged: score=${score} note="${note || ""}"`);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true, date: dateStr, time: timeStr, score, note: note || "" }));
+      } catch (e) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+
+  // ========== GET /api/condition — 体調履歴取得 ==========
+  } else if (req.method === "GET" && req.url?.startsWith("/api/condition")) {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
+
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    const days = parseInt(urlObj.searchParams.get("days") || "30", 10);
+    const conditionFile = path.join(REPO_DIR, "logs", "condition.json");
+    let entries = [];
+    try { entries = JSON.parse(fs.readFileSync(conditionFile, "utf-8")); } catch {}
+
+    // 直近N日分をフィルタ
+    const now = new Date();
+    const jst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+    const cutoff = new Date(jst);
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
+
+    const filtered = entries.filter(e => e.date >= cutoffStr);
+    const average = filtered.length > 0
+      ? Math.round((filtered.reduce((sum, e) => sum + e.score, 0) / filtered.length) * 10) / 10
+      : 0;
+
+    res.writeHead(200, corsHeaders);
+    res.end(JSON.stringify({ entries: filtered, average }));
+
+  // ========== GET /api/templates — 定型文テンプレート取得 ==========
+  } else if (req.method === "GET" && req.url?.startsWith("/api/templates") && !req.url?.startsWith("/api/templates/")) {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
+
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    try {
+      const templatesFile = path.join(REPO_DIR, "config", "templates.json");
+      const templates = JSON.parse(fs.readFileSync(templatesFile, "utf-8"));
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ templates }));
+    } catch (e) {
+      console.error("Templates read error:", e.message);
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ error: "テンプレートの読み込みに失敗しました" }));
+    }
+
+  // ========== POST /api/templates/use — テンプレート使用（変数置換） ==========
+  } else if (req.method === "POST" && req.url === "/api/templates/use") {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
+
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const { token, id, variables } = JSON.parse(body);
+        if (token !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(401, corsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+        if (!id) {
+          res.writeHead(400, corsHeaders);
+          res.end(JSON.stringify({ error: "id is required" }));
+          return;
+        }
+
+        const templatesFile = path.join(REPO_DIR, "config", "templates.json");
+        const templates = JSON.parse(fs.readFileSync(templatesFile, "utf-8"));
+        const template = templates.find(t => t.id === id);
+
+        if (!template) {
+          res.writeHead(404, corsHeaders);
+          res.end(JSON.stringify({ error: `Template "${id}" not found` }));
+          return;
+        }
+
+        let text = template.template || template.text;
+        if (variables && typeof variables === "object") {
+          for (const [key, value] of Object.entries(variables)) {
+            text = text.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
+          }
+        }
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ text }));
+      } catch (e) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+
+  // ========== GET /api/engawa-calendar — えんがわ予約状況 ==========
+  } else if (req.method === "GET" && req.url?.startsWith("/api/engawa-calendar")) {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
+
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    (async () => {
+      try {
+        const gToken = await getGoogleAccessToken();
+        const now = new Date();
+        const jst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+        const thisYear = jst.getFullYear();
+        const thisMonth = jst.getMonth(); // 0-indexed
+        const nextMonth = thisMonth + 1;
+
+        // 今月の開始・終了
+        const thisMonthStart = new Date(thisYear, thisMonth, 1);
+        const thisMonthEnd = new Date(thisYear, thisMonth + 1, 0);
+        const thisMonthDays = thisMonthEnd.getDate();
+
+        // 来月の開始・終了
+        const nextMonthStart = new Date(thisYear, nextMonth, 1);
+        const nextMonthEnd = new Date(thisYear, nextMonth + 1, 0);
+        const nextMonthDays = nextMonthEnd.getDate();
+
+        // 180日カウント用: 1月1日〜今日
+        const yearStart = new Date(thisYear, 0, 1);
+
+        const calendarIds = {
+          hiba: "q6egg73q6ka263u3no3t04f0mvgtr249@import.calendar.google.com",
+          ume: "coup51h4rn6uuuk9ausllt2etpc6i8a5@import.calendar.google.com",
+        };
+
+        async function fetchEvents(calId, timeMin, timeMax) {
+          const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=250`;
+          try {
+            const result = await googleApiRequest("GET", url, null, gToken);
+            return (result.items || []).filter(ev => ev.status !== "cancelled");
+          } catch (e) {
+            console.error(`Engawa calendar fetch error (${calId}):`, e.message);
+            return [];
+          }
+        }
+
+        function parseBookings(events, room) {
+          return events.map(ev => ({
+            start: ev.start.dateTime || ev.start.date,
+            end: ev.end.dateTime || ev.end.date,
+            summary: ev.summary || "(予約)",
+            room,
+          }));
+        }
+
+        function countBookedDays(events, monthStart, monthEnd) {
+          const bookedDates = new Set();
+          for (const ev of events) {
+            const start = new Date(ev.start.dateTime || ev.start.date);
+            const end = new Date(ev.end.dateTime || ev.end.date);
+            // 終日イベントの場合、endは翌日の00:00なので1日引く
+            const endAdj = ev.start.date ? new Date(end.getTime() - 86400000) : end;
+            const cur = new Date(Math.max(start.getTime(), monthStart.getTime()));
+            const last = new Date(Math.min(endAdj.getTime(), monthEnd.getTime()));
+            while (cur <= last) {
+              bookedDates.add(cur.toISOString().slice(0, 10));
+              cur.setDate(cur.getDate() + 1);
+            }
+          }
+          return bookedDates.size;
+        }
+
+        // 各カレンダーからイベント取得
+        const thisMonthTimeMin = thisMonthStart.toISOString();
+        const thisMonthTimeMax = new Date(thisYear, thisMonth + 1, 1).toISOString();
+        const nextMonthTimeMin = nextMonthStart.toISOString();
+        const nextMonthTimeMax = new Date(thisYear, nextMonth + 1, 1).toISOString();
+        const yearTimeMin = yearStart.toISOString();
+        const yearTimeMax = new Date(jst.getFullYear(), jst.getMonth(), jst.getDate() + 1).toISOString();
+
+        // 並列取得
+        const [hibaThisMonth, hibaNextMonth, hibaYear, umeThisMonth, umeNextMonth, umeYear] = await Promise.all([
+          fetchEvents(calendarIds.hiba, thisMonthTimeMin, thisMonthTimeMax),
+          fetchEvents(calendarIds.hiba, nextMonthTimeMin, nextMonthTimeMax),
+          fetchEvents(calendarIds.hiba, yearTimeMin, yearTimeMax),
+          fetchEvents(calendarIds.ume, thisMonthTimeMin, thisMonthTimeMax),
+          fetchEvents(calendarIds.ume, nextMonthTimeMin, nextMonthTimeMax),
+          fetchEvents(calendarIds.ume, yearTimeMin, yearTimeMax),
+        ]);
+
+        const hibaThisBookedDays = countBookedDays(hibaThisMonth, thisMonthStart, thisMonthEnd);
+        const hibaNextBookedDays = countBookedDays(hibaNextMonth, nextMonthStart, nextMonthEnd);
+        const hibaYearDays = countBookedDays(hibaYear, yearStart, jst);
+
+        const umeThisBookedDays = countBookedDays(umeThisMonth, thisMonthStart, thisMonthEnd);
+        const umeNextBookedDays = countBookedDays(umeNextMonth, nextMonthStart, nextMonthEnd);
+        const umeYearDays = countBookedDays(umeYear, yearStart, jst);
+
+        const result = {
+          hiba: {
+            thisMonth: {
+              bookings: parseBookings(hibaThisMonth, "HIBA"),
+              occupancyRate: Math.round((hibaThisBookedDays / thisMonthDays) * 100),
+              bookedDays: hibaThisBookedDays,
+            },
+            nextMonth: {
+              bookings: parseBookings(hibaNextMonth, "HIBA"),
+              occupancyRate: Math.round((hibaNextBookedDays / nextMonthDays) * 100),
+              bookedDays: hibaNextBookedDays,
+            },
+          },
+          ume: {
+            thisMonth: {
+              bookings: parseBookings(umeThisMonth, "UME"),
+              occupancyRate: Math.round((umeThisBookedDays / thisMonthDays) * 100),
+              bookedDays: umeThisBookedDays,
+            },
+            nextMonth: {
+              bookings: parseBookings(umeNextMonth, "UME"),
+              occupancyRate: Math.round((umeNextBookedDays / nextMonthDays) * 100),
+              bookedDays: umeNextBookedDays,
+            },
+          },
+          yearTotal180: {
+            hiba: hibaYearDays,
+            ume: umeYearDays,
+            combined: hibaYearDays + umeYearDays,
+            remaining: 180 - (hibaYearDays + umeYearDays),
+          },
+        };
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify(result));
+      } catch (e) {
+        console.error("Engawa calendar API error:", e.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: "えんがわカレンダーの取得に失敗しました" }));
+      }
+    })();
+
   } else if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200);
     res.end("OK");
