@@ -1201,6 +1201,32 @@ const server = http.createServer((req, res) => {
         }
       })();
     });
+  } else if (req.method === "GET" && req.url?.startsWith("/api/quick-actions")) {
+    // クイックアクション一覧
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Content-Type": "application/json",
+    };
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const token = parsedUrl.searchParams.get("token");
+    if (token !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+    const actionsPath = path.join(REPO_DIR, "config", "quick-actions.json");
+    try {
+      const actions = JSON.parse(fs.readFileSync(actionsPath, "utf-8"));
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ actions }));
+    } catch {
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ actions: [] }));
+    }
+
   } else if (req.method === "GET" && req.url?.startsWith("/api/transcripts")) {
     // 文字起こし一覧 & 個別取得
     const origin = req.headers["origin"] || "";
