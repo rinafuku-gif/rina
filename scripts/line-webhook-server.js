@@ -291,6 +291,54 @@ const server = http.createServer((req, res) => {
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ error: "Failed to parse tasks" }));
     }
+  } else if (req.method === "POST" && req.url === "/api/tasks/toggle") {
+    // タスクの完了/未完了を切り替え
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin,
+      "Content-Type": "application/json",
+    };
+
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const { token, taskText, done } = JSON.parse(body);
+        if (token !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(401, corsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+
+        const claudeMdPath = path.join(REPO_DIR, "CLAUDE.md");
+        let content = fs.readFileSync(claudeMdPath, "utf-8");
+
+        const escapedText = taskText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        if (done) {
+          // [ ] → [x]
+          content = content.replace(
+            new RegExp(`- \\[ \\] ${escapedText}`),
+            `- [x] ${taskText}`
+          );
+        } else {
+          // [x] → [ ]
+          content = content.replace(
+            new RegExp(`- \\[x\\] ${escapedText}`),
+            `- [ ] ${taskText}`
+          );
+        }
+
+        fs.writeFileSync(claudeMdPath, content, "utf-8");
+        console.log(`[${new Date().toISOString()}] Task toggled: "${taskText}" → ${done ? "done" : "undone"}`);
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true }));
+      } catch (e) {
+        console.error("Task toggle error:", e.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: "Failed to toggle task" }));
+      }
+    });
   } else if (req.method === "GET" && req.url?.startsWith("/api/schedule")) {
     // 今日の予定を返す
     const origin = req.headers["origin"] || "";
