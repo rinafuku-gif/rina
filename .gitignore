@@ -14,6 +14,27 @@ logs/screenshots/
 # Uploaded files (temporary)
 logs/.uploads/
 
+# Push subscriptions (contains endpoint secrets)
+logs/.push-subscriptions.json
+
+# Temporary prompt files
+logs/.current-prompt.txt
+logs/.receipt-prompt.txt
+logs/.shiratama-prompt.txt
+
+# Runtime logs
+logs/cloudflared.log
+logs/line-bot-stderr.log
+logs/line-bot-stdout.log
+logs/briefing-stderr.log
+logs/briefing-stdout.log
+logs/last-tunnel-url.txt
+logs/tunnel.pid
+logs/webhook.pid
+
+# Node
+node_modules/
+
 # Editor
 .vscode/
 *.swp

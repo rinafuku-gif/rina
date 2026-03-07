@@ -643,9 +643,10 @@ const server = http.createServer((req, res) => {
     req.on("data", (chunk) => chunks.push(chunk));
     req.on("end", () => {
       const body = Buffer.concat(chunks);
-      if (body.length < 100) {
+      if (body.length < 10000) {
+        console.log(`[${new Date().toISOString()}] Skipped: too small (${body.length} bytes)`);
         res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "No image data" }));
+        res.end(JSON.stringify({ error: "画像データが小さすぎます" }));
         return;
       }
 
@@ -658,20 +659,28 @@ const server = http.createServer((req, res) => {
         const uploadDir = path.join(REPO_DIR, "logs", ".uploads");
         if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
         const ts = Date.now();
-        const rawPath = path.join(uploadDir, `receipt_${ts}_raw`);
+        // ファイルヘッダーから形式を判定
+        const isHEIC = body.length > 8 && body.toString("ascii", 4, 12).includes("ftyp");
+        const isJPEG = body[0] === 0xFF && body[1] === 0xD8;
+        const rawExt = isHEIC ? ".heic" : isJPEG ? ".jpg" : ".dat";
+        const rawPath = path.join(uploadDir, `receipt_${ts}_raw${rawExt}`);
         const filePath = path.join(uploadDir, `receipt_${ts}.jpg`);
         fs.writeFileSync(rawPath, body);
 
-        console.log(`[${new Date().toISOString()}] Quick receipt: ${body.length} bytes`);
+        console.log(`[${new Date().toISOString()}] Quick receipt: ${body.length} bytes (${rawExt})`);
 
-        // HEIC/大画像をJPEGに変換・リサイズ
+        // JPEG変換・リサイズ
         try {
-          execSync(`sips -s format jpeg --resampleWidth 2000 -s formatOptions 90 "${rawPath}" --out "${filePath}"`, { timeout: 15000 });
+          if (isJPEG && body.length <= 2 * 1024 * 1024) {
+            // 小さいJPEGはそのまま使う
+            fs.copyFileSync(rawPath, filePath);
+          } else {
+            execSync(`sips -s format jpeg --resampleWidth 2000 -s formatOptions 90 "${rawPath}" --out "${filePath}"`, { timeout: 15000 });
+          }
           const newSize = fs.statSync(filePath).size;
-          console.log(`Converted to JPEG: ${body.length} -> ${newSize} bytes`);
+          console.log(`Converted: ${body.length} -> ${newSize} bytes`);
         } catch (e) {
           console.error("Convert failed:", e.message);
-          // フォールバック: そのままコピー
           fs.copyFileSync(rawPath, filePath);
         }
         try { fs.unlinkSync(rawPath); } catch {}
