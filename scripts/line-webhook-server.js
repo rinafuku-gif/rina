@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const webpush = require("web-push");
 
 // .env 読み込み
 const envPath = path.join(__dirname, "..", ".env");
@@ -22,6 +23,53 @@ const REPO_DIR = path.join(__dirname, "..");
 const PROMPT_FILE = path.join(REPO_DIR, "logs", ".current-prompt.txt");
 const CLAUDE_PATH = "/Users/Inaryo/.local/bin/claude";
 const CLAUDE_TIMEOUT = 300000; // 5分
+
+// Web Push 設定
+webpush.setVapidDetails(
+  "mailto:r.inafuku@tonari2tomaru.com",
+  env.VAPID_PUBLIC_KEY,
+  env.VAPID_PRIVATE_KEY
+);
+const SUBSCRIPTIONS_FILE = path.join(REPO_DIR, "logs", ".push-subscriptions.json");
+function loadSubscriptions() {
+  try { return JSON.parse(fs.readFileSync(SUBSCRIPTIONS_FILE, "utf-8")); } catch { return []; }
+}
+function saveSubscriptions(subs) {
+  fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subs, null, 2));
+}
+async function sendWebPush(title, body) {
+  const subs = loadSubscriptions();
+  const payload = JSON.stringify({ title, body });
+  const expired = [];
+  for (let i = 0; i < subs.length; i++) {
+    try {
+      await webpush.sendNotification(subs[i], payload);
+    } catch (e) {
+      if (e.statusCode === 410 || e.statusCode === 404) expired.push(i);
+      console.error("Web push error:", e.statusCode || e.message);
+    }
+  }
+  if (expired.length > 0) {
+    const cleaned = subs.filter((_, i) => !expired.includes(i));
+    saveSubscriptions(cleaned);
+  }
+}
+
+// レシート処理キュー（claude -p は同時1つまで）
+const receiptQueue = [];
+let receiptProcessing = false;
+function enqueueReceipt(fn) {
+  receiptQueue.push(fn);
+  processReceiptQueue();
+}
+async function processReceiptQueue() {
+  if (receiptProcessing || receiptQueue.length === 0) return;
+  receiptProcessing = true;
+  const fn = receiptQueue.shift();
+  try { await fn(); } catch (e) { console.error("Receipt queue error:", e.message); }
+  receiptProcessing = false;
+  processReceiptQueue();
+}
 
 // Google API helper
 function getGoogleAccessToken() {
@@ -486,7 +534,15 @@ const server = http.createServer((req, res) => {
             { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
           );
           const jsonMatch = raw.match(/\{[\s\S]*?"date"[\s\S]*?\}/);
-          ocrResult = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+          if (jsonMatch) {
+            // 不正なJSON値を修正（"amount": 不明 → "amount": "不明"）
+            const fixed = jsonMatch[0].replace(/:\s*([^"\d\[\]{},\s][^,}\n]*)/g, (m, val) => {
+              const trimmed = val.trim();
+              if (trimmed === "true" || trimmed === "false" || trimmed === "null") return m;
+              return `: "${trimmed}"`;
+            });
+            try { ocrResult = JSON.parse(fixed); } catch { ocrResult = JSON.parse(jsonMatch[0]); }
+          }
         } catch (e) {
           console.error("OCR error:", e.message);
         }
@@ -516,11 +572,11 @@ const server = http.createServer((req, res) => {
           const payment = ocrResult.payment || "不明";
 
           // 貸方科目の判定
-          let creditAccount = "事業主借"; // デフォルト（個人立替）
-          if (payment === "クレジットカード") creditAccount = "未払金";
+          let creditAccount = "事業主借";
+          if (payment === "JCBデビット" || payment === "Mastercardデビット") creditAccount = "普通預金";
           else if (payment === "現金") creditAccount = "現金";
-          else if (payment === "口座引落") creditAccount = "普通預金";
-          else if (payment === "電子マネー") creditAccount = "事業主借";
+          else if (payment === "PayPay") creditAccount = "事業主借";
+          else if (payment === "クレジットカード") creditAccount = "未払金";
 
           // MF仕訳帳シートに追記
           await appendToSheet(env.GOOGLE_EXPENSE_SHEET_ID, "MF仕訳帳", [
@@ -597,29 +653,51 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ accepted: true, message: "受付完了。処理結果はLINEで通知します。" }));
 
-      // バックグラウンドで処理
-      (async () => {
+      // キューに入れて順次処理
+      enqueueReceipt(async () => {
         const uploadDir = path.join(REPO_DIR, "logs", ".uploads");
         if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-        const ext = ".jpg";
-        const safeName = `receipt_${Date.now()}${ext}`;
-        const filePath = path.join(uploadDir, safeName);
-        fs.writeFileSync(filePath, body);
+        const ts = Date.now();
+        const rawPath = path.join(uploadDir, `receipt_${ts}_raw`);
+        const filePath = path.join(uploadDir, `receipt_${ts}.jpg`);
+        fs.writeFileSync(rawPath, body);
 
         console.log(`[${new Date().toISOString()}] Quick receipt: ${body.length} bytes`);
 
-        // 画像が大きすぎる場合はリサイズ（OCRの精度と速度向上）
+        // HEIC/大画像をJPEGに変換・リサイズ
         try {
-          const stats = fs.statSync(filePath);
-          if (stats.size > 2 * 1024 * 1024) {
-            execSync(`sips --resampleWidth 1600 --setProperty formatOptions 70 "${filePath}" --out "${filePath}"`, { timeout: 10000 });
-            const newSize = fs.statSync(filePath).size;
-            console.log(`Resized: ${stats.size} -> ${newSize} bytes`);
-          }
-        } catch (e) { console.error("Resize failed:", e.message); }
+          execSync(`sips -s format jpeg --resampleWidth 2000 -s formatOptions 90 "${rawPath}" --out "${filePath}"`, { timeout: 15000 });
+          const newSize = fs.statSync(filePath).size;
+          console.log(`Converted to JPEG: ${body.length} -> ${newSize} bytes`);
+        } catch (e) {
+          console.error("Convert failed:", e.message);
+          // フォールバック: そのままコピー
+          fs.copyFileSync(rawPath, filePath);
+        }
+        try { fs.unlinkSync(rawPath); } catch {}
 
-        const ocrPrompt = `以下のレシート画像を Read ツールで読み取り、内容を分析してください。
+        const ocrPrompt = `以下のレシート画像を Read ツールで読み取り、正確にOCRしてください。
 ファイルパス: ${filePath}
+
+## 最重要: 正確なOCR
+画像内のテキストを一文字ずつ正確に読み取ること。推測や補完はしない。
+
+### 日付の読み取り（最優先）
+- レシートに印字されている日付を**そのまま**読み取る
+- 必ずレシート上の年月日を確認する。今日の日付を入れてはいけない
+- 「2025年12月19日」→ "2025-12-19"、「R7.3.7」→ "2025-03-07"、「25/12/21」→ "2025-12-21"
+- 年が省略されている場合（例: 12/19）、レシートの文脈から年を推定する
+
+### 金額の読み取り
+- 「合計」「お買上合計」「ご利用金額」「請求額」欄の金額を正確に読み取る
+- 小計ではなく必ず**税込合計金額**を採用する
+- 数字を1桁ずつ慎重に読む。特に 1/7、3/8、5/6、0/8 の誤読に注意
+- 金額が複数表示されている場合は最終的な支払金額（おつり計算の元になる額）を採用
+- 読み取りに自信がない場合でも最も可能性の高い数値を入れる
+
+### 店名の読み取り
+- レシート最上部に印字されている正式な店名を読み取る
+- 支店名は不要。本体の店名のみ（例: 「スターバックス」だけでOK、支店名は省略）
 
 ## 勘定科目の判定ルール（個人事業主・青色申告）
 - 仕入高: コーヒー生豆、焙煎資材、民泊アメニティ仕入れ
@@ -640,31 +718,49 @@ const server = http.createServer((req, res) => {
 - 雑費: 上記に該当しないもの
 
 ## 店名ヒント
-- ガソスタ/ENEOS/出光/コスモ → 旅費交通費 or 車両費
+- ガソスタ/ENEOS/出光/コスモ → 旅費交通費
 - コンビニ/スーパー → 内容により消耗品費/仕入高/雑費
 - ホームセンター → 消耗品費 or 修繕費
 - 飲食店 → 接待交際費（事業関連）
 
 ## 税区分
 - 課税仕入10%: 標準税率の経費
-- 課税仕入8%: 食品等（軽減税率）
+- 課税仕入8%: 食品等（軽減税率 ※マーク付き）
 - 非課税仕入: 保険料等
 - 対象外: 租税公課等
 
-以下のJSON形式で返してください（JSONのみ返すこと）:
+## 支払方法の判定（最重要）
+レシートの決済情報を注意深く読み取ること。Ryoの決済方法は以下の4つのみ:
+- JCBデビット: レシートに JCB、デビット、J/デビット、DEBIT と記載 → "JCBデビット"
+- Mastercardデビット: レシートに Mastercard、マスターカード、MC と記載 → "Mastercardデビット"
+- PayPay: レシートに PayPay、ペイペイ、QR決済、バーコード決済 と記載 → "PayPay"
+- 現金: レシートに お預り、おつり と記載、または上記に該当しない少額支払い → "現金"
+
+判定のヒント:
+- カード番号末尾4桁が印字されている → カード払い（JCBかMastercard）
+- 「クレジット」「CREDIT」の文字がある → カード払い
+- 電子マネー系の記載がある → PayPay の可能性大
+- 「お預り」「おつり」の記載がある → 確実に現金
+
+以下のJSON形式**のみ**を出力してください。説明文は不要です:
 {
-  "date": "YYYY-MM-DD形式の日付",
+  "date": "YYYY-MM-DD",
   "store": "店名",
-  "amount": 合計金額（数値、税込）,
-  "items": "主な品目（カンマ区切り）",
-  "account": "勘定科目（上記ルールに基づく）",
-  "tax_class": "課税仕入10%/課税仕入8%/非課税仕入/対象外",
-  "payment": "現金/クレジットカード/電子マネー/不明",
-  "note": "特記事項",
-  "business": "えんがわ/三十日珈琲/SATOYAMA AI BASE/共通/不明"
+  "amount": 0,
+  "items": "主な品目",
+  "account": "勘定科目",
+  "tax_class": "課税仕入10%",
+  "payment": "現金",
+  "note": "",
+  "business": "不明"
 }
 
-読み取れない項目は "不明" としてください。金額は必ず数値のみ（カンマ・円記号なし）。`;
+ルール:
+- amount は必ず数値型（整数）。カンマ・円記号なし。読めなくても0にして"不明"にしない
+- date は必ず "YYYY-MM-DD" 文字列
+- payment は必ず "JCBデビット"/"Mastercardデビット"/"PayPay"/"現金" のいずれか。"不明"にしない
+- business は えんがわ/三十日珈琲/SATOYAMA AI BASE/共通/不明 のいずれか
+- JSON以外のテキストは一切出力しないこと`;
 
         const promptFile = path.join(REPO_DIR, "logs", ".receipt-prompt.txt");
         fs.writeFileSync(promptFile, ocrPrompt, "utf-8");
@@ -682,31 +778,21 @@ const server = http.createServer((req, res) => {
             { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
           );
           const jsonMatch = raw.match(/\{[\s\S]*?"date"[\s\S]*?\}/);
-          ocrResult = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+          if (jsonMatch) {
+            // 不正なJSON値を修正（"amount": 不明 → "amount": "不明"）
+            const fixed = jsonMatch[0].replace(/:\s*([^"\d\[\]{},\s][^,}\n]*)/g, (m, val) => {
+              const trimmed = val.trim();
+              if (trimmed === "true" || trimmed === "false" || trimmed === "null") return m;
+              return `: "${trimmed}"`;
+            });
+            try { ocrResult = JSON.parse(fixed); } catch { ocrResult = JSON.parse(jsonMatch[0]); }
+          }
         } catch (e) {
           console.error("OCR error:", e.message);
         }
 
-        // LINE Push で結果通知
-        const sendLine = (text) => {
-          const payload = JSON.stringify({
-            to: USER_ID,
-            messages: [{ type: "text", text }],
-          });
-          const lineReq = https.request("https://api.line.me/v2/bot/message/push", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${CHANNEL_ACCESS_TOKEN}`,
-              "Content-Length": Buffer.byteLength(payload),
-            },
-          });
-          lineReq.write(payload);
-          lineReq.end();
-        };
-
         if (!ocrResult) {
-          sendLine("レシートの読み取りに失敗しました。もう一度撮影してみてね。");
+          sendWebPush("レシート読み取り失敗", "もう一度撮影してみてね。");
           try { fs.unlinkSync(filePath); } catch {}
           return;
         }
@@ -716,7 +802,7 @@ const server = http.createServer((req, res) => {
         try {
           const gToken = await getGoogleAccessToken();
           const monthFolderId = await getOrCreateMonthFolder(env.GOOGLE_RECEIPT_FOLDER_ID, gToken, ocrResult.date);
-          const driveFileName = `${ocrResult.date || "unknown"}_${ocrResult.store || "receipt"}${ext}`;
+          const driveFileName = `${ocrResult.date || "unknown"}_${ocrResult.store || "receipt"}.jpg`;
           const driveResult = await uploadToDrive(filePath, driveFileName, "image/jpeg", monthFolderId, gToken);
           driveLink = driveResult.webViewLink || `https://drive.google.com/file/d/${driveResult.id}`;
 
@@ -725,9 +811,10 @@ const server = http.createServer((req, res) => {
           const taxClass = ocrResult.tax_class || "課税仕入10%";
           const payment = ocrResult.payment || "不明";
           let creditAccount = "事業主借";
-          if (payment === "クレジットカード") creditAccount = "未払金";
+          if (payment === "JCBデビット" || payment === "Mastercardデビット") creditAccount = "普通預金";
           else if (payment === "現金") creditAccount = "現金";
-          else if (payment === "口座引落") creditAccount = "普通預金";
+          else if (payment === "PayPay") creditAccount = "事業主借";
+          else if (payment === "クレジットカード") creditAccount = "未払金";
 
           await appendToSheet(env.GOOGLE_EXPENSE_SHEET_ID, "MF仕訳帳", [
             ocrResult.date || "不明", account, "", taxClass, ocrResult.amount || 0,
@@ -747,10 +834,13 @@ const server = http.createServer((req, res) => {
 
         try { fs.unlinkSync(filePath); } catch {}
 
-        // LINE通知で結果を送信
+        // Web Push通知で結果を送信
         const amount = ocrResult.amount ? Number(ocrResult.amount).toLocaleString() + "円" : "不明";
-        sendLine(`レシート登録完了\n\n${ocrResult.store || "不明"}\n${ocrResult.date || "不明"} / ${amount}\n勘定科目: ${ocrResult.account || "雑費"}\n税区分: ${ocrResult.tax_class || "不明"}\n事業: ${ocrResult.business || "不明"}`);
-      })().catch(e => console.error("Background receipt error:", e.message));
+        sendWebPush(
+          `${ocrResult.store || "不明"} ${amount}`,
+          `${ocrResult.date || ""} / ${ocrResult.account || "雑費"} / ${ocrResult.payment || ""}`
+        );
+      });
     });
   } else if (req.method === "POST" && req.url === "/api/upload") {
     // ファイルアップロード（画像・PDF等）
@@ -1121,6 +1211,36 @@ const server = http.createServer((req, res) => {
       "Access-Control-Max-Age": "86400",
     });
     res.end();
+  } else if (req.method === "GET" && req.url === "/api/vapid-public-key") {
+    const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    res.writeHead(200, corsHeaders);
+    res.end(JSON.stringify({ publicKey: env.VAPID_PUBLIC_KEY }));
+  } else if (req.method === "POST" && req.url === "/api/push-subscribe") {
+    const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => {
+      try {
+        const { subscription, token } = JSON.parse(Buffer.concat(chunks).toString());
+        if (token !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(401, corsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+        const subs = loadSubscriptions();
+        const exists = subs.some(s => s.endpoint === subscription.endpoint);
+        if (!exists) {
+          subs.push(subscription);
+          saveSubscriptions(subs);
+          console.log(`[${new Date().toISOString()}] Push subscription added (total: ${subs.length})`);
+        }
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true }));
+      } catch (e) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
   } else if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200);
     res.end("OK");
