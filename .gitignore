@@ -8,6 +8,12 @@ token.json
 .DS_Store
 Thumbs.db
 
+# Screenshots (large binary files)
+logs/screenshots/
+
+# Uploaded files (temporary)
+logs/.uploads/
+
 # Editor
 .vscode/
 *.swp

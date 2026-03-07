@@ -23,6 +23,39 @@ const PROMPT_FILE = path.join(REPO_DIR, "logs", ".current-prompt.txt");
 const CLAUDE_PATH = "/Users/Inaryo/.local/bin/claude";
 const CLAUDE_TIMEOUT = 300000; // 5分
 
+// Multipart parser (no external deps)
+function parseMultipart(body, boundary) {
+  const parts = [];
+  const delimBuf = Buffer.from(`--${boundary}`);
+  let start = body.indexOf(delimBuf) + delimBuf.length;
+
+  while (true) {
+    // Skip \r\n after delimiter
+    if (body[start] === 0x0d && body[start + 1] === 0x0a) start += 2;
+    const nextDelim = body.indexOf(delimBuf, start);
+    if (nextDelim === -1) break;
+
+    const partBuf = body.slice(start, nextDelim - 2); // -2 for \r\n before delimiter
+    const headerEnd = partBuf.indexOf("\r\n\r\n");
+    if (headerEnd === -1) { start = nextDelim + delimBuf.length; continue; }
+
+    const headers = partBuf.slice(0, headerEnd).toString();
+    const data = partBuf.slice(headerEnd + 4);
+
+    const nameMatch = headers.match(/name="([^"]+)"/);
+    const filenameMatch = headers.match(/filename="([^"]+)"/);
+
+    parts.push({
+      name: nameMatch ? nameMatch[1] : "",
+      filename: filenameMatch ? filenameMatch[1] : null,
+      data,
+    });
+
+    start = nextDelim + delimBuf.length;
+  }
+  return parts;
+}
+
 // 会話履歴の管理
 const CONVERSATION_TIMEOUT = 5 * 60 * 1000;
 let conversationHistory = [];
@@ -195,6 +228,67 @@ const server = http.createServer((req, res) => {
         console.error("Error parsing webhook:", e.message);
       }
     });
+  } else if (req.method === "POST" && req.url === "/api/upload") {
+    // ファイルアップロード（画像・PDF等）
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Content-Type": "application/json",
+    };
+
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      try {
+        const body = Buffer.concat(chunks);
+        const contentType = req.headers["content-type"] || "";
+
+        // Parse multipart/form-data
+        const boundaryMatch = contentType.match(/boundary=(.+)/);
+        if (!boundaryMatch) {
+          res.writeHead(400, corsHeaders);
+          res.end(JSON.stringify({ error: "Invalid content type" }));
+          return;
+        }
+        const boundary = boundaryMatch[1];
+        const parts = parseMultipart(body, boundary);
+
+        // Check token
+        const tokenPart = parts.find(p => p.name === "token");
+        if (!tokenPart || tokenPart.data.toString() !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(401, corsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+
+        const filePart = parts.find(p => p.name === "file");
+        if (!filePart || !filePart.filename) {
+          res.writeHead(400, corsHeaders);
+          res.end(JSON.stringify({ error: "No file provided" }));
+          return;
+        }
+
+        // Save to temp directory
+        const uploadDir = path.join(REPO_DIR, "logs", ".uploads");
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+        const ext = path.extname(filePart.filename) || ".bin";
+        const safeName = `upload_${Date.now()}${ext}`;
+        const filePath = path.join(uploadDir, safeName);
+        fs.writeFileSync(filePath, filePart.data);
+
+        console.log(`[${new Date().toISOString()}] File uploaded: ${filePart.filename} -> ${filePath} (${filePart.data.length} bytes)`);
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ path: filePath, filename: filePart.filename, size: filePart.data.length }));
+      } catch (e) {
+        console.error("Upload error:", e.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: "Upload failed" }));
+      }
+    });
   } else if (req.method === "POST" && req.url === "/api/chat") {
     // 秘書しらたま PWA 用エンドポイント
     const origin = req.headers["origin"] || "";
@@ -209,7 +303,7 @@ const server = http.createServer((req, res) => {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
       try {
-        const { messages, token } = JSON.parse(body);
+        const { messages, token, attachments } = JSON.parse(body);
 
         // 簡易認証トークン
         if (token !== env.SHIRATAMA_API_TOKEN) {
@@ -243,6 +337,16 @@ const server = http.createServer((req, res) => {
           prompt = lastUserMsg.content;
         }
 
+        // 添付ファイルがある場合、Read指示を追加
+        if (attachments && attachments.length > 0) {
+          prompt += "\n\n--- 添付ファイル ---\n";
+          prompt += "Ryoが以下のファイルを送ってきました。Read ツールを使って各ファイルの内容を読み取り、分析してください。\n";
+          for (const att of attachments) {
+            prompt += `- ファイル: ${att.filename} → パス: ${att.path}\n`;
+          }
+          prompt += "\nファイルの内容を読み取った上で、Ryoのメッセージに回答してください。";
+        }
+
         const promptFile = path.join(REPO_DIR, "logs", ".shiratama-prompt.txt");
         fs.writeFileSync(promptFile, prompt, "utf-8");
 
@@ -259,6 +363,14 @@ const server = http.createServer((req, res) => {
 
         const response = result.trim() || "(応答なし)";
         console.log(`[${new Date().toISOString()}] Shiratama response: ${response.slice(0, 100)}...`);
+
+        // Clean up uploaded files after processing
+        if (attachments && attachments.length > 0) {
+          for (const att of attachments) {
+            try { fs.unlinkSync(att.path); } catch {}
+          }
+        }
+
         res.end(JSON.stringify({ message: response }));
       } catch (e) {
         console.error("Shiratama chat error:", e.message);
@@ -362,8 +474,88 @@ const server = http.createServer((req, res) => {
 
       if (fs.existsSync(dailyLogPath)) {
         const content = fs.readFileSync(dailyLogPath, "utf-8");
+
+        // Parse structured sections from daily log
+        const sections = content.split(/^## /m).filter(Boolean);
+        const events = [];
+        const extras = []; // additional info cards
+        const achievements = []; // 本日の実績 { category: string, items: string[] }
+
+        for (const sec of sections) {
+          const lines = sec.trim().split("\n");
+          const heading = lines[0].trim();
+
+          if (heading === "今日の予定") {
+            for (let i = 1; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (!line.startsWith("- ")) continue;
+              const text = line.slice(2).trim();
+
+              // Parse time patterns: "10:00-11:30 ...", "終日: ...", "~11:00: ..."
+              let time = "";
+              let title = text;
+              const timeMatch = text.match(/^(\d{1,2}:\d{2}(?:-\d{1,2}:\d{2})?)\s+(.+)/);
+              const allDayMatch = text.match(/^終日[:：]\s*(.+)/);
+              const tildeMatch = text.match(/^~(\d{1,2}:\d{2})[:：]\s*(.+)/);
+              const parenTimeMatch = text.match(/^\(.*?\)\s*(.+)/);
+
+              if (timeMatch) {
+                time = timeMatch[1];
+                title = timeMatch[2];
+              } else if (allDayMatch) {
+                time = "終日";
+                title = allDayMatch[1];
+              } else if (tildeMatch) {
+                time = `~${tildeMatch[1]}`;
+                title = tildeMatch[2];
+              } else if (parenTimeMatch) {
+                // "(西) 陽介くん..." style - extract prefix as calendar hint
+                time = "終日";
+                title = text;
+              }
+
+              events.push({ time: time || "---", title, calendar: "ブリーフィング" });
+            }
+          } else if (heading.includes("宿泊状況") || heading.includes("えんがわ")) {
+            const items = [];
+            for (let i = 1; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line.startsWith("- ")) items.push(line.slice(2).trim());
+            }
+            if (items.length > 0) {
+              extras.push({ title: heading.replace(/\s*$/, ""), items });
+            }
+          } else if (heading === "本日の実績" || heading.includes("実績")) {
+            // Parse achievements with ### sub-categories
+            let currentCat = null;
+            for (let i = 1; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line.startsWith("### ")) {
+                currentCat = { category: line.slice(4).trim(), items: [] };
+                achievements.push(currentCat);
+              } else if (line.startsWith("- ") && currentCat) {
+                currentCat.items.push(line.slice(2).trim());
+              } else if (line.startsWith("- ") && !currentCat) {
+                // Items without sub-category
+                if (achievements.length === 0 || achievements[achievements.length - 1].category !== "その他") {
+                  achievements.push({ category: "その他", items: [] });
+                }
+                achievements[achievements.length - 1].items.push(line.slice(2).trim());
+              }
+            }
+          } else if (heading === "継続タスク") {
+            // Skip - handled by /api/tasks
+          }
+        }
+
         res.writeHead(200, corsHeaders);
-        res.end(JSON.stringify({ date: dateStr, content, source: "daily_log" }));
+        res.end(JSON.stringify({
+          date: dateStr,
+          events: events.length > 0 ? events : undefined,
+          extras: extras.length > 0 ? extras : undefined,
+          achievements: achievements.length > 0 ? achievements : undefined,
+          source: "daily_log"
+        }));
       } else {
         // ブリーフィングがなければ claude -p で生成
         res.writeHead(200, corsHeaders);
