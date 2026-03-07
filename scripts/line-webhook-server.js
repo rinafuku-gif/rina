@@ -31,6 +31,26 @@ webpush.setVapidDetails(
   env.VAPID_PRIVATE_KEY
 );
 const SUBSCRIPTIONS_FILE = path.join(REPO_DIR, "logs", ".push-subscriptions.json");
+const CHAT_LOG_FILE = path.join(REPO_DIR, "logs", ".chat-history.json");
+
+function loadChatHistory() {
+  try { return JSON.parse(fs.readFileSync(CHAT_LOG_FILE, "utf-8")); } catch { return []; }
+}
+function saveChatHistory(history) {
+  fs.writeFileSync(CHAT_LOG_FILE, JSON.stringify(history, null, 2));
+}
+function appendChatLog(source, role, content) {
+  const history = loadChatHistory();
+  history.push({
+    timestamp: new Date().toISOString(),
+    source, // "line" or "pwa"
+    role,    // "user" or "assistant"
+    content: content.slice(0, 5000), // 長すぎるものは切る
+  });
+  // 最大500件保持
+  if (history.length > 500) history.splice(0, history.length - 500);
+  saveChatHistory(history);
+}
 function loadSubscriptions() {
   try { return JSON.parse(fs.readFileSync(SUBSCRIPTIONS_FILE, "utf-8")); } catch { return []; }
 }
@@ -124,6 +144,137 @@ function googleApiRequest(method, url, body, token, contentType) {
     if (body) req.write(typeof body === "string" ? body : body);
     req.end();
   });
+}
+
+// Google Calendar 空き時間チェック
+const SCHEDULE_KEYWORDS = /空(い|き)|日程調整|いつ(が|なら|だ|で|空|あ)|スケジュール|予定.*合わせ|打ち合わせ.*いつ|都合.*いい|候補日|アポ|ミーティング.*日|会え(る|そう)|来(週|月).*空|今週.*空/;
+
+async function getCalendarBusy(startDate, endDate) {
+  try {
+    const gToken = await getGoogleAccessToken();
+    // Ryo の主要カレンダーをチェック
+    const calendarIds = [
+      "r.inafuku@tonari2tomaru.com", // プライベート
+      "9c0d4af92a70ced546b135411feda7120c9fd874beda1363874c03faf8953f18@group.calendar.google.com", // R&M共有
+      "misocacoffee@gmail.com", // 三十日珈琲
+      "4651f62429c52388651033e5b59f4cb81a418694431ab262748b231c663e461f@group.calendar.google.com", // えんがわHIBA
+      "engawa.yanagawa@gmail.com", // えんがわUME
+      "b6ff2100d451e679aa52c0afca510ce6268b673ddb904e7526c5bec7fb38836a@group.calendar.google.com", // 大広間
+    ];
+
+    const timeMin = new Date(startDate + "T00:00:00+09:00").toISOString();
+    const timeMax = new Date(endDate + "T23:59:59+09:00").toISOString();
+
+    // 各カレンダーのイベントを取得
+    const allEvents = [];
+    for (const calId of calendarIds) {
+      try {
+        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&fields=items(summary,start,end,status)`;
+        const result = await googleApiRequest("GET", url, null, gToken);
+        if (result.items) {
+          for (const ev of result.items) {
+            if (ev.status === "cancelled") continue;
+            allEvents.push({
+              title: ev.summary || "(予定)",
+              start: ev.start.dateTime || ev.start.date,
+              end: ev.end.dateTime || ev.end.date,
+              allDay: !!ev.start.date,
+            });
+          }
+        }
+      } catch (e) {
+        console.error(`Calendar fetch error (${calId}):`, e.message);
+      }
+    }
+
+    // 日別に整理
+    const days = {};
+    const current = new Date(startDate + "T00:00:00+09:00");
+    const last = new Date(endDate + "T00:00:00+09:00");
+    const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+
+    while (current <= last) {
+      const dateKey = current.toISOString().slice(0, 10);
+      days[dateKey] = {
+        label: `${current.getMonth() + 1}/${current.getDate()}(${weekdays[current.getDay()]})`,
+        events: [],
+      };
+      current.setDate(current.getDate() + 1);
+    }
+
+    for (const ev of allEvents) {
+      const evDate = ev.start.slice(0, 10);
+      if (days[evDate]) {
+        if (ev.allDay) {
+          days[evDate].events.push({ title: ev.title, time: "終日" });
+        } else {
+          const startTime = new Date(ev.start).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hour12: false });
+          const endTime = new Date(ev.end).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hour12: false });
+          days[evDate].events.push({ title: ev.title, time: `${startTime}-${endTime}` });
+        }
+      }
+    }
+
+    // テキスト化
+    let result = "";
+    for (const [dateKey, day] of Object.entries(days)) {
+      result += `${day.label}: `;
+      if (day.events.length === 0) {
+        result += "予定なし（終日OK）\n";
+      } else {
+        result += day.events.map(e => `${e.time} ${e.title}`).join(" / ") + "\n";
+      }
+    }
+    return result.trim();
+  } catch (e) {
+    console.error("getCalendarBusy error:", e.message);
+    return null;
+  }
+}
+
+function detectScheduleDateRange(message) {
+  const now = new Date();
+  const today = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+
+  if (/来週/.test(message)) {
+    const dayOfWeek = today.getDay();
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    const start = new Date(today);
+    start.setDate(today.getDate() + daysUntilMonday);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { start: fmtDate(start), end: fmtDate(end) };
+  }
+  if (/再来週/.test(message)) {
+    const dayOfWeek = today.getDay();
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    const start = new Date(today);
+    start.setDate(today.getDate() + daysUntilMonday + 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { start: fmtDate(start), end: fmtDate(end) };
+  }
+  if (/来月/.test(message)) {
+    const start = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+    return { start: fmtDate(start), end: fmtDate(end) };
+  }
+  if (/今週/.test(message)) {
+    const dayOfWeek = today.getDay();
+    const start = new Date(today);
+    const end = new Date(today);
+    end.setDate(today.getDate() + (6 - dayOfWeek));
+    return { start: fmtDate(start), end: fmtDate(end) };
+  }
+  // デフォルト: 今日から14日間
+  const start = new Date(today);
+  const end = new Date(today);
+  end.setDate(today.getDate() + 13);
+  return { start: fmtDate(start), end: fmtDate(end) };
+}
+
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // 月別サブフォルダを取得 or 作成（例: "2026年03月"）
@@ -318,6 +469,7 @@ function buildPrompt(userMessage) {
   lastMessageTime = now;
 
   conversationHistory.push({ role: "user", content: userMessage });
+  appendChatLog("line", "user", userMessage);
 
   if (conversationHistory.length > 20) {
     conversationHistory = conversationHistory.slice(-20);
@@ -851,6 +1003,262 @@ const server = http.createServer((req, res) => {
         );
       });
     });
+  } else if (req.method === "POST" && req.url === "/api/voice-input") {
+    // 音声入力用の同期文字起こし（Whisper → テキスト返却）
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Content-Type": "application/json",
+    };
+
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks);
+      const boundary = req.headers["content-type"]?.split("boundary=")[1];
+      if (!boundary) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: "No boundary" }));
+        return;
+      }
+
+      const parts = parseMultipart(raw, boundary);
+      const tokenPart = parts.find(p => p.name === "token");
+      if (!tokenPart || tokenPart.data.toString() !== env.SHIRATAMA_API_TOKEN) {
+        res.writeHead(401, corsHeaders);
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+
+      const filePart = parts.find(p => p.name === "file");
+      if (!filePart) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: "No file" }));
+        return;
+      }
+
+      const uploadDir = path.join(REPO_DIR, "logs", ".uploads");
+      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+      const ext = path.extname(filePart.filename || ".webm") || ".webm";
+      const audioPath = path.join(uploadDir, `voice_${Date.now()}${ext}`);
+      fs.writeFileSync(audioPath, filePart.data);
+
+      console.log(`[${new Date().toISOString()}] Voice input: ${filePart.data.length} bytes`);
+
+      try {
+        const WHISPER = "/Users/Inaryo/Library/Python/3.9/bin/mlx_whisper";
+        const outDir = path.join(uploadDir, `whisper_voice_${Date.now()}`);
+        fs.mkdirSync(outDir, { recursive: true });
+
+        execSync(
+          `"${WHISPER}" "${audioPath}" --model mlx-community/whisper-small-mlx --language ja --output-dir "${outDir}" --output-format txt`,
+          { encoding: "utf-8", timeout: 120000, maxBuffer: 10 * 1024 * 1024 }
+        );
+
+        const txtFiles = fs.readdirSync(outDir).filter(f => f.endsWith(".txt"));
+        const text = txtFiles.length > 0
+          ? fs.readFileSync(path.join(outDir, txtFiles[0]), "utf-8").trim()
+          : "";
+
+        console.log(`[${new Date().toISOString()}] Voice transcribed: ${text.slice(0, 80)}...`);
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ text }));
+
+        // クリーンアップ
+        try { fs.unlinkSync(audioPath); } catch {}
+        try { fs.rmSync(outDir, { recursive: true }); } catch {}
+      } catch (e) {
+        console.error("Voice input error:", e.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: "Transcription failed" }));
+        try { fs.unlinkSync(audioPath); } catch {}
+      }
+    });
+
+  } else if (req.method === "POST" && req.url === "/api/transcribe") {
+    // 音声文字起こし（mlx-whisper）
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Content-Type": "application/json",
+    };
+
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      const body = Buffer.concat(chunks);
+      const contentType = req.headers["content-type"] || "";
+      const boundaryMatch = contentType.match(/boundary=(.+)/);
+      if (!boundaryMatch) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: "Invalid content type" }));
+        return;
+      }
+      const parts = parseMultipart(body, boundaryMatch[1]);
+
+      const tokenPart = parts.find(p => p.name === "token");
+      if (!tokenPart || tokenPart.data.toString() !== env.SHIRATAMA_API_TOKEN) {
+        res.writeHead(401, corsHeaders);
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+
+      const filePart = parts.find(p => p.name === "file");
+      if (!filePart || !filePart.filename) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: "No audio file provided" }));
+        return;
+      }
+
+      // モード: "transcribe"(文字起こしのみ) or "summarize"(文字起こし+要約)
+      const modePart = parts.find(p => p.name === "mode");
+      const mode = modePart ? modePart.data.toString() : "summarize";
+
+      const uploadDir = path.join(REPO_DIR, "logs", ".uploads");
+      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+      const ext = path.extname(filePart.filename) || ".m4a";
+      const audioPath = path.join(uploadDir, `audio_${Date.now()}${ext}`);
+      fs.writeFileSync(audioPath, filePart.data);
+
+      console.log(`[${new Date().toISOString()}] Transcribe: ${filePart.filename} (${filePart.data.length} bytes, mode=${mode})`);
+
+      // 即レスポンス → バックグラウンド処理 → Web Push通知
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ status: "processing", message: "文字起こし処理を開始しました" }));
+
+      (async () => {
+        try {
+          const WHISPER = "/Users/Inaryo/Library/Python/3.9/bin/mlx_whisper";
+          const outDir = path.join(uploadDir, `whisper_${Date.now()}`);
+          fs.mkdirSync(outDir, { recursive: true });
+
+          execSync(
+            `"${WHISPER}" "${audioPath}" --model mlx-community/whisper-small-mlx --language ja --output-dir "${outDir}" --output-format txt`,
+            { encoding: "utf-8", timeout: 600000, maxBuffer: 10 * 1024 * 1024 }
+          );
+
+          // 文字起こし結果を読み取り
+          const txtFiles = fs.readdirSync(outDir).filter(f => f.endsWith(".txt"));
+          const transcript = txtFiles.length > 0
+            ? fs.readFileSync(path.join(outDir, txtFiles[0]), "utf-8").trim()
+            : "(文字起こし結果なし)";
+
+          let resultMessage = "";
+
+          if (mode === "transcribe") {
+            resultMessage = transcript;
+            sendWebPush("文字起こし完了", transcript.slice(0, 100) + (transcript.length > 100 ? "..." : ""));
+          } else {
+            // Claude で要約
+            const promptFile = path.join(REPO_DIR, "logs", ".transcribe-prompt.txt");
+            const summaryPrompt = `以下は音声ファイル「${filePart.filename}」の文字起こしテキストです。\n\n---\n${transcript}\n---\n\n上記の内容を以下の形式でまとめてください：\n1. 要約（3〜5行）\n2. 重要なポイント（箇条書き）\n3. アクションアイテム（あれば）\n\n元の文字起こしテキストも最後に「--- 文字起こし全文 ---」として添付してください。`;
+            fs.writeFileSync(promptFile, summaryPrompt, "utf-8");
+
+            const execEnv = Object.assign({}, process.env, {
+              PATH: `/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+              HOME: "/Users/Inaryo",
+            });
+            delete execEnv.CLAUDECODE;
+
+            const summary = execSync(
+              `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
+              { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
+            ).trim();
+
+            resultMessage = summary || transcript;
+            sendWebPush("文字起こし+要約完了", resultMessage.slice(0, 100) + "...");
+          }
+
+          // 文字起こし結果をファイル保存
+          const now = new Date();
+          const dateStr = now.toISOString().slice(0, 10);
+          const timeStr = now.toISOString().slice(11, 16).replace(":", "");
+          const safeName = filePart.filename.replace(/[^a-zA-Z0-9._\-\u3000-\u9fff]/g, "_").replace(/\.[^.]+$/, "");
+          const transcriptDir = path.join(REPO_DIR, "logs", "transcripts");
+          if (!fs.existsSync(transcriptDir)) fs.mkdirSync(transcriptDir, { recursive: true });
+          const mdFilename = `${dateStr}_${timeStr}_${safeName}.md`;
+          const mdContent = `# 文字起こし: ${filePart.filename}\n\n- 日時: ${now.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}\n- モード: ${mode === "summarize" ? "文字起こし+要約" : "文字起こしのみ"}\n\n${resultMessage}\n`;
+          fs.writeFileSync(path.join(transcriptDir, mdFilename), mdContent, "utf-8");
+          console.log(`[${now.toISOString()}] Transcript saved: ${mdFilename}`);
+
+          // チャット履歴に保存
+          appendChatLog("pwa", "user", `[音声ファイル: ${filePart.filename}]`);
+          appendChatLog("pwa", "assistant", resultMessage);
+
+          // クリーンアップ
+          try { fs.unlinkSync(audioPath); } catch {}
+          try { fs.rmSync(outDir, { recursive: true }); } catch {}
+        } catch (e) {
+          console.error("Transcribe error:", e.message);
+          sendWebPush("文字起こし失敗", "音声の処理に失敗しました。もう一度試してみてね。");
+          try { fs.unlinkSync(audioPath); } catch {}
+        }
+      })();
+    });
+  } else if (req.method === "GET" && req.url?.startsWith("/api/transcripts")) {
+    // 文字起こし一覧 & 個別取得
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Content-Type": "application/json",
+    };
+
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const token = parsedUrl.searchParams.get("token");
+    if (token !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    const transcriptDir = path.join(REPO_DIR, "logs", "transcripts");
+    const filename = parsedUrl.searchParams.get("file");
+
+    if (filename) {
+      // 個別取得
+      const filePath = path.join(transcriptDir, path.basename(filename));
+      if (!fs.existsSync(filePath)) {
+        res.writeHead(404, corsHeaders);
+        res.end(JSON.stringify({ error: "Not found" }));
+        return;
+      }
+      const content = fs.readFileSync(filePath, "utf-8");
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ filename: path.basename(filename), content }));
+    } else {
+      // 一覧
+      if (!fs.existsSync(transcriptDir)) {
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ transcripts: [] }));
+        return;
+      }
+      const files = fs.readdirSync(transcriptDir)
+        .filter(f => f.endsWith(".md"))
+        .sort((a, b) => b.localeCompare(a))
+        .slice(0, 50)
+        .map(f => {
+          const content = fs.readFileSync(path.join(transcriptDir, f), "utf-8");
+          const titleMatch = content.match(/^# 文字起こし: (.+)/m);
+          const dateMatch = content.match(/- 日時: (.+)/m);
+          return {
+            filename: f,
+            title: titleMatch ? titleMatch[1] : f,
+            date: dateMatch ? dateMatch[1] : "",
+            preview: content.split("\n").filter(l => l && !l.startsWith("#") && !l.startsWith("-")).slice(0, 2).join(" ").slice(0, 100),
+          };
+        });
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ transcripts: files }));
+    }
+
   } else if (req.method === "POST" && req.url === "/api/upload") {
     // ファイルアップロード（画像・PDF等）
     const origin = req.headers["origin"] || "";
@@ -970,34 +1378,63 @@ const server = http.createServer((req, res) => {
           prompt += "\nファイルの内容を読み取った上で、Ryoのメッセージに回答してください。";
         }
 
-        const promptFile = path.join(REPO_DIR, "logs", ".shiratama-prompt.txt");
-        fs.writeFileSync(promptFile, prompt, "utf-8");
+        // 日程調整検出 → カレンダー情報注入
+        (async () => {
+          try {
+            if (SCHEDULE_KEYWORDS.test(lastUserMsg.content)) {
+              try {
+                const range = detectScheduleDateRange(lastUserMsg.content);
+                const busyInfo = await getCalendarBusy(range.start, range.end);
+                if (busyInfo) {
+                  prompt += `\n\n--- Ryoのカレンダー状況 (${range.start}〜${range.end}) ---\n${busyInfo}\n---`;
+                }
+              } catch (e) {
+                console.error("Calendar fetch error in PWA:", e.message);
+              }
+              prompt += `\n\n【絶対ルール】以下を厳守せよ：
+- 出力は「相手に送る返信メッセージ本文」のみ。それ以外は一文字も出力するな
+- 「以下が返信テキストです」「返信例：」等の前置き・説明・補足は絶対に書くな
+- 全体コピーしてそのままチャットに貼り付けられる形式にせよ
+- 空いている日を簡潔に伝えるチャットメッセージとして出力せよ
+- カジュアルなトーン（ビジネスメールではなくLINEチャット調）`;
+            }
 
-        const execEnv = Object.assign({}, process.env, {
-          PATH: `/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
-          HOME: "/Users/Inaryo",
-        });
-        delete execEnv.CLAUDECODE;
+            const promptFile = path.join(REPO_DIR, "logs", ".shiratama-prompt.txt");
+            fs.writeFileSync(promptFile, prompt, "utf-8");
 
-        const result = execSync(
-          `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
-          { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
-        );
+            const execEnv = Object.assign({}, process.env, {
+              PATH: `/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+              HOME: "/Users/Inaryo",
+            });
+            delete execEnv.CLAUDECODE;
 
-        const response = result.trim() || "(応答なし)";
-        console.log(`[${new Date().toISOString()}] Shiratama response: ${response.slice(0, 100)}...`);
+            const result = execSync(
+              `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
+              { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
+            );
 
-        // Clean up uploaded files after processing
-        if (attachments && attachments.length > 0) {
-          for (const att of attachments) {
-            try { fs.unlinkSync(att.path); } catch {}
+            const response = result.trim() || "(応答なし)";
+            console.log(`[${new Date().toISOString()}] Shiratama response: ${response.slice(0, 100)}...`);
+            appendChatLog("pwa", "user", lastUserMsg.content);
+            appendChatLog("pwa", "assistant", response);
+
+            // Clean up uploaded files after processing
+            if (attachments && attachments.length > 0) {
+              for (const att of attachments) {
+                try { fs.unlinkSync(att.path); } catch {}
+              }
+            }
+
+            res.end(JSON.stringify({ message: response }));
+          } catch (e) {
+            console.error("Shiratama chat error:", e.message);
+            res.end(JSON.stringify({ message: "ごめんね、うまく応答できなかったみたい。もう一度試してみて。" }));
           }
-        }
-
-        res.end(JSON.stringify({ message: response }));
+        })();
       } catch (e) {
-        console.error("Shiratama chat error:", e.message);
-        res.end(JSON.stringify({ message: "ごめんね、うまく応答できなかったみたい。もう一度試してみて。" }));
+        console.error("Shiratama chat parse error:", e.message);
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: "Bad request" }));
       }
     });
   } else if (req.method === "GET" && req.url?.startsWith("/api/tasks")) {
@@ -1220,6 +1657,129 @@ const server = http.createServer((req, res) => {
       "Access-Control-Max-Age": "86400",
     });
     res.end();
+  } else if (req.method === "GET" && req.url?.startsWith("/api/chat-history")) {
+    const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const urlParams = new (require("url").URL)(req.url, "http://localhost").searchParams;
+    const token = urlParams.get("token");
+    if (token !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+    const limit = parseInt(urlParams.get("limit") || "50");
+    const source = urlParams.get("source") || ""; // "line", "pwa", or "" for all
+    const search = urlParams.get("q") || "";
+
+    let history = loadChatHistory();
+
+    if (source) history = history.filter(h => h.source === source);
+    if (search) {
+      const q = search.toLowerCase();
+      history = history.filter(h => h.content.toLowerCase().includes(q));
+    }
+
+    // 最新のものから返す
+    const result = history.slice(-limit).reverse();
+    res.writeHead(200, corsHeaders);
+    res.end(JSON.stringify({ history: result, total: history.length }));
+  } else if (req.method === "GET" && req.url?.startsWith("/api/finance")) {
+    const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const urlParams = new (require("url").URL)(req.url, "http://localhost").searchParams;
+    const token = urlParams.get("token");
+    if (token !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+    (async () => {
+    try {
+      const gToken = await getGoogleAccessToken();
+      const sheetId = env.GOOGLE_EXPENSE_SHEET_ID;
+
+      // MF仕訳帳から全データ取得
+      const journalUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("MF仕訳帳")}!A:L`;
+      const journalData = await googleApiRequest("GET", journalUrl, null, gToken);
+      const rows = journalData.values || [];
+
+      // ヘッダー行をスキップ（1行目がヘッダーの場合）
+      const dataRows = rows.length > 0 && rows[0][0] === "取引日" ? rows.slice(1) : rows;
+
+      // 月別・カテゴリ別に集計
+      const monthlyTotals = {};  // { "2026-03": 12345 }
+      const categoryTotals = {}; // { "食費": 5000 }
+      const paymentTotals = {};  // { "JCBデビット": 8000 }
+      const recentItems = [];
+      let totalExpense = 0;
+
+      for (const row of dataRows) {
+        const date = row[0] || "";
+        const account = row[1] || "";
+        const amount = parseInt(row[4]) || 0;
+        const creditAccount = row[5] || "";
+        const memo = row[9] || "";
+        const tag = row[11] || "";
+
+        if (!date || amount === 0) continue;
+
+        totalExpense += amount;
+
+        // 月別集計
+        const monthKey = date.slice(0, 7); // "2026-03"
+        monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + amount;
+
+        // カテゴリ別集計
+        categoryTotals[account] = (categoryTotals[account] || 0) + amount;
+
+        // 支払方法別集計（貸方科目から推定）
+        let payment = "その他";
+        if (creditAccount === "普通預金") payment = "デビット";
+        else if (creditAccount === "現金") payment = "現金";
+        else if (creditAccount === "事業主借") payment = "PayPay/個人";
+        else if (creditAccount === "未払金") payment = "クレジット";
+        paymentTotals[payment] = (paymentTotals[payment] || 0) + amount;
+
+        // 直近の明細（最大20件、新しい順）
+        recentItems.push({ date, account, amount, memo, tag });
+      }
+
+      // 直近20件（配列の末尾が新しい）
+      const recent = recentItems.slice(-20).reverse();
+
+      // 今月の支出
+      const now = new Date();
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const thisMonthTotal = monthlyTotals[currentMonthKey] || 0;
+
+      // 先月の支出
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1);
+      const lastMonthKey = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, "0")}`;
+      const lastMonthTotal = monthlyTotals[lastMonthKey] || 0;
+
+      // 今月の日別平均
+      const dayOfMonth = now.getDate();
+      const dailyAvg = dayOfMonth > 0 ? Math.round(thisMonthTotal / dayOfMonth) : 0;
+
+      // 月末予測
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const projectedTotal = Math.round(dailyAvg * daysInMonth);
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({
+        thisMonth: { total: thisMonthTotal, key: currentMonthKey, dailyAvg, projectedTotal, daysInMonth, dayOfMonth },
+        lastMonth: { total: lastMonthTotal, key: lastMonthKey },
+        totalExpense,
+        monthlyTotals,
+        categoryTotals,
+        paymentTotals,
+        recent,
+        recordCount: dataRows.length,
+      }));
+    } catch (e) {
+      console.error("Finance API error:", e.message);
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ error: "Failed to fetch finance data" }));
+    }
+    })();
   } else if (req.method === "GET" && req.url === "/api/vapid-public-key") {
     const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
     res.writeHead(200, corsHeaders);
@@ -1262,7 +1822,26 @@ const server = http.createServer((req, res) => {
 async function processMessage(userMessage) {
   isProcessing = true;
   try {
-    const prompt = buildPrompt(userMessage);
+    let prompt = buildPrompt(userMessage);
+
+    // 日程調整検出 → カレンダー情報を直接取得してプロンプトに注入
+    if (SCHEDULE_KEYWORDS.test(userMessage)) {
+      try {
+        const range = detectScheduleDateRange(userMessage);
+        const busyInfo = await getCalendarBusy(range.start, range.end);
+        if (busyInfo) {
+          prompt += `\n\n--- Ryoのカレンダー状況 (${range.start}〜${range.end}) ---\n${busyInfo}\n---`;
+        }
+      } catch (e) {
+        console.error("Calendar fetch error in LINE:", e.message);
+      }
+      prompt += `\n\n【絶対ルール】以下を厳守せよ：
+- 出力は「相手に送る返信メッセージ本文」のみ。それ以外は一文字も出力するな
+- 「以下が返信テキストです」「返信例：」等の前置き・説明・補足は絶対に書くな
+- 全体コピーしてそのままチャットに貼り付けられる形式にせよ
+- 空いている日を簡潔に伝えるチャットメッセージとして出力せよ
+- カジュアルなトーン（ビジネスメールではなくLINEチャット調）`;
+    }
 
     fs.writeFileSync(PROMPT_FILE, prompt, "utf-8");
 
@@ -1281,6 +1860,7 @@ async function processMessage(userMessage) {
     console.log(`[${new Date().toISOString()}] Response: ${response.slice(0, 100)}...`);
 
     conversationHistory.push({ role: "assistant", content: response });
+    appendChatLog("line", "assistant", response);
 
     pushLineMessage(response);
   } catch (e) {
