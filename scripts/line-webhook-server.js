@@ -116,6 +116,40 @@ function buildPrompt(userMessage) {
   return prompt;
 }
 
+function parseTasksFromCLAUDE(content) {
+  const sections = [];
+  let currentSection = null;
+  let inTaskSection = false;
+
+  for (const line of content.split("\n")) {
+    if (line.startsWith("### 現在のタスク")) {
+      inTaskSection = true;
+      continue;
+    }
+    if (line.startsWith("### 完了タスク")) {
+      inTaskSection = false;
+      continue;
+    }
+    if (!inTaskSection) continue;
+
+    if (line.startsWith("####")) {
+      currentSection = { title: line.replace(/^#+\s*/, ""), tasks: [] };
+      sections.push(currentSection);
+      continue;
+    }
+
+    const todoMatch = line.match(/^- \[ \] (.+)/);
+    const doneMatch = line.match(/^- \[x\] (.+)/);
+    if (todoMatch && currentSection) {
+      currentSection.tasks.push({ text: todoMatch[1], done: false });
+    } else if (doneMatch && currentSection) {
+      currentSection.tasks.push({ text: doneMatch[1], done: true });
+    }
+  }
+
+  return sections;
+}
+
 const server = http.createServer((req, res) => {
   if (req.method === "POST" && req.url === "/webhook") {
     let body = "";
@@ -231,11 +265,94 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ message: "ごめんね、うまく応答できなかったみたい。もう一度試してみて。" }));
       }
     });
-  } else if (req.method === "OPTIONS" && req.url === "/api/chat") {
-    // CORS preflight
+  } else if (req.method === "GET" && req.url?.startsWith("/api/tasks")) {
+    // タスク一覧を CLAUDE.md からパース
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin,
+      "Content-Type": "application/json",
+    };
+
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    try {
+      const claudeMd = fs.readFileSync(path.join(REPO_DIR, "CLAUDE.md"), "utf-8");
+      const tasks = parseTasksFromCLAUDE(claudeMd);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ tasks }));
+    } catch (e) {
+      console.error("Tasks API error:", e.message);
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ error: "Failed to parse tasks" }));
+    }
+  } else if (req.method === "GET" && req.url?.startsWith("/api/schedule")) {
+    // 今日の予定を返す
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin,
+      "Content-Type": "application/json",
+    };
+
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    try {
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const dailyLogPath = path.join(REPO_DIR, "logs", "daily", `${dateStr}.md`);
+
+      if (fs.existsSync(dailyLogPath)) {
+        const content = fs.readFileSync(dailyLogPath, "utf-8");
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ date: dateStr, content, source: "daily_log" }));
+      } else {
+        // ブリーフィングがなければ claude -p で生成
+        res.writeHead(200, corsHeaders);
+
+        const promptFile = path.join(REPO_DIR, "logs", ".schedule-prompt.txt");
+        fs.writeFileSync(promptFile, `今日${dateStr}の予定をGoogle Calendarから確認して、簡潔にまとめてください。JSON形式で返してください: {"events": [{"time": "HH:MM", "title": "予定名", "calendar": "カレンダー名"}]}。終日イベントのtimeは"終日"としてください。予定がなければ空配列を返してください。`, "utf-8");
+
+        const execEnv = Object.assign({}, process.env, {
+          PATH: `/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+          HOME: "/Users/Inaryo",
+        });
+        delete execEnv.CLAUDECODE;
+
+        const result = execSync(
+          `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
+          { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
+        );
+
+        // JSONを抽出
+        const jsonMatch = result.match(/\{[\s\S]*"events"[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          res.end(JSON.stringify({ date: dateStr, events: parsed.events, source: "calendar" }));
+        } else {
+          res.end(JSON.stringify({ date: dateStr, content: result.trim(), source: "raw" }));
+        }
+      }
+    } catch (e) {
+      console.error("Schedule API error:", e.message);
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ error: "Failed to fetch schedule" }));
+    }
+  } else if (req.method === "OPTIONS") {
+    // CORS preflight for all /api/* routes
     res.writeHead(204, {
       "Access-Control-Allow-Origin": req.headers["origin"] || "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Max-Age": "86400",
     });
