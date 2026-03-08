@@ -310,12 +310,17 @@ async function syncAirbnbBookings(gToken) {
     ].join("\n");
 
     try {
+      // Google Calendar の allDay イベントは end を実際の最終日+1日にする必要がある
+      const coDate = new Date(checkoutDate + "T00:00:00Z");
+      coDate.setUTCDate(coDate.getUTCDate() + 1);
+      const calEndDate = coDate.toISOString().split("T")[0];
+
       const calUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`;
       await googleApiRequest("POST", calUrl, JSON.stringify({
         summary: eventTitle,
         description,
         start: { date: checkinDate },
-        end: { date: checkoutDate },
+        end: { date: calEndDate },
       }), gToken, "application/json");
     } catch (calErr) {
       console.error(`Calendar event create error (${parsed.confirmationCode}):`, calErr.message);
