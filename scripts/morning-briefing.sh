@@ -2,7 +2,7 @@
 # 朝ブリーフィング自動配信スクリプト
 # cron/launchd から毎朝実行し、Claude Code でブリーフィングを生成 → LINEに送信
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
@@ -22,8 +22,17 @@ unset CLAUDECODE 2>/dev/null || true
 # .env から環境変数を読み込み
 source "$REPO_DIR/.env"
 
-# Claude Code でブリーフィング生成
-BRIEFING=$(cd "$REPO_DIR" && claude -p --dangerously-skip-permissions "
+# Airbnb予約メール→カレンダー同期（ブリーフィング前に実行）
+echo "Syncing Airbnb bookings..."
+curl -s -X POST http://localhost:3100/api/sync-airbnb-bookings \
+  -H "Content-Type: application/json" \
+  -d "{\"token\":\"$SHIRATAMA_API_TOKEN\"}" || echo "Booking sync failed (server may be down)"
+sleep 3
+
+# Claude Code でブリーフィング生成（5分タイムアウト）
+# macOS には timeout コマンドがないため、バックグラウンド + wait で実装
+BRIEFING_FILE=$(mktemp)
+(cd "$REPO_DIR" && claude -p --dangerously-skip-permissions "
 あなたはRyoの専属AI秘書です。以下の手順で今日の朝ブリーフィングを作成してください。
 
 1. Google Calendarで今日の全カレンダーの予定を確認
@@ -48,7 +57,41 @@ BRIEFING=$(cd "$REPO_DIR" && claude -p --dangerously-skip-permissions "
 4. docs/kura-sauna/day-use-sauna-pricing-research.md を確認し、日帰り蔵サウナの料金リサーチ結果を【共有事項】として簡潔に要約して含める（このファイルが存在する場合のみ）
 
 重要: 出力はブリーフィング本文のみ。余計な説明は不要。
-")
+" > "$BRIEFING_FILE") &
+CLAUDE_PID=$!
+
+# 5分待って終了しなければ強制終了
+WAIT_SECONDS=300
+while [ $WAIT_SECONDS -gt 0 ]; do
+  if ! kill -0 $CLAUDE_PID 2>/dev/null; then
+    break
+  fi
+  sleep 5
+  WAIT_SECONDS=$((WAIT_SECONDS - 5))
+done
+
+if kill -0 $CLAUDE_PID 2>/dev/null; then
+  echo "Claude timed out after 300s, killing process"
+  kill $CLAUDE_PID 2>/dev/null
+  sleep 2
+  kill -9 $CLAUDE_PID 2>/dev/null
+fi
+
+BRIEFING=$(cat "$BRIEFING_FILE" 2>/dev/null)
+rm -f "$BRIEFING_FILE"
+
+# タイムアウトや失敗時のフォールバック
+if [ -z "$BRIEFING" ]; then
+  echo "Claude failed or timed out, sending fallback briefing"
+  BRIEFING="おはよう、Ryo。
+
+今朝のブリーフィング生成に失敗しました。
+claude -p がタイムアウトした可能性があります。
+
+手動で確認してください：
+- Google Calendar の予定
+- CLAUDE.md のタスク一覧"
+fi
 
 # LINE Messaging API でプッシュ送信
 curl -s -X POST https://api.line.me/v2/bot/message/push \

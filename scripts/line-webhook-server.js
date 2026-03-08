@@ -22,7 +22,7 @@ const PORT = 3100;
 const REPO_DIR = path.join(__dirname, "..");
 const PROMPT_FILE = path.join(REPO_DIR, "logs", ".current-prompt.txt");
 const CLAUDE_PATH = "/Users/Inaryo/.local/bin/claude";
-const CLAUDE_TIMEOUT = 300000; // 5分
+const CLAUDE_TIMEOUT = 480000; // 8分
 
 // Web Push 設定
 webpush.setVapidDetails(
@@ -144,6 +144,203 @@ function googleApiRequest(method, url, body, token, contentType) {
     if (body) req.write(typeof body === "string" ? body : body);
     req.end();
   });
+}
+
+// ========== Airbnb予約メール同期 ==========
+const BOOKINGS_LOG = path.join(REPO_DIR, "logs", ".airbnb-bookings.json");
+const ENGAWA_HIBA_CAL = "4651f62429c52388651033e5b59f4cb81a418694431ab262748b231c663e461f@group.calendar.google.com";
+const ENGAWA_UME_CAL = "engawa.yanagawa@gmail.com";
+
+function loadBookingsLog() {
+  try { return JSON.parse(fs.readFileSync(BOOKINGS_LOG, "utf-8")); } catch { return []; }
+}
+function saveBookingsLog(bookings) {
+  fs.writeFileSync(BOOKINGS_LOG, JSON.stringify(bookings, null, 2));
+}
+
+function parseAirbnbConfirmationEmail(body) {
+  // リスティング名からHIBA/UME判定
+  let room = "UNKNOWN";
+  if (/MOUNTAIN VIEW\s*H/i.test(body)) room = "HIBA";
+  else if (/MOUNTAIN VIEW\s*U/i.test(body)) room = "UME";
+
+  // チェックイン・チェックアウト日
+  // メール形式: 「チェックイン    チェックアウト\n\n4月5日(日)   4月6日(月)」
+  // → 「チェックイン」セクション以降の最初の2つの日付がCI/CO
+  const dates = [];
+  const ciSection = body.indexOf("チェックイン");
+  if (ciSection >= 0) {
+    const afterCI = body.slice(ciSection);
+    const datePattern = /(\d{1,2})月(\d{1,2})日/g;
+    let dm;
+    while ((dm = datePattern.exec(afterCI)) !== null && dates.length < 2) {
+      dates.push({ month: parseInt(dm[1]), day: parseInt(dm[2]) });
+    }
+  }
+
+  // 確認コード
+  const codeMatch = body.match(/確認コード\s*\n?\s*([A-Z0-9]{8,12})/);
+  const confirmationCode = codeMatch ? codeMatch[1] : null;
+
+  // ゲスト名（Subject から取得するので別途渡す）
+  // ゲスト人数
+  const guestMatch = body.match(/大人(\d+)人/);
+  const guests = guestMatch ? parseInt(guestMatch[1]) : 1;
+
+  // 金額: 1泊の宿泊料金
+  const nightlyMatch = body.match(/(\d{1,2})泊の宿泊料金\s+[¥￥]\s*([\d,]+)/);
+  // 金額: ¥ XX,XXX x N泊
+  const priceMatch = body.match(/[¥￥]\s*([\d,]+)\s*x\s*(\d+)泊/);
+  let nightlyRate = 0;
+  let nights = 1;
+  if (priceMatch) {
+    nightlyRate = parseInt(priceMatch[1].replace(/,/g, ""), 10);
+    nights = parseInt(priceMatch[2], 10);
+  }
+
+  // ホスト収益（あなたの収益）
+  const earningsMatch = body.match(/あなたの収益\s+[¥￥]\s*([\d,]+)/);
+  const hostEarnings = earningsMatch ? parseInt(earningsMatch[1].replace(/,/g, ""), 10) : 0;
+
+  // ゲスト支払額合計
+  const totalMatch = body.match(/合計（JPY）\s+[¥￥]\s*([\d,]+)/);
+  const guestTotal = totalMatch ? parseInt(totalMatch[1].replace(/,/g, ""), 10) : 0;
+
+  // 過去メール（リスティング名にH/Uがない場合）の1泊単価判定
+  if (room === "UNKNOWN" && nightlyRate > 0) {
+    room = nightlyRate >= 10000 ? "UME" : "HIBA";
+  }
+
+  return { room, dates, confirmationCode, guests, nightlyRate, nights, hostEarnings, guestTotal };
+}
+
+async function syncAirbnbBookings(gToken) {
+  // 過去30日分の予約確定メールを検索
+  const after = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0].replace(/-/g, "/");
+  const query = encodeURIComponent(`from:automated@airbnb.com subject:予約確定 after:${after}`);
+  const gmailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=20`;
+  const listResult = await googleApiRequest("GET", gmailUrl, null, gToken);
+
+  if (!listResult.messages || listResult.messages.length === 0) {
+    return { synced: 0, skipped: 0 };
+  }
+
+  const existingBookings = loadBookingsLog();
+  const existingCodes = new Set(existingBookings.map(b => b.confirmationCode));
+  let synced = 0;
+  let skipped = 0;
+
+  for (const msg of listResult.messages) {
+    // メール本文取得
+    const msgUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`;
+    const msgData = await googleApiRequest("GET", msgUrl, null, gToken);
+
+    // Subject からゲスト名を取得
+    const subjectHeader = msgData.payload?.headers?.find(h => h.name === "Subject");
+    const subject = subjectHeader?.value || "";
+    const guestNameMatch = subject.match(/予約確定\s*-\s*(.+?)さんが/);
+    const guestName = guestNameMatch ? guestNameMatch[1] : "不明";
+
+    // メール本文をデコード（text/plain優先、なければtext/htmlからテキスト抽出）
+    let bodyText = "";
+    let htmlText = "";
+    function extractText(part) {
+      if (!part) return;
+      if (part.mimeType === "text/plain" && part.body?.data) {
+        bodyText += Buffer.from(part.body.data, "base64url").toString("utf-8");
+      }
+      if (part.mimeType === "text/html" && part.body?.data) {
+        const html = Buffer.from(part.body.data, "base64url").toString("utf-8");
+        htmlText += html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&#\d+;/g, "").replace(/\s+/g, " ");
+      }
+      if (part.parts) part.parts.forEach(extractText);
+    }
+    if (msgData.payload) extractText(msgData.payload);
+    if (!bodyText) bodyText = htmlText;
+
+    if (!bodyText) {
+      skipped++;
+      continue;
+    }
+
+    const parsed = parseAirbnbConfirmationEmail(bodyText);
+    if (!parsed.confirmationCode) {
+      skipped++;
+      continue;
+    }
+
+    // 既に同期済みならスキップ
+    if (existingCodes.has(parsed.confirmationCode)) {
+      skipped++;
+      continue;
+    }
+
+    // 年の推定（メール日時から）
+    const emailDate = new Date(parseInt(msgData.internalDate));
+    const emailYear = emailDate.getFullYear();
+
+    // チェックイン・チェックアウト日をISO形式に変換
+    let checkinDate = "", checkoutDate = "";
+    if (parsed.dates.length >= 2) {
+      let ciYear = emailYear;
+      // メール送信月よりチェックイン月が小さければ翌年
+      if (parsed.dates[0].month < emailDate.getMonth() + 1) ciYear++;
+      checkinDate = `${ciYear}-${String(parsed.dates[0].month).padStart(2, "0")}-${String(parsed.dates[0].day).padStart(2, "0")}`;
+
+      let coYear = ciYear;
+      if (parsed.dates[1].month < parsed.dates[0].month) coYear++;
+      checkoutDate = `${coYear}-${String(parsed.dates[1].month).padStart(2, "0")}-${String(parsed.dates[1].day).padStart(2, "0")}`;
+    }
+
+    if (!checkinDate || !checkoutDate) {
+      skipped++;
+      continue;
+    }
+
+    // Google Calendar にイベント作成
+    const calId = parsed.room === "HIBA" ? ENGAWA_HIBA_CAL : ENGAWA_UME_CAL;
+    const eventTitle = `${guestName}（${parsed.guests}名）`;
+    const description = [
+      `ゲスト: ${guestName}（大人${parsed.guests}人）`,
+      `確認コード: ${parsed.confirmationCode}`,
+      `ホスト収益: ¥${(parsed.hostEarnings || 0).toLocaleString()}`,
+      `ゲスト支払額: ¥${(parsed.guestTotal || 0).toLocaleString()}（参考）`,
+      `1泊単価: ¥${(parsed.nightlyRate || 0).toLocaleString()} × ${parsed.nights}泊`,
+      `部屋: ${parsed.room}`,
+    ].join("\n");
+
+    try {
+      const calUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`;
+      await googleApiRequest("POST", calUrl, JSON.stringify({
+        summary: eventTitle,
+        description,
+        start: { date: checkinDate },
+        end: { date: checkoutDate },
+      }), gToken, "application/json");
+    } catch (calErr) {
+      console.error(`Calendar event create error (${parsed.confirmationCode}):`, calErr.message);
+    }
+
+    // ログに保存
+    existingBookings.push({
+      confirmationCode: parsed.confirmationCode,
+      guestName,
+      guests: parsed.guests,
+      room: parsed.room,
+      checkin: checkinDate,
+      checkout: checkoutDate,
+      nightlyRate: parsed.nightlyRate,
+      nights: parsed.nights,
+      hostEarnings: parsed.hostEarnings,
+      guestTotal: parsed.guestTotal,
+      syncedAt: new Date().toISOString(),
+    });
+    existingCodes.add(parsed.confirmationCode);
+    synced++;
+  }
+
+  if (synced > 0) saveBookingsLog(existingBookings);
+  return { synced, skipped };
 }
 
 // Google Calendar 空き時間チェック
@@ -471,8 +668,8 @@ function buildPrompt(userMessage) {
   conversationHistory.push({ role: "user", content: userMessage });
   appendChatLog("line", "user", userMessage);
 
-  if (conversationHistory.length > 20) {
-    conversationHistory = conversationHistory.slice(-20);
+  if (conversationHistory.length > 10) {
+    conversationHistory = conversationHistory.slice(-10);
   }
 
   if (conversationHistory.length <= 1) {
@@ -682,7 +879,7 @@ const server = http.createServer((req, res) => {
         let ocrResult;
         try {
           const raw = execSync(
-            `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
+            `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`,
             { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
           );
           const jsonMatch = raw.match(/\{[\s\S]*?"date"[\s\S]*?\}/);
@@ -935,7 +1132,7 @@ const server = http.createServer((req, res) => {
         let ocrResult;
         try {
           const raw = execSync(
-            `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
+            `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`,
             { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
           );
           const jsonMatch = raw.match(/\{[\s\S]*?"date"[\s\S]*?\}/);
@@ -1167,7 +1364,7 @@ const server = http.createServer((req, res) => {
             delete execEnv.CLAUDECODE;
 
             const summary = execSync(
-              `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
+              `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`,
               { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
             ).trim();
 
@@ -1347,7 +1544,7 @@ const server = http.createServer((req, res) => {
       }
     });
   } else if (req.method === "POST" && req.url === "/api/chat") {
-    // 秘書しらたま PWA 用エンドポイント
+    // 秘書しらたま PWA 用エンドポイント（非同期：即レスポンス→バックグラウンド処理→Web Push通知）
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
       "Access-Control-Allow-Origin": origin,
@@ -1369,44 +1566,86 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        res.writeHead(200, corsHeaders);
-
         // 最新のユーザーメッセージを取得
         const lastUserMsg = [...messages].reverse().find(m => m.role === "user");
         if (!lastUserMsg) {
+          res.writeHead(200, corsHeaders);
           res.end(JSON.stringify({ message: "メッセージが見つかりませんでした。" }));
           return;
         }
 
-        // 会話履歴をプロンプトに組み立て
-        let prompt = "";
-        if (messages.length > 1) {
-          prompt += "以下はRyoとの会話の続きです。直前のやり取りを踏まえて回答してください。\n\n";
-          prompt += "--- 会話履歴 ---\n";
-          for (const msg of messages.slice(0, -1)) {
-            const label = msg.role === "user" ? "Ryo" : "しらたま";
-            prompt += `${label}: ${msg.content}\n\n`;
-          }
-          prompt += "--- 最新のメッセージ ---\n";
-          prompt += `Ryo: ${lastUserMsg.content}\n\n`;
-          prompt += "上記の会話の流れを踏まえて、最新のメッセージに回答してください。";
-        } else {
-          prompt = lastUserMsg.content;
-        }
+        // チャットIDを生成して即レスポンス
+        const chatId = `chat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const chatResponseDir = path.join(REPO_DIR, "logs", ".chat-responses");
+        if (!fs.existsSync(chatResponseDir)) fs.mkdirSync(chatResponseDir, { recursive: true });
 
-        // 添付ファイルがある場合、Read指示を追加
-        if (attachments && attachments.length > 0) {
-          prompt += "\n\n--- 添付ファイル ---\n";
-          prompt += "Ryoが以下のファイルを送ってきました。Read ツールを使って各ファイルの内容を読み取り、分析してください。\n";
-          for (const att of attachments) {
-            prompt += `- ファイル: ${att.filename} → パス: ${att.path}\n`;
-          }
-          prompt += "\nファイルの内容を読み取った上で、Ryoのメッセージに回答してください。";
-        }
+        // 処理中ステータスを保存
+        fs.writeFileSync(
+          path.join(chatResponseDir, `${chatId}.json`),
+          JSON.stringify({ status: "processing", chatId, timestamp: Date.now() })
+        );
 
-        // 日程調整検出 → カレンダー情報注入
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ status: "processing", chatId }));
+
+        // --- バックグラウンド処理 ---
         (async () => {
           try {
+            // 会話履歴をプロンプトに組み立て（最新8件、エラー除外、長文圧縮）
+            const MAX_HISTORY = 8;
+            const MAX_MSG_CHARS = 500; // 各メッセージの最大文字数
+            const MAX_PROMPT_CHARS = 6000; // プロンプト全体の最大文字数（履歴部分）
+            const ERROR_PATTERNS = ["ごめんね、うまく応答できなかったみたい", "Mac mini が起動しているか確認"];
+
+            // エラーメッセージを含むやり取りを除外
+            const cleanedMessages = messages.filter(m => {
+              if (m.role === "assistant" && ERROR_PATTERNS.some(p => m.content.includes(p))) return false;
+              return true;
+            });
+
+            const trimmedMessages = cleanedMessages.length > MAX_HISTORY + 1
+              ? cleanedMessages.slice(-(MAX_HISTORY + 1))
+              : cleanedMessages;
+
+            let prompt = "";
+            if (trimmedMessages.length > 1) {
+              prompt += "以下はRyoとの会話の続きです。直前のやり取りを踏まえて回答してください。\n\n";
+              prompt += "--- 会話履歴 ---\n";
+              let historyText = "";
+              for (const msg of trimmedMessages.slice(0, -1)) {
+                const label = msg.role === "user" ? "Ryo" : "しらたま";
+                // 長文メッセージを圧縮
+                let content = msg.content;
+                if (content.length > MAX_MSG_CHARS) {
+                  content = content.slice(0, MAX_MSG_CHARS) + "…（以下省略）";
+                }
+                historyText += `${label}: ${content}\n\n`;
+              }
+              // プロンプト全体の文字数制限（古い履歴から削る）
+              while (historyText.length > MAX_PROMPT_CHARS && historyText.includes("\n\n")) {
+                const firstBreak = historyText.indexOf("\n\n");
+                if (firstBreak === -1) break;
+                historyText = historyText.slice(firstBreak + 2);
+              }
+              prompt += historyText;
+              prompt += "--- 最新のメッセージ ---\n";
+              prompt += `Ryo: ${lastUserMsg.content}\n\n`;
+              prompt += "上記の会話の流れを踏まえて、最新のメッセージに回答してください。";
+            } else {
+              prompt = lastUserMsg.content;
+            }
+
+            // 添付ファイルがある場合、Read指示を追加
+            if (attachments && attachments.length > 0) {
+              prompt += "\n\n--- 添付ファイル ---\n";
+              prompt += "Ryoが以下のファイルを送ってきました。Read ツールを使って各ファイルの内容を読み取り、分析してください。\n";
+              for (const att of attachments) {
+                prompt += `- ファイル: ${att.filename} → パス: ${att.path}\n`;
+              }
+              prompt += "\nファイルの内容を読み取った上で、Ryoのメッセージに回答してください。";
+            }
+
+            // 日程調整検出 → カレンダー情報注入
             if (SCHEDULE_KEYWORDS.test(lastUserMsg.content)) {
               try {
                 const range = detectScheduleDateRange(lastUserMsg.content);
@@ -1435,7 +1674,7 @@ const server = http.createServer((req, res) => {
             delete execEnv.CLAUDECODE;
 
             const result = execSync(
-              `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
+              `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`,
               { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
             );
 
@@ -1451,10 +1690,23 @@ const server = http.createServer((req, res) => {
               }
             }
 
-            res.end(JSON.stringify({ message: response }));
+            // 結果を保存
+            fs.writeFileSync(
+              path.join(chatResponseDir, `${chatId}.json`),
+              JSON.stringify({ status: "done", chatId, message: response, timestamp: Date.now() })
+            );
+
+            // Web Push通知を送信（アプリ切り替え中でも気づける）
+            const pushBody = response.length > 100 ? response.slice(0, 100) + "…" : response;
+            sendWebPush("しらたま", pushBody).catch(e => console.error("Chat push error:", e.message));
           } catch (e) {
             console.error("Shiratama chat error:", e.message);
-            res.end(JSON.stringify({ message: "ごめんね、うまく応答できなかったみたい。もう一度試してみて。" }));
+            // エラー結果を保存
+            fs.writeFileSync(
+              path.join(chatResponseDir, `${chatId}.json`),
+              JSON.stringify({ status: "error", chatId, message: "ごめんね、うまく応答できなかったみたい。Mac mini が起動しているか確認してね。", timestamp: Date.now() })
+            );
+            sendWebPush("しらたま", "ごめんね、うまく応答できなかったみたい。").catch(() => {});
           }
         })();
       } catch (e) {
@@ -1463,6 +1715,52 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: "Bad request" }));
       }
     });
+  } else if (req.method === "GET" && req.url?.startsWith("/api/chat-result")) {
+    // チャット結果取得エンドポイント（ポーリング用）
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Content-Type": "application/json",
+    };
+
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const chatId = urlObj.searchParams.get("id");
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    if (!chatId) {
+      res.writeHead(400, corsHeaders);
+      res.end(JSON.stringify({ error: "Missing chat ID" }));
+      return;
+    }
+
+    const resultFile = path.join(REPO_DIR, "logs", ".chat-responses", `${chatId}.json`);
+    if (!fs.existsSync(resultFile)) {
+      res.writeHead(404, corsHeaders);
+      res.end(JSON.stringify({ error: "Chat not found" }));
+      return;
+    }
+
+    try {
+      const result = JSON.parse(fs.readFileSync(resultFile, "utf-8"));
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify(result));
+
+      // 結果取得済みの完了/エラーファイルは削除（クリーンアップ）
+      if (result.status === "done" || result.status === "error") {
+        try { fs.unlinkSync(resultFile); } catch {}
+      }
+    } catch (e) {
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ error: "Failed to read result" }));
+    }
   } else if (req.method === "GET" && req.url?.startsWith("/api/tasks")) {
     // タスク一覧を CLAUDE.md からパース
     const origin = req.headers["origin"] || "";
@@ -1553,6 +1851,7 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    (async () => {
     try {
       const today = new Date();
       const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -1643,30 +1942,56 @@ const server = http.createServer((req, res) => {
           source: "daily_log"
         }));
       } else {
-        // ブリーフィングがなければ claude -p で生成
-        res.writeHead(200, corsHeaders);
+        // ブリーフィングがなければ Google Calendar API から直接取得（claude -p 不要）
+        try {
+          const gToken = await getGoogleAccessToken();
+          const calendarIds = [
+            "r.inafuku@tonari2tomaru.com",
+            "9c0d4af92a70ced546b135411feda7120c9fd874beda1363874c03faf8953f18@group.calendar.google.com",
+            "misocacoffee@gmail.com",
+            "4651f62429c52388651033e5b59f4cb81a418694431ab262748b231c663e461f@group.calendar.google.com",
+            "engawa.yanagawa@gmail.com",
+            "b6ff2100d451e679aa52c0afca510ce6268b673ddb904e7526c5bec7fb38836a@group.calendar.google.com",
+          ];
+          const timeMin = new Date(dateStr + "T00:00:00+09:00").toISOString();
+          const timeMax = new Date(dateStr + "T23:59:59+09:00").toISOString();
+          const events = [];
 
-        const promptFile = path.join(REPO_DIR, "logs", ".schedule-prompt.txt");
-        fs.writeFileSync(promptFile, `今日${dateStr}の予定をGoogle Calendarから確認して、簡潔にまとめてください。JSON形式で返してください: {"events": [{"time": "HH:MM", "title": "予定名", "calendar": "カレンダー名"}]}。終日イベントのtimeは"終日"としてください。予定がなければ空配列を返してください。`, "utf-8");
+          for (const calId of calendarIds) {
+            try {
+              const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&fields=items(summary,start,end,status)`;
+              const result = await googleApiRequest("GET", url, null, gToken);
+              if (result.items) {
+                for (const ev of result.items) {
+                  if (ev.status === "cancelled") continue;
+                  const allDay = !!ev.start.date;
+                  let time = "終日";
+                  if (!allDay) {
+                    const s = new Date(ev.start.dateTime).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hour12: false });
+                    const e = new Date(ev.end.dateTime).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hour12: false });
+                    time = `${s}-${e}`;
+                  }
+                  events.push({ time, title: ev.summary || "(予定)", calendar: "Google Calendar" });
+                }
+              }
+            } catch (e) {
+              console.error(`Schedule calendar fetch error (${calId}):`, e.message);
+            }
+          }
 
-        const execEnv = Object.assign({}, process.env, {
-          PATH: `/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
-          HOME: "/Users/Inaryo",
-        });
-        delete execEnv.CLAUDECODE;
+          // 時間順にソート
+          events.sort((a, b) => {
+            if (a.time === "終日") return -1;
+            if (b.time === "終日") return 1;
+            return a.time.localeCompare(b.time);
+          });
 
-        const result = execSync(
-          `cd "${REPO_DIR}" && cat "${promptFile}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
-          { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
-        );
-
-        // JSONを抽出
-        const jsonMatch = result.match(/\{[\s\S]*"events"[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          res.end(JSON.stringify({ date: dateStr, events: parsed.events, source: "calendar" }));
-        } else {
-          res.end(JSON.stringify({ date: dateStr, content: result.trim(), source: "raw" }));
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify({ date: dateStr, events, source: "calendar" }));
+        } catch (calErr) {
+          console.error("Schedule calendar direct fetch error:", calErr.message);
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify({ date: dateStr, events: [], source: "empty" }));
         }
       }
     } catch (e) {
@@ -1674,6 +1999,7 @@ const server = http.createServer((req, res) => {
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ error: "Failed to fetch schedule" }));
     }
+    })();
   } else if (req.method === "OPTIONS") {
     // CORS preflight for all /api/* routes
     res.writeHead(204, {
@@ -1836,6 +2162,135 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     });
+  // ========== POST /api/sync-airbnb-bookings — Airbnb予約メール→カレンダー同期 ==========
+  } else if (req.method === "POST" && req.url === "/api/sync-airbnb-bookings") {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Content-Type": "application/json" };
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const { token } = JSON.parse(body || "{}");
+        if (token !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(401, corsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+      } catch {
+        res.writeHead(401, corsHeaders);
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+
+      // 即レスポンス → バックグラウンドで同期
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ status: "syncing" }));
+
+      (async () => {
+        try {
+          const gToken = await getGoogleAccessToken();
+          const result = await syncAirbnbBookings(gToken);
+          console.log(`Airbnb booking sync: ${result.synced} new, ${result.skipped} skipped`);
+        } catch (e) {
+          console.error("Airbnb booking sync error:", e.message);
+        }
+      })();
+    });
+
+  // ========== GET /api/bookings — えんがわ予約一覧 ==========
+  } else if (req.method === "GET" && req.url?.startsWith("/api/bookings")) {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Content-Type": "application/json" };
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    (async () => {
+      try {
+        const bookings = loadBookingsLog();
+        // 今後の予約のみ（今日以降）
+        const today = new Date().toISOString().split("T")[0];
+        const upcoming = bookings.filter(b => b.checkin >= today).sort((a, b) => a.checkin.localeCompare(b.checkin));
+        const totalUpcomingRevenue = upcoming.reduce((s, b) => s + (b.hostEarnings || 0), 0);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ upcoming, totalUpcomingRevenue, totalBookings: bookings.length }));
+      } catch (e) {
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+
+  // ========== GET /api/engawa-revenue — えんがわ売上実績 ==========
+  } else if (req.method === "GET" && req.url?.startsWith("/api/engawa-revenue")) {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Content-Type": "application/json" };
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    (async () => {
+      try {
+        const gToken = await getGoogleAccessToken();
+        const ENGAWA_SHEET_ID = "1DsxV5PQT3Uj13UIOxCZAiOQhL2eZ1mmYKCy2040l5ng";
+        const allRows = [];
+
+        // 宿泊者名簿シートから個別予約データを取得
+        // カラム: A=タイムスタンプ, B=氏名, F=チェックイン日, K=Room, O=滞在日数, P=滞在人数, Q=延べ人数, R=支払金額, S=入金額
+        const nameboUrl = `https://sheets.googleapis.com/v4/spreadsheets/${ENGAWA_SHEET_ID}/values/${encodeURIComponent("宿泊者名簿!A2:S1000")}`;
+        const nameboResult = await googleApiRequest("GET", nameboUrl, null, gToken);
+
+        if (nameboResult.values) {
+          for (const row of nameboResult.values) {
+            const checkin = row[5] || ""; // F: チェックイン日 (e.g. "2025/08/10")
+            const amountStr = (row[17] || "0").toString().replace(/[,¥￥\s]/g, "");
+            const incomeStr = (row[18] || "0").toString().replace(/[,¥￥\s]/g, "");
+            const amount = parseInt(amountStr, 10);
+            const income = parseInt(incomeStr, 10);
+            const room = row[10] || ""; // K: Room (UME/HIBA)
+            if (!checkin || isNaN(amount) || amount === 0) continue;
+            allRows.push({ checkin, amount, income: isNaN(income) ? 0 : income, room });
+          }
+        }
+
+        // 月別集計
+        const monthly = {};
+        for (const r of allRows) {
+          const m = r.checkin.slice(0, 7).replace(/\//g, "-"); // "2025-08"
+          if (!monthly[m]) monthly[m] = { amount: 0, income: 0, stays: 0 };
+          monthly[m].amount += r.amount;
+          monthly[m].income += r.income;
+          monthly[m].stays += 1;
+        }
+
+        // 今月の集計
+        const now = new Date();
+        const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const thisMonthData = monthly[thisMonth] || { amount: 0, income: 0, stays: 0 };
+
+        // 全期間合計
+        const total = allRows.reduce((acc, r) => ({ amount: acc.amount + r.amount, income: acc.income + r.income, stays: acc.stays + 1 }), { amount: 0, income: 0, stays: 0 });
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({
+          thisMonth: { month: thisMonth, ...thisMonthData },
+          monthly: Object.entries(monthly).sort().map(([month, data]) => ({ month, ...data })),
+          total,
+        }));
+      } catch (e) {
+        console.error("Engawa revenue error:", e.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+
   // ========== POST /api/expense-memo — ワンタップ経費メモ ==========
   } else if (req.method === "POST" && req.url === "/api/expense-memo") {
     const origin = req.headers["origin"] || "";
@@ -1845,7 +2300,7 @@ const server = http.createServer((req, res) => {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
       try {
-        const { token, text } = JSON.parse(body);
+        const { token, text, business } = JSON.parse(body);
         if (token !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
@@ -1856,6 +2311,10 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ error: "text is required" }));
           return;
         }
+
+        // 事業カテゴリ（タグ列に記録）
+        const validBusinesses = ["個人", "えんがわ", "SATOYAMA AI BASE", "蔵サウナ"];
+        const bizTag = validBusinesses.includes(business) ? business : "個人";
 
         // テキストから金額・支払方法・メモを抽出
         const amountMatch = text.match(/(\d[\d,]+)\s*円?/);
@@ -1891,11 +2350,11 @@ const server = http.createServer((req, res) => {
             const gToken = await getGoogleAccessToken();
             // MF仕訳帳: A=日付, B=借方勘定科目, C=借方補助科目, D=借方部門, E=借方金額, F=借方税区分, G=貸方勘定科目, H=貸方補助科目, I=貸方部門, J=摘要, K=仕訳メモ, L=タグ, M=MF仕訳タイプ, N=決算整理仕訳
             await appendToSheet(env.GOOGLE_EXPENSE_SHEET_ID, "MF仕訳帳", [
-              date, "消耗品費", "", "", amount, "対象外", "", payment, "", memo, "", "", "", "",
+              date, "消耗品費", "", "", amount, "対象外", "", payment, "", memo, "", bizTag, "", "",
             ], gToken);
-            console.log(`[${new Date().toISOString()}] Expense memo: ${memo} ${amount}円 (${payment})`);
+            console.log(`[${new Date().toISOString()}] Expense memo: ${memo} ${amount}円 (${payment}) [${bizTag}]`);
             res.writeHead(200, corsHeaders);
-            res.end(JSON.stringify({ success: true, amount, memo, payment, date }));
+            res.end(JSON.stringify({ success: true, amount, memo, payment, date, business: bizTag }));
           } catch (e) {
             console.error("Expense memo Sheets error:", e.message);
             res.writeHead(500, corsHeaders);
@@ -2243,7 +2702,7 @@ async function processMessage(userMessage) {
     delete execEnv.CLAUDECODE;
 
     const result = execSync(
-      `cd "${REPO_DIR}" && cat "${PROMPT_FILE}" | "${CLAUDE_PATH}" -p --dangerously-skip-permissions`,
+      `cd "${REPO_DIR}" && cat "${PROMPT_FILE}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`,
       { encoding: "utf-8", timeout: CLAUDE_TIMEOUT, maxBuffer: 1024 * 1024, env: execEnv }
     );
 
