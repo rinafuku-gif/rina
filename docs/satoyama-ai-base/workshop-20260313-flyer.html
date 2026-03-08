@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI業務改善ワークショップ チラシ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  @media print {
+    body {
+      background: none;
+      padding: 0;
+      display: block;
+    }
+    .page { box-shadow: none !important; }
+  }
+
+  .page {
+    width: 210mm;
+    height: 297mm;
+    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+  }
+
+  /* ===== Background decoration ===== */
+  .bg-accent-top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 8mm;
+    background: linear-gradient(90deg, #2d6a4f, #52b788, #95d5b2);
+  }
+
+  .bg-accent-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 6mm;
+    background: linear-gradient(90deg, #95d5b2, #52b788, #2d6a4f);
+  }
+
+  .bg-circle-1 {
+    position: absolute;
+    width: 180mm;
+    height: 180mm;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(149,213,178,0.08) 0%, transparent 70%);
+    top: -40mm;
+    right: -60mm;
+  }
+
+  .bg-circle-2 {
+    position: absolute;
+    width: 120mm;
+    height: 120mm;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(45,106,79,0.05) 0%, transparent 70%);
+    bottom: 30mm;
+    left: -40mm;
+  }
+
+  /* ===== Content ===== */
+  .content {
+    position: relative;
+    z-index: 1;
+    padding: 16mm 16mm 14mm;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    text-align: center;
+    margin-bottom: 6mm;
+    padding-top: 2mm;
+  }
+
+  .header-tag {
+    display: inline-block;
+    background: #2d6a4f;
+    color: #fff;
+    font-size: 9pt;
+    font-weight: 700;
+    padding: 2mm 5mm;
+    border-radius: 3mm;
+    letter-spacing: 0.5px;
+    margin-bottom: 4mm;
+  }
+
+  .main-title {
+    font-size: 22pt;
+    font-weight: 900;
+    color: #1b4332;
+    line-height: 1.4;
+    margin-bottom: 3mm;
+  }
+
+  .main-title .highlight {
+    background: linear-gradient(transparent 60%, #d8f3dc 60%);
+    padding: 0 1mm;
+  }
+
+  .subtitle {
+    font-size: 10pt;
+    color: #555;
+    font-weight: 500;
+    line-height: 1.6;
+  }
+
+  /* ===== Pain points ===== */
+  .pain-points {
+    background: #f8fdf9;
+    border: 1.5px solid #b7e4c7;
+    border-radius: 4mm;
+    padding: 5mm 6mm;
+    margin-bottom: 5mm;
+  }
+
+  .pain-point {
+    font-size: 10.5pt;
+    color: #333;
+    line-height: 1.8;
+    padding-left: 5mm;
+    position: relative;
+  }
+
+  .pain-point::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3mm;
+    height: 3mm;
+    background: #52b788;
+    border-radius: 50%;
+  }
+
+  /* ===== Description ===== */
+  .description {
+    text-align: center;
+    margin-bottom: 5mm;
+  }
+
+  .description p {
+    font-size: 10pt;
+    color: #444;
+    line-height: 1.7;
+  }
+
+  .description .emphasis {
+    font-size: 12pt;
+    font-weight: 700;
+    color: #2d6a4f;
+    margin-top: 2mm;
+  }
+
+  /* ===== Features ===== */
+  .features {
+    display: flex;
+    gap: 3mm;
+    margin-bottom: 5mm;
+  }
+
+  .feature-card {
+    flex: 1;
+    background: #fff;
+    border: 1.5px solid #d8f3dc;
+    border-radius: 3mm;
+    padding: 4mm;
+    text-align: center;
+  }
+
+  .feature-icon {
+    font-size: 20pt;
+    margin-bottom: 1.5mm;
+  }
+
+  .feature-title {
+    font-size: 9.5pt;
+    font-weight: 700;
+    color: #2d6a4f;
+    margin-bottom: 1mm;
+  }
+
+  .feature-desc {
+    font-size: 7.5pt;
+    color: #666;
+    line-height: 1.4;
+  }
+
+  /* ===== Flow ===== */
+  .flow-section {
+    margin-bottom: 5mm;
+  }
+
+  .section-label {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #2d6a4f;
+    text-align: center;
+    margin-bottom: 3mm;
+    position: relative;
+  }
+
+  .section-label::before,
+  .section-label::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 25mm;
+    height: 1px;
+    background: #b7e4c7;
+  }
+  .section-label::before { right: calc(50% + 40mm); }
+  .section-label::after { left: calc(50% + 40mm); }
+
+  .flow-steps {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .flow-step {
+    flex: 1;
+    text-align: center;
+    padding: 3mm 2mm;
+    position: relative;
+  }
+
+  .flow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: -1.5mm;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 3mm solid transparent;
+    border-bottom: 3mm solid transparent;
+    border-left: 3mm solid #52b788;
+  }
+
+  .step-num {
+    display: inline-block;
+    width: 7mm;
+    height: 7mm;
+    line-height: 7mm;
+    background: #2d6a4f;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 8pt;
+    font-weight: 700;
+    margin-bottom: 1.5mm;
+  }
+
+  .step-title {
+    font-size: 8.5pt;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 1mm;
+  }
+
+  .step-desc {
+    font-size: 7pt;
+    color: #777;
+    line-height: 1.3;
+  }
+
+  /* ===== Info box ===== */
+  .info-box {
+    background: #1b4332;
+    color: #fff;
+    border-radius: 4mm;
+    padding: 5mm 6mm;
+    margin-bottom: 5mm;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5mm 8mm;
+  }
+
+  .info-item {
+    display: flex;
+    align-items: center;
+    gap: 2.5mm;
+  }
+
+  .info-label {
+    font-size: 7.5pt;
+    color: #95d5b2;
+    font-weight: 700;
+    white-space: nowrap;
+    min-width: 14mm;
+  }
+
+  .info-value {
+    font-size: 9pt;
+    font-weight: 500;
+  }
+
+  .info-item.full-width {
+    grid-column: 1 / -1;
+  }
+
+  /* ===== Examples ===== */
+  .examples-section {
+    margin-bottom: 5mm;
+  }
+
+  .examples-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2mm;
+  }
+
+  .example-card {
+    background: #f8fdf9;
+    border-radius: 2.5mm;
+    padding: 3mm;
+    text-align: center;
+  }
+
+  .example-emoji {
+    font-size: 14pt;
+  }
+
+  .example-problem {
+    font-size: 7.5pt;
+    color: #555;
+    margin: 1mm 0;
+  }
+
+  .example-arrow {
+    font-size: 7pt;
+    color: #52b788;
+  }
+
+  .example-solution {
+    font-size: 7pt;
+    font-weight: 700;
+    color: #2d6a4f;
+  }
+
+  /* ===== Footer ===== */
+  .footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .organizer {
+    font-size: 8pt;
+    color: #888;
+  }
+
+  .organizer-name {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #2d6a4f;
+  }
+
+  .cta {
+    text-align: right;
+  }
+
+  .cta-text {
+    font-size: 8pt;
+    color: #888;
+    margin-bottom: 1mm;
+  }
+
+  .cta-contact {
+    font-size: 9pt;
+    font-weight: 700;
+    color: #2d6a4f;
+    background: #d8f3dc;
+    padding: 2mm 4mm;
+    border-radius: 2mm;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <!-- Background decorations -->
+  <div class="bg-accent-top"></div>
+  <div class="bg-accent-bottom"></div>
+  <div class="bg-circle-1"></div>
+  <div class="bg-circle-2"></div>
+
+  <div class="content">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-tag">SATOYAMA AI BASE presents</div>
+      <h1 class="main-title">
+        <span class="highlight">"あの業務、もっと楽にならない？"</span><br>
+        を90分で解決する会
+      </h1>
+      <p class="subtitle">生成AIとITツールで、今の環境からできる業務改善を一緒に見つけます</p>
+    </div>
+
+    <!-- Pain points -->
+    <div class="pain-points">
+      <div class="pain-point">「お客さんの情報、ちゃんと管理したいんだけど...」</div>
+      <div class="pain-point">「SNSの投稿、毎回何書こうか悩む...」</div>
+      <div class="pain-point">「予約管理、もうちょっと楽にならないかな...」</div>
+    </div>
+
+    <!-- Description -->
+    <div class="description">
+      <p>そんな<strong>"なんとかしたい"</strong>を持ち寄って、<br>その場で一緒に解決してみる会です。</p>
+      <p class="emphasis">新しいツールにお金をかける必要はありません。</p>
+    </div>
+
+    <!-- Features -->
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">0</div>
+        <div class="feature-title">追加費用ゼロ</div>
+        <div class="feature-desc">今あるスマホやPCだけで<br>完結します</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">1</div>
+        <div class="feature-title">持ち帰り1つ</div>
+        <div class="feature-desc">90分で「一つだけ<br>楽になった」を体験</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">6</div>
+        <div class="feature-title">少人数6名</div>
+        <div class="feature-desc">一人ひとりの課題に<br>向き合います</div>
+      </div>
+    </div>
+
+    <!-- Flow -->
+    <div class="flow-section">
+      <div class="section-label">当日の流れ</div>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="step-num">1</div>
+          <div class="step-title">困りごとを<br>聞く</div>
+          <div class="step-desc">あなたの業務の<br>"めんどくさい"を<br>言葉にする</div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">2</div>
+          <div class="step-title">AIに手順書を<br>作らせる</div>
+          <div class="step-desc">解決策を<br>AIが整理して<br>ステップ化</div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">3</div>
+          <div class="step-title">その場で<br>実装する</div>
+          <div class="step-desc">一番簡単な<br>部分を今ここで<br>動くものに</div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">4</div>
+          <div class="step-title">残りは<br>自分で</div>
+          <div class="step-desc">同じ要領で<br>続けられる<br>状態で帰る</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Examples -->
+    <div class="examples-section">
+      <div class="section-label">こんな課題を解決できます</div>
+      <div class="examples-grid">
+        <div class="example-card">
+          <div class="example-problem">顧客の好み・来店履歴を<br>覚えきれない</div>
+          <div class="example-arrow">&#9660;</div>
+          <div class="example-solution">簡易顧客カルテを作成</div>
+        </div>
+        <div class="example-card">
+          <div class="example-problem">SNS投稿の文章に<br>毎回悩む</div>
+          <div class="example-arrow">&#9660;</div>
+          <div class="example-solution">投稿テンプレートを作成</div>
+        </div>
+        <div class="example-card">
+          <div class="example-problem">予約管理が紙で<br>煩雑</div>
+          <div class="example-arrow">&#9660;</div>
+          <div class="example-solution">スマホで予約管理</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info box -->
+    <div class="info-box">
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">日 時</span>
+          <span class="info-value">2026年3月13日（金）15:00〜16:30</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">定 員</span>
+          <span class="info-value">6名（先着順）</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">場 所</span>
+          <span class="info-value">アンニャモンニャ</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">参加費</span>
+          <span class="info-value">ドネーション制（1,000円〜）</span>
+        </div>
+        <div class="info-item full-width">
+          <span class="info-label">持ち物</span>
+          <span class="info-value">スマホ or ノートPC（どちらか1つでOK）</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="organizer">
+        <div>主催</div>
+        <div class="organizer-name">SATOYAMA AI BASE</div>
+      </div>
+      <div class="cta">
+        <div class="cta-text">お申し込み・お問い合わせ</div>
+        <div class="cta-contact">[ 連絡先・QRコードをここに ]</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
