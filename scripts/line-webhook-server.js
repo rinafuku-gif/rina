@@ -345,7 +345,68 @@ async function syncAirbnbBookings(gToken) {
   }
 
   if (synced > 0) saveBookingsLog(existingBookings);
-  return { synced, skipped };
+
+  // キャンセルメールもチェックして反映
+  let cancelled = 0;
+  try {
+    const cancelQuery = encodeURIComponent(`from:automated@airbnb.com subject:キャンセルのお知らせ after:${after}`);
+    const cancelUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${cancelQuery}&maxResults=20`;
+    const cancelResult = await googleApiRequest("GET", cancelUrl, null, gToken);
+
+    if (cancelResult.messages && cancelResult.messages.length > 0) {
+      const currentBookings = loadBookingsLog();
+      const activeCodes = new Set(currentBookings.map(b => b.confirmationCode));
+      const cancelledCodes = [];
+
+      for (const msg of cancelResult.messages) {
+        const msgUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject`;
+        const msgData = await googleApiRequest("GET", msgUrl, null, gToken);
+        const subjectH = msgData.payload?.headers?.find(h => h.name === "Subject");
+        const subj = subjectH?.value || "";
+        const codeMatch = subj.match(/\(([A-Z0-9]+)\)/);
+        if (codeMatch && activeCodes.has(codeMatch[1])) {
+          cancelledCodes.push(codeMatch[1]);
+        }
+      }
+
+      if (cancelledCodes.length > 0) {
+        // カレンダーから削除
+        for (const code of cancelledCodes) {
+          const booking = currentBookings.find(b => b.confirmationCode === code);
+          if (!booking) continue;
+          const calId = booking.room === "HIBA" ? ENGAWA_HIBA_CAL : ENGAWA_UME_CAL;
+          const timeMin = booking.checkin + "T00:00:00Z";
+          const coD = new Date(booking.checkout + "T00:00:00Z");
+          coD.setUTCDate(coD.getUTCDate() + 2);
+          const timeMax = coD.toISOString();
+          try {
+            const evUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&maxResults=50`;
+            const evResult = await googleApiRequest("GET", evUrl, null, gToken);
+            if (evResult.items) {
+              for (const ev of evResult.items) {
+                if ((ev.description || "").includes(code)) {
+                  const delUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${ev.id}`;
+                  await googleApiRequest("DELETE", delUrl, null, gToken);
+                  console.log(`Cancelled booking removed: ${booking.guestName} (${code})`);
+                }
+              }
+            }
+          } catch (e) {
+            console.error(`Cancel cleanup error (${code}):`, e.message);
+          }
+        }
+        // ログから削除
+        const cancelSet = new Set(cancelledCodes);
+        const remaining = currentBookings.filter(b => !cancelSet.has(b.confirmationCode));
+        saveBookingsLog(remaining);
+        cancelled = cancelledCodes.length;
+      }
+    }
+  } catch (cancelErr) {
+    console.error("Cancellation check error:", cancelErr.message);
+  }
+
+  return { synced, skipped, cancelled };
 }
 
 // Google Calendar 空き時間チェック
@@ -983,8 +1044,10 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: "処理に失敗しました" }));
       }
     });
-  } else if (req.method === "POST" && req.url === "/api/receipt-quick") {
+  } else if (req.method === "POST" && req.url?.startsWith("/api/receipt-quick")) {
     // iPhoneショートカット用: 即レスポンス→バックグラウンド処理→LINE通知
+    const receiptUrl = new URL(req.url, `http://localhost:${PORT}`);
+    const receiptBusiness = receiptUrl.searchParams.get("business") || "";
     const authHeader = req.headers["authorization"] || "";
     const authToken = authHeader.replace("Bearer ", "");
     if (authToken !== env.SHIRATAMA_API_TOKEN) {
@@ -1122,7 +1185,7 @@ const server = http.createServer((req, res) => {
 - amount は必ず数値型（整数）。カンマ・円記号なし。読めなくても0にして"不明"にしない
 - date は必ず "YYYY-MM-DD" 文字列
 - payment は必ず "JCBデビット"/"Mastercardデビット"/"PayPay"/"現金" のいずれか。"不明"にしない
-- business は えんがわ/三十日珈琲/SATOYAMA AI BASE/共通/不明 のいずれか
+- business は えんがわ/となりにとまる/三十日珈琲/SATOYAMA AI BASE/共通/プライベート/不明 のいずれか。プライベートは事業経費ではなく個人支出
 - JSON以外のテキストは一切出力しないこと`;
 
         const promptFile = path.join(REPO_DIR, "logs", ".receipt-prompt.txt");
@@ -1158,6 +1221,11 @@ const server = http.createServer((req, res) => {
           sendWebPush("レシート読み取り失敗", "もう一度撮影してみてね。");
           try { fs.unlinkSync(filePath); } catch {}
           return;
+        }
+
+        // ショートカットからの事業カテゴリをフォールバック適用
+        if (receiptBusiness && (!ocrResult.business || ocrResult.business === "不明")) {
+          ocrResult.business = receiptBusiness;
         }
 
         // Upload to Google Drive & Sheets
@@ -1855,6 +1923,17 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
     }
+    const who = urlObj.searchParams.get("who") || "ryo"; // "ryo" or "marie"
+    const RM_SHARED_CAL = "9c0d4af92a70ced546b135411feda7120c9fd874beda1363874c03faf8953f18@group.calendar.google.com";
+
+    // R&M共有カレンダーのイベントをフィルタ: (R)=Ryo, (M)=Marie
+    function filterEventByWho(title, targetWho) {
+      const isR = title.startsWith("(R)") || title.startsWith("（R）");
+      const isM = title.startsWith("(M)") || title.startsWith("（M）");
+      if (targetWho === "ryo") return !isM; // Ryo: (R)とタグなしを表示、(M)は除外
+      if (targetWho === "marie") return !isR; // Marie: (M)とタグなしを表示、(R)は除外
+      return true;
+    }
 
     (async () => {
     try {
@@ -1862,7 +1941,8 @@ const server = http.createServer((req, res) => {
       const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
       const dailyLogPath = path.join(REPO_DIR, "logs", "daily", `${dateStr}.md`);
 
-      if (fs.existsSync(dailyLogPath)) {
+      // Marie の場合は常にカレンダーAPIから取得（日次ログはRyo向け）
+      if (who === "ryo" && fs.existsSync(dailyLogPath)) {
         const content = fs.readFileSync(dailyLogPath, "utf-8");
 
         // Parse structured sections from daily log
@@ -1947,12 +2027,14 @@ const server = http.createServer((req, res) => {
           source: "daily_log"
         }));
       } else {
-        // ブリーフィングがなければ Google Calendar API から直接取得（claude -p 不要）
+        // カレンダーAPIから直接取得
         try {
           const gToken = await getGoogleAccessToken();
-          const calendarIds = [
+          // Ryo: 全カレンダー（R&M共有は(M)除外）
+          // Marie: R&M共有カレンダーのみ（(R)除外）
+          const calendarIds = who === "marie" ? [RM_SHARED_CAL] : [
             "r.inafuku@tonari2tomaru.com",
-            "9c0d4af92a70ced546b135411feda7120c9fd874beda1363874c03faf8953f18@group.calendar.google.com",
+            RM_SHARED_CAL,
             "misocacoffee@gmail.com",
             "4651f62429c52388651033e5b59f4cb81a418694431ab262748b231c663e461f@group.calendar.google.com",
             "engawa.yanagawa@gmail.com",
@@ -1969,6 +2051,9 @@ const server = http.createServer((req, res) => {
               if (result.items) {
                 for (const ev of result.items) {
                   if (ev.status === "cancelled") continue;
+                  const title = ev.summary || "(予定)";
+                  // R&M共有カレンダーのイベントはwhoでフィルタ
+                  if (calId === RM_SHARED_CAL && !filterEventByWho(title, who)) continue;
                   const allDay = !!ev.start.date;
                   let time = "終日";
                   if (!allDay) {
@@ -1976,7 +2061,7 @@ const server = http.createServer((req, res) => {
                     const e = new Date(ev.end.dateTime).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hour12: false });
                     time = `${s}-${e}`;
                   }
-                  events.push({ time, title: ev.summary || "(予定)", calendar: "Google Calendar" });
+                  events.push({ time, title, calendar: "Google Calendar" });
                 }
               }
             } catch (e) {
@@ -2048,6 +2133,9 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
     }
+    const filterMonth = urlParams.get("month") || ""; // "2026-03" or "" for current
+    const filterBusiness = urlParams.get("business") || ""; // "えんがわ" or "" for all
+
     (async () => {
     try {
       const gToken = await getGoogleAccessToken();
@@ -2061,12 +2149,23 @@ const server = http.createServer((req, res) => {
       // ヘッダー行をスキップ（1行目がヘッダーの場合）
       const dataRows = rows.length > 0 && rows[0][0] === "取引日" ? rows.slice(1) : rows;
 
+      // 全月のリストを作成（フィルター前）
+      const availableMonths = new Set();
+      const availableBusinesses = new Set();
+      for (const row of dataRows) {
+        const date = row[0] || "";
+        const tag = row[11] || "";
+        if (date && date.length >= 7) availableMonths.add(date.slice(0, 7));
+        if (tag && tag !== "プライベート") availableBusinesses.add(tag);
+      }
+
       // 月別・カテゴリ別に集計
       const monthlyTotals = {};  // { "2026-03": 12345 }
       const categoryTotals = {}; // { "食費": 5000 }
       const paymentTotals = {};  // { "JCBデビット": 8000 }
       const recentItems = [];
       let totalExpense = 0;
+      let grandTotal = 0; // 全期間の事業経費合計（フィルター関係なく）
 
       for (const row of dataRows) {
         const date = row[0] || "";
@@ -2078,11 +2177,23 @@ const server = http.createServer((req, res) => {
 
         if (!date || amount === 0) continue;
 
+        // プライベート経費は事業経費から除外（確定申告対象外）
+        if (tag === "プライベート") continue;
+
+        // 全期間合計（フィルター前）
+        const monthKey = date.slice(0, 7);
+        grandTotal += amount;
+
+        // 事業フィルター
+        if (filterBusiness && tag !== filterBusiness) continue;
+
         totalExpense += amount;
 
         // 月別集計
-        const monthKey = date.slice(0, 7); // "2026-03"
         monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + amount;
+
+        // 月フィルター（カテゴリ・支払方法・明細は選択月のみ）
+        if (filterMonth && monthKey !== filterMonth) continue;
 
         // カテゴリ別集計
         categoryTotals[account] = (categoryTotals[account] || 0) + amount;
@@ -2102,34 +2213,45 @@ const server = http.createServer((req, res) => {
       // 直近20件（配列の末尾が新しい）
       const recent = recentItems.slice(-20).reverse();
 
-      // 今月の支出
+      // 対象月の支出
       const now = new Date();
-      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const currentMonthKey = filterMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const thisMonthTotal = monthlyTotals[currentMonthKey] || 0;
 
-      // 先月の支出
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1);
-      const lastMonthKey = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, "0")}`;
-      const lastMonthTotal = monthlyTotals[lastMonthKey] || 0;
+      // 前月の支出
+      const [targetY, targetM] = currentMonthKey.split("-").map(Number);
+      const prevMonth = targetM === 1 ? `${targetY - 1}-12` : `${targetY}-${String(targetM - 1).padStart(2, "0")}`;
+      const lastMonthTotal = monthlyTotals[prevMonth] || 0;
 
-      // 今月の日別平均
-      const dayOfMonth = now.getDate();
+      // 日別平均
+      let dayOfMonth, daysInMonth;
+      if (filterMonth) {
+        daysInMonth = new Date(targetY, targetM, 0).getDate();
+        const isCurrentMonth = currentMonthKey === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        dayOfMonth = isCurrentMonth ? now.getDate() : daysInMonth;
+      } else {
+        dayOfMonth = now.getDate();
+        daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      }
       const dailyAvg = dayOfMonth > 0 ? Math.round(thisMonthTotal / dayOfMonth) : 0;
 
       // 月末予測
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
       const projectedTotal = Math.round(dailyAvg * daysInMonth);
 
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({
         thisMonth: { total: thisMonthTotal, key: currentMonthKey, dailyAvg, projectedTotal, daysInMonth, dayOfMonth },
-        lastMonth: { total: lastMonthTotal, key: lastMonthKey },
+        lastMonth: { total: lastMonthTotal, key: prevMonth },
         totalExpense,
+        grandTotal,
         monthlyTotals,
         categoryTotals,
         paymentTotals,
         recent,
         recordCount: dataRows.length,
+        availableMonths: Array.from(availableMonths).sort().reverse(),
+        availableBusinesses: Array.from(availableBusinesses).sort(),
+        filters: { month: filterMonth, business: filterBusiness },
       }));
     } catch (e) {
       console.error("Finance API error:", e.message);
@@ -2318,8 +2440,8 @@ const server = http.createServer((req, res) => {
         }
 
         // 事業カテゴリ（タグ列に記録）
-        const validBusinesses = ["個人", "えんがわ", "SATOYAMA AI BASE", "蔵サウナ"];
-        const bizTag = validBusinesses.includes(business) ? business : "個人";
+        const validBusinesses = ["えんがわ", "となりにとまる", "三十日珈琲", "SATOYAMA AI BASE", "共通", "プライベート"];
+        const bizTag = validBusinesses.includes(business) ? business : "共通";
 
         // テキストから金額・支払方法・メモを抽出
         const amountMatch = text.match(/(\d[\d,]+)\s*円?/);
@@ -2665,6 +2787,76 @@ const server = http.createServer((req, res) => {
       }
     })();
 
+  } else if (req.method === "GET" && req.url?.startsWith("/api/drive-files")) {
+    // Google Drive 最近のファイル一覧（Picker代替）
+    const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const urlParams = new (require("url").URL)(req.url, "http://localhost").searchParams;
+    const token = urlParams.get("token");
+    if (token !== env.SHIRATAMA_API_TOKEN) { res.writeHead(401, corsHeaders); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
+    (async () => {
+      try {
+        const gToken = await getGoogleAccessToken();
+        // 最近更新されたドキュメント・スプレッドシート・スライド・PDFを取得
+        const q = encodeURIComponent("mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf'");
+        const driveUrl = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime+desc&pageSize=20&fields=files(id,name,mimeType,modifiedTime)`;
+        const result = await googleApiRequest("GET", driveUrl, null, gToken);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ files: result.files || [] }));
+      } catch (e) {
+        console.error("Drive files error:", e.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+  } else if (req.method === "GET" && req.url?.startsWith("/api/drive-read")) {
+    // Google Drive ファイル内容取得
+    const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const urlParams = new (require("url").URL)(req.url, "http://localhost").searchParams;
+    const token = urlParams.get("token");
+    const fileId = urlParams.get("fileId");
+    if (token !== env.SHIRATAMA_API_TOKEN) { res.writeHead(401, corsHeaders); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
+    if (!fileId) { res.writeHead(400, corsHeaders); res.end(JSON.stringify({ error: "fileId required" })); return; }
+    (async () => {
+      try {
+        const gToken = await getGoogleAccessToken();
+        // まずファイルのmimeTypeを確認
+        const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType`;
+        const meta = await googleApiRequest("GET", metaUrl, null, gToken);
+        let content = "";
+        if (meta.mimeType === "application/vnd.google-apps.document") {
+          // Google Docs → text/plain でエクスポート
+          const exportUrl = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=text%2Fplain`;
+          content = await googleApiRequest("GET", exportUrl, null, gToken);
+          if (Buffer.isBuffer(content)) content = content.toString("utf-8");
+        } else if (meta.mimeType === "application/vnd.google-apps.spreadsheet") {
+          // Google Sheets → text/csv でエクスポート
+          const exportUrl = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=text%2Fcsv`;
+          content = await googleApiRequest("GET", exportUrl, null, gToken);
+          if (Buffer.isBuffer(content)) content = content.toString("utf-8");
+        } else if (meta.mimeType === "application/vnd.google-apps.presentation") {
+          // Google Slides → text/plain でエクスポート
+          const exportUrl = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=text%2Fplain`;
+          content = await googleApiRequest("GET", exportUrl, null, gToken);
+          if (Buffer.isBuffer(content)) content = content.toString("utf-8");
+        } else {
+          // その他（PDF等）→ ダウンロードしてテキスト抽出試行
+          const dlUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+          const raw = await googleApiRequest("GET", dlUrl, null, gToken);
+          content = typeof raw === "string" ? raw : (Buffer.isBuffer(raw) ? raw.toString("utf-8") : JSON.stringify(raw));
+          content = content.slice(0, 8000); // PDF等は先頭部分のみ
+        }
+        // 長すぎる場合はトリミング
+        if (typeof content === "string" && content.length > 20000) {
+          content = content.slice(0, 20000) + "\n\n（以下省略: 長すぎるため先頭20000文字のみ）";
+        }
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ content, filename: meta.name, mimeType: meta.mimeType }));
+      } catch (e) {
+        console.error("Drive read error:", e.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
   } else if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200);
     res.end("OK");
