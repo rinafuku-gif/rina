@@ -19,8 +19,12 @@ const CLIENT_ID = env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = "http://localhost:9876/callback";
 const SCOPES = [
-  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/drive",
+  "https://www.googleapis.com/auth/calendar",
   "https://www.googleapis.com/auth/spreadsheets",
+  "https://mail.google.com/",
+  "https://www.googleapis.com/auth/youtube",
+  "https://www.googleapis.com/auth/presentations",
 ].join(" ");
 
 // Step 1: Generate auth URL

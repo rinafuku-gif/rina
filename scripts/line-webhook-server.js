@@ -2788,17 +2788,25 @@ const server = http.createServer((req, res) => {
     })();
 
   } else if (req.method === "GET" && req.url?.startsWith("/api/drive-files")) {
-    // Google Drive 最近のファイル一覧（Picker代替）
+    // Google Drive ファイル一覧（folderId対応: フォルダナビゲーション）
     const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
     const urlParams = new (require("url").URL)(req.url, "http://localhost").searchParams;
     const token = urlParams.get("token");
     if (token !== env.SHIRATAMA_API_TOKEN) { res.writeHead(401, corsHeaders); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
+    const folderId = urlParams.get("folderId"); // null = 最近のファイル表示、指定あり = そのフォルダの中身
     (async () => {
       try {
         const gToken = await getGoogleAccessToken();
-        // 最近更新されたドキュメント・スプレッドシート・スライド・PDFを取得
-        const q = encodeURIComponent("mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf'");
-        const driveUrl = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime+desc&pageSize=20&fields=files(id,name,mimeType,modifiedTime)`;
+        let driveUrl;
+        if (folderId) {
+          // 指定フォルダ内のファイル・フォルダを取得
+          const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+          driveUrl = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=folder,name&pageSize=50&fields=files(id,name,mimeType,modifiedTime)`;
+        } else {
+          // フォルダ未指定 = 最近更新されたドキュメント・スプレッドシート・スライド・PDF
+          const q = encodeURIComponent("mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf'");
+          driveUrl = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime+desc&pageSize=20&fields=files(id,name,mimeType,modifiedTime)`;
+        }
         const result = await googleApiRequest("GET", driveUrl, null, gToken);
         res.writeHead(200, corsHeaders);
         res.end(JSON.stringify({ files: result.files || [] }));
