@@ -2801,11 +2801,11 @@ const server = http.createServer((req, res) => {
         if (folderId) {
           // 指定フォルダ内のファイル・フォルダを取得
           const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
-          driveUrl = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=folder,name&pageSize=50&fields=files(id,name,mimeType,modifiedTime)`;
+          driveUrl = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=folder,name&pageSize=50&fields=files(id,name,mimeType,modifiedTime)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
         } else {
-          // フォルダ未指定 = 最近更新されたドキュメント・スプレッドシート・スライド・PDF
-          const q = encodeURIComponent("mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf'");
-          driveUrl = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime+desc&pageSize=20&fields=files(id,name,mimeType,modifiedTime)`;
+          // フォルダ未指定 = 最近更新されたドキュメント・スプレッドシート・スライド・PDF＋フォルダ
+          const q = encodeURIComponent("mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf' or mimeType='application/vnd.google-apps.folder'");
+          driveUrl = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime+desc&pageSize=30&fields=files(id,name,mimeType,modifiedTime)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
         }
         const result = await googleApiRequest("GET", driveUrl, null, gToken);
         res.writeHead(200, corsHeaders);
