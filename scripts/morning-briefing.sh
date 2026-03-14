@@ -1,105 +1,122 @@
 #!/bin/bash
 # 朝ブリーフィング自動配信スクリプト
-# cron/launchd から毎朝実行し、Claude Code でブリーフィングを生成 → LINEに送信
+# launchd から毎朝実行
+# daily-scan.sh でAI分析 → ブリーフィングをLINE + PWA Pushで送信
 
 set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_DIR="$(dirname "$SCRIPT_DIR")"
+# --- パス解決（常にメインリポジトリを参照。worktreeからの実行を防止） ---
+MAIN_REPO="/Users/Inaryo/rina"
+SCRIPT_DIR="$MAIN_REPO/scripts"
+REPO_DIR="$MAIN_REPO"
 LOG_DIR="$REPO_DIR/logs"
 
-# ログを追記式にリダイレクト（launchd の StandardOutPath は上書き式のため）
 exec >> "$LOG_DIR/briefing-stdout.log" 2>> "$LOG_DIR/briefing-stderr.log"
 
+echo ""
 echo "=== Briefing started at $(date '+%Y-%m-%d %H:%M:%S') ==="
 
-# launchd ではシェルプロファイルが読み込まれないため PATH を明示的に設定
+# --- DRY_RUN モード（テスト実行時はLINE/Push送信をスキップ） ---
+# 使い方: DRY_RUN=1 ./scripts/morning-briefing.sh
+DRY_RUN="${DRY_RUN:-0}"
+if [ "$DRY_RUN" = "1" ]; then
+  echo "[DRY_RUN] LINE/Push送信はスキップされます"
+fi
+
 export PATH="/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
-
-# Claude Code セッション内からの手動実行にも対応
 unset CLAUDECODE 2>/dev/null || true
-
-# .env から環境変数を読み込み
 source "$REPO_DIR/.env"
 
-# Airbnb予約メール→カレンダー同期（ブリーフィング前に実行）
+# --- 重複実行防止（アトミックなロック） ---
+LOCK_FILE="$LOG_DIR/.briefing-lock"
+TODAY=$(date '+%Y-%m-%d')
+
+if [ -f "$LOCK_FILE" ]; then
+  LOCK_DATE=$(cat "$LOCK_FILE" 2>/dev/null | tr -d '[:space:]')
+  if [ "$LOCK_DATE" = "$TODAY" ]; then
+    echo "Already sent today ($TODAY), skipping."
+    exit 0
+  fi
+fi
+
+# ロック取得: 書き込み後に再度確認（レースコンディション対策）
+echo "$TODAY" > "$LOCK_FILE"
+sleep 1
+LOCK_VERIFY=$(cat "$LOCK_FILE" 2>/dev/null | tr -d '[:space:]')
+if [ "$LOCK_VERIFY" != "$TODAY" ]; then
+  echo "Lock file was overwritten by another process, aborting."
+  exit 1
+fi
+
+# --- Airbnb同期 ---
 echo "Syncing Airbnb bookings..."
 curl -s -X POST http://localhost:3100/api/sync-airbnb-bookings \
   -H "Content-Type: application/json" \
-  -d "{\"token\":\"$SHIRATAMA_API_TOKEN\"}" || echo "Booking sync failed (server may be down)"
+  -d "{\"token\":\"$SHIRATAMA_API_TOKEN\"}" \
+  && echo " -> sync OK" \
+  || echo " -> sync failed (server may be down)"
 sleep 3
 
-# Claude Code でブリーフィング生成（5分タイムアウト）
-# macOS には timeout コマンドがないため、バックグラウンド + wait で実装
-BRIEFING_FILE=$(mktemp)
-(cd "$REPO_DIR" && claude -p --dangerously-skip-permissions "
-あなたはRyoの専属AI秘書です。以下の手順で今日の朝ブリーフィングを作成してください。
+# --- AIスキャン（ブリーフィング + カレンダー提案 + タスク更新） ---
+echo "Running daily scan..."
+BRIEFING=$("$SCRIPT_DIR/daily-scan.sh" 2>&1)
+SCAN_EXIT=$?
 
-1. Google Calendarで今日の全カレンダーの予定を確認
-2. CLAUDE.mdのタスク管理セクションから期日が近いタスクを抽出
-3. logs/daily/の最新ログから継続事項を確認
-
-以下のフォーマットでブリーフィングを作成してください。LINEで読みやすいように、簡潔に。
-
----
-おはよう、Ryo。
-
-【今日の予定】
-- 時間: 内容
-
-【直近のタスク・期日】
-- タスク内容（期日）
-
-【ひとこと】
-今日のアドバイスや注意点を一言
----
-
-4. docs/kura-sauna/day-use-sauna-pricing-research.md を確認し、日帰り蔵サウナの料金リサーチ結果を【共有事項】として簡潔に要約して含める（このファイルが存在する場合のみ）
-
-重要: 出力はブリーフィング本文のみ。余計な説明は不要。
-" > "$BRIEFING_FILE") &
-CLAUDE_PID=$!
-
-# 5分待って終了しなければ強制終了
-WAIT_SECONDS=300
-while [ $WAIT_SECONDS -gt 0 ]; do
-  if ! kill -0 $CLAUDE_PID 2>/dev/null; then
-    break
-  fi
-  sleep 5
-  WAIT_SECONDS=$((WAIT_SECONDS - 5))
-done
-
-if kill -0 $CLAUDE_PID 2>/dev/null; then
-  echo "Claude timed out after 300s, killing process"
-  kill $CLAUDE_PID 2>/dev/null
-  sleep 2
-  kill -9 $CLAUDE_PID 2>/dev/null
-fi
-
-BRIEFING=$(cat "$BRIEFING_FILE" 2>/dev/null)
-rm -f "$BRIEFING_FILE"
-
-# タイムアウトや失敗時のフォールバック
-if [ -z "$BRIEFING" ]; then
-  echo "Claude failed or timed out, sending fallback briefing"
+if [ $SCAN_EXIT -ne 0 ] || [ -z "$BRIEFING" ]; then
+  echo "daily-scan failed (exit=$SCAN_EXIT), using fallback"
   BRIEFING="おはよう、Ryo。
 
 今朝のブリーフィング生成に失敗しました。
-claude -p がタイムアウトした可能性があります。
-
 手動で確認してください：
 - Google Calendar の予定
 - CLAUDE.md のタスク一覧"
 fi
 
-# LINE Messaging API でプッシュ送信
-curl -s -X POST https://api.line.me/v2/bot/message/push \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
-  -d "$(jq -n --arg to "$LINE_USER_ID" --arg text "$BRIEFING" '{
-    to: $to,
-    messages: [{type: "text", text: $text}]
-  }')"
+echo "Briefing ready (${#BRIEFING} chars)"
 
-echo "Briefing sent at $(date '+%Y-%m-%d %H:%M:%S')"
+# --- LINE送信（5000文字制限対応。プロンプト側で2000文字制約済みなので基本1通） ---
+if [ "$DRY_RUN" = "1" ]; then
+  echo "[DRY_RUN] LINE送信スキップ (${#BRIEFING} chars)"
+else
+  echo "Sending via LINE..."
+  if [ ${#BRIEFING} -le 5000 ]; then
+    curl -s -X POST https://api.line.me/v2/bot/message/push \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
+      -d "$(jq -n --arg to "$LINE_USER_ID" --arg text "$BRIEFING" '{
+        to: $to,
+        messages: [{type: "text", text: $text}]
+      }')"
+  else
+    # 分割送信（万が一5000文字を超えた場合の保険）
+    PART1="${BRIEFING:0:5000}"
+    PART2="${BRIEFING:5000}"
+    curl -s -X POST https://api.line.me/v2/bot/message/push \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
+      -d "$(jq -n --arg to "$LINE_USER_ID" --arg t1 "$PART1" --arg t2 "$PART2" '{
+        to: $to,
+        messages: [{type: "text", text: $t1}, {type: "text", text: $t2}]
+      }')"
+  fi
+  echo " -> LINE sent"
+fi
+
+# --- PWA Push通知 ---
+if [ "$DRY_RUN" = "1" ]; then
+  echo "[DRY_RUN] PWA Push送信スキップ"
+else
+  echo "Sending PWA push..."
+  SHORT_BODY=$(echo "$BRIEFING" | head -5 | cut -c1-200)
+  curl -s -X POST http://localhost:3100/api/push-briefing \
+    -H "Content-Type: application/json" \
+    -d "$(jq -n --arg text "$SHORT_BODY" --arg token "$SHIRATAMA_API_TOKEN" '{
+      token: $token,
+      title: "おはようブリーフィング",
+      body: $text
+    }')" \
+    && echo " -> push OK" \
+    || echo " -> push failed"
+fi
+
+echo "=== Briefing completed at $(date '+%Y-%m-%d %H:%M:%S') ==="
