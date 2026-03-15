@@ -3285,12 +3285,12 @@ const server = http.createServer((req, res) => {
             const statusFile = path.join(hearingDir, `${caseId}-status.json`);
             let status = "問い合わせ";
             let deployUrl = null;
-            let revisionNote = null;
+            let statusCaseType = null;
             if (fs.existsSync(statusFile)) {
-              const statusData = JSON.parse(fs.readFileSync(statusFile, "utf-8"));
-              status = statusData.status || status;
-              deployUrl = statusData.deployUrl || null;
-              revisionNote = statusData.revisionNote || null;
+              const sd = JSON.parse(fs.readFileSync(statusFile, "utf-8"));
+              status = sd.status || status;
+              deployUrl = sd.deployUrl || null;
+              statusCaseType = sd.caseType || null;
             } else if (hasProposal) {
               status = "提案中";
             }
@@ -3309,6 +3309,7 @@ const server = http.createServer((req, res) => {
               hasProposal,
               estimatedAmount,
               deployUrl,
+              caseType: statusCaseType || classifyCaseType(data.consultation_type),
               createdAt: stat.birthtime || stat.mtime,
             });
           } catch (e) {
@@ -3369,15 +3370,39 @@ const server = http.createServer((req, res) => {
         statusData = JSON.parse(fs.readFileSync(statusFile, "utf-8"));
       }
 
+      // 案件タイプ
+      const caseType = statusData.caseType || classifyCaseType(hearing.consultation_type);
+
+      // 成果物ドキュメントの取得（プロジェクトディレクトリが存在する場合）
+      const projectDir = path.join(DX_PROJECTS_DIR, caseId);
+      let deliverables = {};
+      if (fs.existsSync(projectDir)) {
+        const docsDir = path.join(projectDir, "docs");
+        if (fs.existsSync(docsDir)) {
+          for (const docFile of fs.readdirSync(docsDir).filter(f => f.endsWith(".md"))) {
+            const key = docFile.replace(".md", "").toLowerCase().replace(/-/g, "_");
+            deliverables[key] = fs.readFileSync(path.join(docsDir, docFile), "utf-8");
+          }
+        }
+        // README.md
+        const readmePath = path.join(projectDir, "README.md");
+        if (fs.existsSync(readmePath)) {
+          deliverables.readme = fs.readFileSync(readmePath, "utf-8");
+        }
+      }
+
       res.writeHead(200, dxCorsHeaders);
       res.end(JSON.stringify({
         caseId,
         hearing,
         proposal,
         status: statusData.status,
+        caseType,
         deployUrl: statusData.deployUrl || null,
         revisionNote: statusData.revisionNote || null,
         revisionHistory: statusData.revisionHistory || [],
+        deliverables,
+        hasProject: fs.existsSync(projectDir),
       }));
     } catch (e) {
       res.writeHead(500, dxCorsHeaders);
@@ -4105,6 +4130,23 @@ function updateDxStatus(caseId, updates) {
   return statusData;
 }
 
+// 案件タイプの判定
+function classifyCaseType(consultationType) {
+  const t = (consultationType || "").trim();
+  if (t.includes("Webサイト") || t.includes("ウェブサイト") || t.includes("LP") || t.includes("ホームページ")) return "website";
+  if (t.includes("EC") || t.includes("ネットショップ") || t.includes("通販")) return "ec";
+  if (t.includes("業務") || t.includes("効率化") || t.includes("自動化") || t.includes("改善")) return "automation";
+  if (t.includes("SNS") || t.includes("発信") || t.includes("マーケティング")) return "sns";
+  return "website"; // デフォルト
+}
+
+const CASE_TYPE_LABELS = {
+  website: "Webサイト制作",
+  ec: "ECサイト構築",
+  automation: "業務改善・自動化",
+  sns: "SNS運用支援",
+};
+
 async function runDxImplementation(caseId) {
   const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
   const proposalDir = path.join(hearingDir, "proposals");
@@ -4112,7 +4154,6 @@ async function runDxImplementation(caseId) {
   try {
     // 1. ステータスを「実装中」に更新
     updateDxStatus(caseId, { status: "実装中" });
-    pushLineMessage(`⚙️ ${caseId}: 自動実装を開始しました`);
 
     // 2. ヒアリングデータと提案書を読み込む
     const jsonFiles = fs.readdirSync(hearingDir).filter(f => f.startsWith(caseId) && f.endsWith(".json") && !f.includes("status"));
@@ -4124,20 +4165,23 @@ async function runDxImplementation(caseId) {
       ? fs.readFileSync(path.join(proposalDir, proposalFiles[0]), "utf-8")
       : "";
 
-    // 3. プロジェクトディレクトリ作成
+    // 3. 案件タイプ判定
+    const caseType = classifyCaseType(hearingData.consultation_type);
+    const caseTypeLabel = CASE_TYPE_LABELS[caseType];
+    console.log(`[DX Impl] ${caseId}: タイプ=${caseTypeLabel}`);
+    pushLineMessage(`⚙️ ${caseId}: ${caseTypeLabel}の自動実装を開始しました`);
+
+    // 4. プロジェクトディレクトリ作成
     const projectDir = path.join(DX_PROJECTS_DIR, caseId);
     if (!fs.existsSync(projectDir)) fs.mkdirSync(projectDir, { recursive: true });
 
-    // 4. CLAUDE.md（実装指示書）を配置
-    const claudeMd = buildImplementationPrompt(hearingData, proposal, caseId);
+    // 5. 案件タイプ別の実装指示書を配置
+    const claudeMd = buildImplementationPrompt(hearingData, proposal, caseId, caseType);
     fs.writeFileSync(path.join(projectDir, "CLAUDE.md"), claudeMd, "utf-8");
 
-    // 5. Claude Code CLIで実装
+    // 6. Claude Code CLIで実装
     console.log(`[DX Impl] ${caseId}: Claude Code CLI実装開始...`);
-    const implPrompt = `このディレクトリにCLAUDE.mdの指示に従ってプロジェクトを実装してください。
-まずCLAUDE.mdを読み、その指示通りにプロジェクトを構築してください。
-すべてのファイルを作成し、npm installも実行してください。
-最後にnpm run buildでビルドが通ることを確認してください。`;
+    const implPrompt = buildImplPromptByCaseType(caseType);
 
     const tmpFile = path.join(REPO_DIR, "logs", `.dx-impl-${caseId}.txt`);
     fs.writeFileSync(tmpFile, implPrompt, "utf-8");
@@ -4156,20 +4200,95 @@ async function runDxImplementation(caseId) {
     );
     try { fs.unlinkSync(tmpFile); } catch {}
 
-    console.log(`[DX Impl] ${caseId}: 実装完了。デプロイ開始...`);
-    pushLineMessage(`✅ ${caseId}: 実装完了。Vercelデプロイ中...`);
+    console.log(`[DX Impl] ${caseId}: 実装完了。`);
 
-    // 6. Vercelにデプロイ
-    const deployUrl = await deployToVercel(projectDir, caseId);
-
-    // 7. ステータスを「デプロイ済み」に更新
-    updateDxStatus(caseId, { status: "デプロイ済み", deployUrl });
-    pushLineMessage(`🎉 ${caseId}: デプロイ完了！\n\nプレビュー: ${deployUrl}\n\nしらたまのDXタブで確認・修正指示ができます`);
+    // 7. 案件タイプ別の後処理
+    let deployUrl = null;
+    if (caseType === "website" || caseType === "ec") {
+      // Webサイト/EC → Vercelデプロイ
+      pushLineMessage(`✅ ${caseId}: 実装完了。Vercelデプロイ中...`);
+      deployUrl = await deployToVercel(projectDir, caseId);
+      updateDxStatus(caseId, { status: "デプロイ済み", deployUrl, caseType });
+      pushLineMessage(`🎉 ${caseId}: デプロイ完了！\n\nプレビュー: ${deployUrl}\n\nしらたまのDXタブで確認・修正指示ができます`);
+    } else {
+      // 業務改善/SNS → デプロイなし、納品物一式で完了
+      updateDxStatus(caseId, { status: "デプロイ済み", caseType, projectDir });
+      pushLineMessage(`✅ ${caseId}: ${caseTypeLabel}の成果物が完成しました\n\n📁 ${projectDir}\n\nしらたまのDXタブで確認・修正指示ができます`);
+    }
 
   } catch (error) {
     console.error(`[DX Impl] ${caseId}: エラー:`, error.message);
     updateDxStatus(caseId, { status: "GO済み", implError: error.message });
     pushLineMessage(`❌ ${caseId}: 自動実装でエラーが発生しました\n\n${error.message.substring(0, 200)}\n\nターミナルで確認してください`);
+  }
+}
+
+// 案件タイプ別のClaude CLI実行プロンプト
+function buildImplPromptByCaseType(caseType) {
+  const common = `このディレクトリにCLAUDE.mdの指示に従ってプロジェクトを実装してください。
+まずCLAUDE.mdを読み、その指示通りに構築してください。`;
+
+  switch (caseType) {
+    case "website":
+      return `${common}
+Webサイトを構築してください。
+- すべてのファイルを作成し、npm installも実行してください
+- npm run buildでビルドが通ることを確認してください
+- ビジュアル・デザインを最重視してください。見た目の美しさが最優先です
+- ダミーテキストではなく、クライアントの業種に合った実用的なテキストを入れてください
+- 画像はプレースホルダーでOKですが、適切なalt属性を付けてください
+- 最後に docs/SETUP-GUIDE.md（本番構築手順書）を必ず生成してください`;
+
+    case "ec":
+      return `${common}
+ECサイトのデモを構築してください。
+- すべてのファイルを作成し、npm installも実行してください
+- npm run buildでビルドが通ることを確認してください
+- 決済はモックで実装（Stripeは.env.exampleにキー名だけ記載）
+- 商品データはデモ用のモックデータを5〜10点用意してください
+- カート・注文フローはUI上で動作するようにしてください（実際の決済はしない）
+- 最後に以下のドキュメントを必ず生成してください:
+  - docs/SETUP-GUIDE.md（本番構築手順書: Stripeキー取得、商品登録、配送設定など）
+  - docs/CREDENTIALS-CHECKLIST.md（必要な認証情報・アカウント一覧）`;
+
+    case "automation":
+      return `${common}
+業務改善・自動化のための成果物を構築してください。
+
+重要: この案件はVercelにデプロイするWebサイトではありません。
+クライアントの環境にセットアップして使うツール・スクリプトを納品します。
+
+成果物として以下を作成してください:
+1. スクリプト一式（GAS、Python、Node.js等、提案内容に応じて最適なもの）
+2. docs/SETUP-GUIDE.md — クライアントが自分の環境にセットアップするための詳細手順書
+   - 手順は技術者でない人にも分かるように、画面の操作手順レベルで書く
+   - 「このURLにアクセス → この画面でこのボタンを押す → ここにこの値を貼り付ける」レベル
+   - GASの場合: スプレッドシートの作り方、スクリプトエディタの開き方、コードの貼り付け方、トリガー設定
+   - 外部APIの場合: アカウント作成、APIキー取得の手順
+3. docs/CREDENTIALS-CHECKLIST.md — 必要な認証情報・アカウントの一覧表
+4. docs/CUSTOMIZATION-GUIDE.md — クライアント固有の設定をカスタマイズするポイント
+   - 「ここの値を自社のメールアドレスに変えてください」等
+5. README.md — 全体概要と各ファイルの説明
+
+package.jsonは不要です（GASスクリプトの場合など）。必要な場合のみ作成してください。`;
+
+    case "sns":
+      return `${common}
+SNS運用支援の成果物を構築してください。
+
+成果物として以下を作成してください:
+1. テンプレート一式（投稿テンプレート、画像サイズガイド、ハッシュタグリスト等）
+2. docs/SETUP-GUIDE.md — 使用ツールのセットアップ手順書
+3. docs/OPERATION-MANUAL.md — 日常の運用マニュアル（投稿頻度、時間帯、反応対応等）
+4. docs/CONTENT-CALENDAR.md — 1ヶ月分のコンテンツカレンダーのテンプレート
+5. README.md — 全体概要
+
+Webサイトの構築は不要です。`;
+
+    default:
+      return `${common}
+すべてのファイルを作成し、必要に応じてnpm installも実行してください。
+最後に docs/SETUP-GUIDE.md を必ず生成してください。`;
   }
 }
 
@@ -4261,11 +4380,14 @@ async function deployToVercel(projectDir, caseId) {
   }
 }
 
-function buildImplementationPrompt(hearingData, proposal, caseId) {
+function buildImplementationPrompt(hearingData, proposal, caseId, caseType) {
   const clientName = hearingData.company || hearingData.name || "クライアント";
-  return `# ${clientName} 様向けプロジェクト実装指示書
+  const caseTypeLabel = CASE_TYPE_LABELS[caseType] || "不明";
+
+  const clientInfo = `# ${clientName} 様向け ${caseTypeLabel} 実装指示書
 
 ## 案件ID: ${caseId}
+## 案件タイプ: ${caseTypeLabel}
 
 ## クライアント情報
 - お名前: ${hearingData.name || "不明"}
@@ -4274,6 +4396,9 @@ function buildImplementationPrompt(hearingData, proposal, caseId) {
 - ご相談内容: ${hearingData.consultation_type || "不明"}
 - 予算: ${hearingData.budget || "未回答"}
 - 希望納期: ${hearingData.deadline || "未回答"}
+${hearingData.current_methods ? `- 現在のやり方: ${Array.isArray(hearingData.current_methods) ? hearingData.current_methods.join(", ") : hearingData.current_methods}` : ""}
+${hearingData.current_services ? `- 使用中のサービス: ${Array.isArray(hearingData.current_services) ? hearingData.current_services.join(", ") : hearingData.current_services}` : ""}
+${hearingData.devices ? `- 使用デバイス: ${Array.isArray(hearingData.devices) ? hearingData.devices.join(", ") : hearingData.devices}` : ""}
 
 ## お困りごと
 ${hearingData.problem_detail || "詳細なし"}
@@ -4281,36 +4406,143 @@ ${hearingData.problem_detail || "詳細なし"}
 ## AI提案書（この内容に沿って実装する）
 
 ${proposal}
+`;
 
-## 実装ルール
+  // 案件タイプ別の実装ルール
+  const typeRules = {
+    website: `## 実装ルール（Webサイト制作）
+
+### 最重要: ビジュアル・デザイン品質
+- **見た目の美しさが最優先**。テクノロジー感は控えめに、温かみと親しみやすさを重視
+- クライアントの業種・ターゲット客層に合ったデザインにする
+- ヒーロー画像、配色、フォント選定はクライアントの事業イメージに合わせる
+- ダミーテキストは使わない。業種に合った実用的なテキストを書く
+- 画像はunsplash等のプレースホルダーURLでOKだが、適切なalt属性を付ける
 
 ### 技術スタック
-- 提案書内の技術スタックに従うこと
-- 特に指定がない場合: Next.js + Tailwind CSS + TypeScript
-- デプロイ先: Vercel（静的サイトまたはServerless Functions）
-
-### コード品質
-- TypeScriptを使用し、型安全なコードを書く
+- Next.js + Tailwind CSS + TypeScript
+- デプロイ先: Vercel
+- SEO基本対応（メタタグ、OGP、構造化データ）
 - モバイルファースト・レスポンシブデザイン
-- 日本語UIで、温かみのあるデザイン
-- SEO基本対応（メタタグ、OGP）
 
 ### プロジェクト構成
-- package.json に "build" スクリプトを必ず含める
-- README.md にプロジェクト概要と起動方法を記載
+- package.jsonに "build" スクリプト必須
 - .gitignore を適切に設定
 - 環境変数が必要な場合は .env.example を作成
 
-### デザイン方針
-- クライアントの業種・ターゲットに合ったデザイン
-- シンプルで使いやすいUI
-- アクセシビリティに配慮
+### 必須納品ドキュメント
+docs/SETUP-GUIDE.md に以下を含める:
+- 本番環境への移行手順（独自ドメイン設定、DNS設定）
+- 各種ホスティングパターン別の手順:
+  1. Vercelでそのまま運用する場合
+  2. 既存サーバーに移行する場合
+  3. 新規にサーバー・ドメインを取得する場合
+- コンテンツ（テキスト・画像）の差し替え方法
+- Google Analytics等のトラッキング設定方法
+- お問い合わせフォームがある場合はメール送信設定の手順`,
 
-### 納品物
-- 完全に動作するWebアプリケーション/サイト
-- npm run build でエラーなくビルドできること
-- デモデータ（必要に応じて）
-`;
+    ec: `## 実装ルール（ECサイト構築）
+
+### デモサイトとして構築
+- 実際の決済は行わないデモ版を構築する
+- 商品データはデモ用モックデータ（5〜10点）
+- カート・注文フローはUI上で完全に動作させる（決済部分はモック）
+- Stripe等の決済キーは .env.example にキー名のみ記載
+
+### 技術スタック
+- Next.js + Tailwind CSS + TypeScript
+- 決済: Stripe（モック）
+- デプロイ先: Vercel
+
+### ビジュアル
+- 商品が映えるデザイン。写真を大きく、清潔感のあるレイアウト
+- モバイルファースト
+- クライアントの業種に合った配色・トーン
+
+### 必須納品ドキュメント
+docs/SETUP-GUIDE.md:
+- Stripeアカウント作成・APIキー取得の手順（スクショレベルで）
+- 商品データの登録方法（管理画面 or CSVインポート）
+- 配送設定（送料テーブル、配送エリア）
+- 決済テスト方法（Stripeテストモード）
+- 本番切り替え手順
+- ドメイン・ホスティング設定
+
+docs/CREDENTIALS-CHECKLIST.md:
+- 必要なアカウント一覧（Stripe, Vercel, ドメイン等）
+- 各アカウントの作成手順リンク
+- 必要な環境変数一覧と取得方法`,
+
+    automation: `## 実装ルール（業務改善・自動化）
+
+### 重要: これはWebサイトではない
+- Vercelにデプロイするサイトは作らない
+- クライアントの既存環境（Google Workspace、使用中ツール等）に組み込むスクリプト・ツールを作る
+- クライアントの使用中サービスとの連携を重視する
+
+### 成果物の構成
+\`\`\`
+{projectDir}/
+├── README.md                    # 全体概要・ファイル説明
+├── scripts/                     # スクリプト本体
+│   ├── main.gs (or .js/.py)    # メインスクリプト
+│   └── ...
+├── templates/                   # テンプレートファイル（スプレッドシート設計等）
+├── docs/
+│   ├── SETUP-GUIDE.md          # セットアップ手順書（最重要）
+│   ├── CREDENTIALS-CHECKLIST.md # 必要な認証情報一覧
+│   └── CUSTOMIZATION-GUIDE.md  # カスタマイズポイント
+└── .env.example                 # 必要な環境変数（ある場合）
+\`\`\`
+
+### SETUP-GUIDE.md の書き方（最重要）
+- 技術者でない人でも実行できるレベルで書く
+- 各手順に番号を振り、一つずつ丁寧に説明する
+- 「このURLにアクセス → ログイン → 左メニューの○○をクリック → △△の画面で□□を入力」レベル
+- GASの場合:
+  - Googleスプレッドシートの新規作成方法
+  - 拡張機能 → Apps Script の開き方
+  - コードの貼り付け方（ファイルごとに）
+  - トリガー設定（時計アイコン → トリガーを追加 → 設定値）
+  - 初回実行時の権限承認の手順
+- 外部API（Slack, LINE, ChatGPT等）を使う場合:
+  - アカウント作成手順
+  - APIキー・Webhook URL取得手順
+  - 設定値の記入場所
+- スプレッドシートのテンプレートは templates/ にCSVまたはJSON形式で保存
+
+### CUSTOMIZATION-GUIDE.md
+- クライアント固有の設定値を変更するポイントを列挙
+- 「○○.gs の XX行目の "メールアドレス" を自社のアドレスに変更」等
+- 業務フローに合わせた調整ポイント`,
+
+    sns: `## 実装ルール（SNS運用支援）
+
+### 重要: これはWebサイトではない
+- コード実装よりも運用テンプレート・マニュアルが主な成果物
+
+### 成果物の構成
+\`\`\`
+{projectDir}/
+├── README.md                        # 全体概要
+├── templates/
+│   ├── post-templates/              # 投稿テンプレート集
+│   ├── image-specs.md               # 画像サイズ・フォーマットガイド
+│   └── hashtag-library.md           # ハッシュタグライブラリ
+├── docs/
+│   ├── SETUP-GUIDE.md              # ツール設定手順書
+│   ├── OPERATION-MANUAL.md         # 日常運用マニュアル
+│   └── CONTENT-CALENDAR.md         # コンテンツカレンダーテンプレート
+└── scripts/                         # 自動化スクリプト（あれば）
+\`\`\`
+
+### ドキュメントの品質
+- 初心者でも分かるように書く
+- 具体的な投稿例を複数パターン含める
+- 業種に合ったトーン・内容にカスタマイズ`,
+  };
+
+  return clientInfo + "\n" + (typeRules[caseType] || typeRules.website);
 }
 
 function extractEstimateFromProposal(proposalMarkdown) {
