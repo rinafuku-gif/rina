@@ -278,14 +278,24 @@ function buildNotionProperties(data) {
     }
   }
 
+  // email型
+  if (data.email) {
+    props['メールアドレス'] = { email: data.email };
+  }
+
+  // url型
+  if (data.existing_url) {
+    props['既存WebサイトURL'] = { url: data.existing_url };
+  }
+  if (data.reference_url) {
+    props['参考サイト・イメージ'] = { url: data.reference_url };
+  }
+
   // リッチテキスト系
   const textFields = {
-    'メールアドレス': data.email,
     '電話番号 / LINE ID': data.phone_or_line,
     '会社名・屋号': data.company,
     '具体的なお困りごと': data.problem_detail,
-    '参考サイト・イメージ': data.reference_url,
-    '既存WebサイトURL': data.existing_url,
     'その他ご要望': data.additional_notes,
   };
 
