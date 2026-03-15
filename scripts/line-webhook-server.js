@@ -19,6 +19,7 @@ const CHANNEL_ACCESS_TOKEN = env.LINE_CHANNEL_ACCESS_TOKEN;
 const CHANNEL_SECRET = env.LINE_CHANNEL_SECRET;
 const USER_ID = env.LINE_USER_ID;
 const PORT = 3100;
+
 const REPO_DIR = path.join(__dirname, "..");
 const PROMPT_FILE = path.join(REPO_DIR, "logs", ".current-prompt.txt");
 const CLAUDE_PATH = "/Users/Inaryo/.local/bin/claude";
@@ -3240,15 +3241,15 @@ const server = http.createServer((req, res) => {
       }
     });
 
-  // ========== POST /api/dx-hearing — DXヒアリング回答受信 → 提案書自動生成 + LINE通知 ==========
+  // ========== POST /api/dx-hearing — DXヒアリング回答受信 → AI提案書自動生成 + LINE通知 (v2) ==========
   } else if (req.method === "POST" && pathname === "/api/dx-hearing") {
     const dxCorsHeaders = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
     let bodyChunks = [];
     req.on("data", (chunk) => bodyChunks.push(chunk));
-    req.on("end", () => {
+    req.on("end", async () => {
       try {
         const body = JSON.parse(Buffer.concat(bodyChunks).toString());
-        console.log(`[${new Date().toISOString()}] DX Hearing received: ${body.name} - ${body.consultation_type}`);
+        console.log(`[${new Date().toISOString()}] DX Hearing v2 received: ${body.name} - ${body.consultation_type}`);
 
         // 1. データ保存
         const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
@@ -3265,41 +3266,57 @@ const server = http.createServer((req, res) => {
         fs.writeFileSync(jsonFile, JSON.stringify(body, null, 2), "utf-8");
         console.log(`Saved hearing data: ${jsonFile}`);
 
-        // 2. 見積もり算出
-        const estimate = estimateDXBudget(body);
+        // 2. Claude API で提案書生成（フォールバック付き）
+        console.log(`[DX Hearing] Claude APIで提案書生成中... 案件: ${body.name}`);
+        const proposal = await generateDXProposalV2(body);
 
-        // 3. 提案書Markdown生成
-        const proposal = generateDXProposal(body, caseId, estimate);
+        // 3. 提案書保存
         const proposalFile = path.join(proposalDir, `${caseId}-提案書.md`);
         fs.writeFileSync(proposalFile, proposal, "utf-8");
-        console.log(`Generated proposal: ${proposalFile}`);
+        console.log(`Generated AI proposal: ${proposalFile}`);
 
-        // 4. LINE通知
+        // 4. 提案書から見積もり金額を抽出
+        const estimatedAmount = extractEstimateFromProposal(proposal);
+
+        // 5. 提案書から要約を抽出
+        const summary = extractProposalSummary(proposal);
+
+        // 6. 予算フィット判定
+        const budgetFit = getBudgetFitMessage(body.budget, estimatedAmount);
+
+        // 7. LINE通知
         const lineMsg = [
           `📋 新規DXヒアリング`,
           ``,
-          `👤 ${body.name || "不明"}（${body.company || "不明"}）`,
-          `📍 ${body.prefecture || "不明"} / ${body.industry || "不明"}`,
+          `👤 ${body.name || "不明"}（${body.company || "個人"}）`,
+          `📍 ${body.prefecture || "未回答"} / ${body.industry || "未回答"}`,
           `💬 ${body.consultation_type || "不明"}`,
           ``,
           `📝 ${(body.problem_detail || "詳細なし").substring(0, 100)}${(body.problem_detail || "").length > 100 ? "..." : ""}`,
           ``,
           `💰 予算: ${body.budget || "未回答"}`,
+          `📊 概算見積もり: ${estimatedAmount ? `¥${estimatedAmount.toLocaleString()}` : "要確認"}`,
+          budgetFit ? budgetFit : "",
           `📅 希望納期: ${body.deadline || "未回答"}`,
           `🏷 補助金: ${body.subsidy_interest || "未回答"}`,
-          `💵 概算見積もり: ¥${estimate.toLocaleString()}`,
           ``,
-          `📄 提案書: 生成済み`,
+          `📄 AI提案書: 生成済み`,
+          summary ? summary : "",
+          ``,
           `→ ${proposalFile}`,
-        ].join("\n");
+        ].filter(Boolean).join("\n");
 
         pushLineMessage(lineMsg);
 
         res.writeHead(200, dxCorsHeaders);
-        res.end(JSON.stringify({ success: true, case_id: caseId, proposal_path: proposalFile, estimate }));
+        res.end(JSON.stringify({ success: true, case_id: caseId, proposal_path: proposalFile, estimated_amount: estimatedAmount }));
 
       } catch (e) {
-        console.error("DX Hearing error:", e.message);
+        console.error("DX Hearing v2 error:", e.message);
+        // エラー時もLINE通知
+        try {
+          pushLineMessage(`⚠️ DXヒアリング処理エラー\n${e.message}\n\nデータは保存済みの可能性あり。ターミナルで確認してください。`);
+        } catch {}
         res.writeHead(500, dxCorsHeaders);
         res.end(JSON.stringify({ error: e.message }));
       }
@@ -3501,8 +3518,168 @@ function getStreak(habitId) {
   return streak;
 }
 
-// ========== DXヒアリング: 見積もり算出 ==========
-function estimateDXBudget(data) {
+// ========== DXヒアリング v2: Claude API 提案書生成 ==========
+
+const DX_PROPOSAL_SYSTEM_PROMPT = `あなたはSATOYAMA AI BASEの提案書作成AIです。
+DXヒアリングフォームの回答データを分析し、顧客に最適な提案書を生成してください。
+
+## あなたの役割
+- 顧客の課題を深く理解し、実現可能な解決策を提案する
+- 予算に合わせた現実的なプランを提示する（予算オーバーの提案はしない）
+- 技術スタックの選定理由を明確にする
+- SATOYAMA AI BASEの強みを活かした提案をする
+
+## SATOYAMA AI BASEの技術スタック
+- Web: Next.js + Vercel（高速・SEO対応・無料枠で運用可能）
+- 決済: Stripe（クレジットカード・コンビニ払い対応）
+- DB: Supabase（管理画面付き・PostgreSQL・無料枠あり）
+- メール: Brevo（顧客管理+メルマガ・月300通無料）
+- 自動化: Google Apps Script / Make（ノーコード連携）
+- CMS: Notion API / MDX
+
+## 予算別の提案方針
+- 〜5万円: GAS中心の自動化、既存ツールの組み合わせ。コーディング最小限。予算が足りない場合はBASE/STORESなど既存プラットフォーム活用を提案
+- 5〜15万円: シンプルなWebサイト or 業務自動化。テンプレート活用
+- 15〜30万円: ECサイト基本構成 or 本格Webサイト。カスタムデザイン込み
+- 30〜50万円: フル機能EC or 複合システム。管理画面カスタマイズ含む
+- 50万円以上: エンタープライズ級。独自機能開発・API連携多数
+- 補助金利用: IT導入補助金（最大450万円・補助率1/2〜3/4）活用で実質負担を大幅軽減
+
+## 出力形式
+Markdownで以下の構成の提案書を生成してください：
+
+# [会社名] 様 DX支援 ご提案書
+
+## お客様の課題
+（ヒアリング内容から課題を整理・言語化）
+
+## ご提案概要
+（1〜2文で提案の全体像）
+
+## 現状分析
+（現在の業務フロー・課題の構造的な分析）
+
+## ご提案プラン
+
+### プランA: [プラン名]（推奨）
+- 概要
+- 機能一覧
+- 技術スタックと選定理由
+- 概算: ¥XXX,XXX
+- 期間: X週間
+
+### プランB: [プラン名]（ミニマム）
+- 概要
+- 機能一覧（プランAから削ぎ落としたもの）
+- 概算: ¥XXX,XXX
+- 期間: X週間
+
+※ 予算が十分な場合のみプランCも追加
+
+## 補助金活用のご案内
+（補助金利用意向がある場合のみ）
+
+## スケジュール案
+| フェーズ | 内容 | 期間 |
+|---|---|---|
+
+## 次のステップ
+1. 本提案書の内容確認
+2. オンラインまたは対面でのすり合わせ（30分程度）
+3. 正式お見積もり・ご契約
+4. 制作開始`;
+
+async function generateDXProposalV2(hearingData) {
+  try {
+    const fullPrompt = `${DX_PROPOSAL_SYSTEM_PROMPT}
+
+---
+
+以下のDXヒアリングフォームの回答データを分析し、提案書を生成してください。
+
+## 回答データ
+${JSON.stringify(hearingData, null, 2)}
+
+## 重要な注意点
+- 予算「${hearingData.budget || "未回答"}」を必ず考慮してください
+- 予算を大幅に超える提案はNGです。予算内で最大の価値を出すプランを考えてください
+- 予算が低い場合は、スコープを絞って実現可能な提案にしてください
+- 「まだ決めてない」の場合は、相談内容に応じた相場感を提示してください
+- 補助金利用意向「${hearingData.subsidy_interest || "未回答"}」も考慮してください
+- 提案書のMarkdownだけを出力してください。前置きや説明は不要です`;
+
+    // claude -p にパイプして提案書を生成
+    const tmpPromptFile = path.join(REPO_DIR, "logs", ".dx-hearing-prompt.txt");
+    fs.writeFileSync(tmpPromptFile, fullPrompt, "utf-8");
+
+    const execEnv = Object.assign({}, process.env, {
+      PATH: `/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+      HOME: "/Users/Inaryo",
+    });
+    delete execEnv.CLAUDECODE;
+
+    const result = execSync(
+      `cat "${tmpPromptFile}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`,
+      { encoding: "utf-8", timeout: 120000, maxBuffer: 1024 * 1024, env: execEnv, cwd: REPO_DIR }
+    );
+
+    // 一時ファイル削除
+    try { fs.unlinkSync(tmpPromptFile); } catch {}
+
+    const proposal = result.trim();
+    if (!proposal || proposal.length < 50) {
+      throw new Error("Claude CLIからの応答が不十分です");
+    }
+
+    console.log(`[DX Hearing] Claude CLI提案書生成完了 (${proposal.length}文字)`);
+    return proposal;
+
+  } catch (e) {
+    console.error("[DX Hearing] Claude CLI失敗、フォールバック提案書で代替:", e.message);
+    return generateFallbackProposal(hearingData);
+  }
+}
+
+function generateFallbackProposal(data) {
+  const estimate = estimateDXBudgetFallback(data);
+  return `# ${data.company || data.name || "お客"} 様 DX支援 ご提案書
+
+| 項目 | 内容 |
+|---|---|
+| 作成日 | ${new Date().toLocaleDateString("ja-JP")} |
+| ステータス | 初回提案（簡易版） |
+
+## お客様情報
+- お名前: ${data.name || "不明"}
+- 会社名: ${data.company || "個人"}
+- 業種: ${data.industry || "不明"}
+- 所在地: ${data.prefecture || "不明"}
+
+## ご相談内容
+**${data.consultation_type || "不明"}**
+
+${data.problem_detail || "（詳細はヒアリングで確認）"}
+
+## ご予算
+${data.budget || "未回答"}
+
+## 概算見積もり
+¥${estimate.toLocaleString()}
+
+## 次のステップ
+1. オンラインヒアリング（30分程度）で詳細を確認
+2. 正式見積もり・スケジュール提示
+3. ご契約・着手
+
+---
+⚠️ この提案書はAI生成に失敗したため簡易版です。
+詳細な提案書はRyoが確認の上、改めて作成します。
+
+*SATOYAMA AI BASE — AI × DX で、ビジネスをもっとシンプルに。*`;
+}
+
+// フォールバック用の簡易見積もり
+function estimateDXBudgetFallback(data) {
   let base = 0;
   const type = data.consultation_type || "";
 
@@ -3528,8 +3705,90 @@ function estimateDXBudget(data) {
   return base;
 }
 
-// ========== DXヒアリング: 提案書Markdown生成 ==========
-function generateDXProposal(data, caseId, estimate) {
+// ========== DXヒアリング v2: ヘルパー関数 ==========
+
+// 提案書Markdownから見積もり金額を抽出
+function extractEstimateFromProposal(proposalMarkdown) {
+  // 行単位で「概算」「合計」を含む行から金額を抽出
+  const lines = proposalMarkdown.split("\n");
+
+  // 1. 「概算」「合計」を含む行の金額を優先
+  for (const keyword of ["合計", "概算"]) {
+    for (const line of lines) {
+      if (line.includes(keyword)) {
+        const amounts = [...line.matchAll(/[¥￥]([0-9,]+)/g)]
+          .map(m => parseInt(m[1].replace(/,/g, ""), 10))
+          .filter(n => n >= 1000);
+        if (amounts.length > 0) {
+          return amounts[amounts.length - 1]; // 最後の金額（範囲なら上限値）
+        }
+      }
+    }
+  }
+
+  // 2. 「概算」パターン（概算: ¥XXX）
+  const directMatch = proposalMarkdown.match(/概算[:：]\s*[¥￥]([0-9,]+)/);
+  if (directMatch) {
+    return parseInt(directMatch[1].replace(/,/g, ""), 10);
+  }
+
+  // 3. プランA近辺の金額を探す
+  const planAIdx = proposalMarkdown.indexOf("プランA");
+  if (planAIdx !== -1) {
+    const planASection = proposalMarkdown.substring(planAIdx, planAIdx + 1500);
+    const amounts = [...planASection.matchAll(/[¥￥]([0-9,]+)/g)]
+      .map(m => parseInt(m[1].replace(/,/g, ""), 10))
+      .filter(n => n >= 10000);
+    if (amounts.length > 0) {
+      return amounts[amounts.length - 1];
+    }
+  }
+
+  // 4. フォールバック: 全金額の中央値
+  const allAmounts = [...proposalMarkdown.matchAll(/[¥￥]([0-9,]+)/g)]
+    .map(m => parseInt(m[1].replace(/,/g, ""), 10))
+    .filter(n => n >= 10000 && n <= 10000000);
+  if (allAmounts.length > 0) {
+    allAmounts.sort((a, b) => a - b);
+    return allAmounts[Math.floor(allAmounts.length / 2)];
+  }
+
+  return null;
+}
+
+// 提案書から「ご提案概要」セクションを抜粋
+function extractProposalSummary(proposal) {
+  const overviewMatch = proposal.match(/## ご提案概要\n([\s\S]*?)(?=\n##)/);
+  if (overviewMatch) {
+    return overviewMatch[1].trim().substring(0, 150);
+  }
+  return "";
+}
+
+// 予算と見積もりの乖離メッセージ
+function getBudgetFitMessage(budget, estimate) {
+  if (!budget || !estimate) return "";
+  const budgetMap = {
+    "〜5万円": 50000,
+    "5〜15万円": 150000,
+    "15〜30万円": 300000,
+    "30〜50万円": 500000,
+    "50万円以上": 1000000,
+  };
+  const budgetMax = budgetMap[budget];
+  if (!budgetMax) return "";
+
+  if (estimate <= budgetMax) {
+    return "✅ 予算内に収まります";
+  } else if (estimate <= budgetMax * 1.3) {
+    return "⚠️ 予算をやや超過（補助金で調整可能）";
+  } else {
+    return "🔴 予算超過 → ミニマムプランを推奨";
+  }
+}
+
+// ========== 以下、旧テンプレート生成関数（v2では未使用・将来削除予定） ==========
+function _legacyGenerateDXProposal(data, caseId, estimate) {
   const type = data.consultation_type || "不明";
   const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 

@@ -1,0 +1,21 @@
+{
+  "name": "テスト太郎",
+  "company": "テスト株式会社",
+  "prefecture": "山梨県",
+  "industry": "飲食",
+  "team_size": "2〜5人",
+  "consultation_type": "ECサイト構築",
+  "problem_detail": "ソーセージをネットで販売したい。現在は地元の直売所とイベント出店のみ。冷蔵冷凍の配送にも対応したい。",
+  "budget": "〜5万円",
+  "subsidy_interest": "興味はある",
+  "deadline": "2〜3ヶ月",
+  "product_count": "6〜20点",
+  "shipping_method": [
+    "冷蔵",
+    "冷凍"
+  ],
+  "delivery_area": "全国",
+  "payment_methods": [
+    "クレジットカード"
+  ]
+}
