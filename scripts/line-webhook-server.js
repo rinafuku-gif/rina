@@ -3265,7 +3265,7 @@ const server = http.createServer((req, res) => {
       const cases = [];
 
       if (fs.existsSync(hearingDir)) {
-        const files = fs.readdirSync(hearingDir).filter(f => f.endsWith(".json"));
+        const files = fs.readdirSync(hearingDir).filter(f => f.endsWith(".json") && !f.includes("-status.json"));
         for (const file of files) {
           try {
             const data = JSON.parse(fs.readFileSync(path.join(hearingDir, file), "utf-8"));
@@ -3348,7 +3348,7 @@ const server = http.createServer((req, res) => {
       const proposalDir = path.join(hearingDir, "proposals");
 
       // JSONファイルを探す
-      const jsonFiles = fs.readdirSync(hearingDir).filter(f => f.startsWith(caseId) && f.endsWith(".json"));
+      const jsonFiles = fs.readdirSync(hearingDir).filter(f => f.startsWith(caseId) && f.endsWith(".json") && !f.includes("-status.json"));
       if (jsonFiles.length === 0) {
         res.writeHead(404, dxCorsHeaders);
         res.end(JSON.stringify({ error: "Case not found" }));
