@@ -1,7 +1,7 @@
 const http = require("http");
 const https = require("https");
 const crypto = require("crypto");
-const { execSync } = require("child_process");
+const { execSync, spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const webpush = require("web-push");
@@ -4188,16 +4188,8 @@ async function runDxImplementation(caseId) {
 
     const execEnv = { ...process.env, HOME: "/Users/Inaryo", PATH: process.env.PATH };
 
-    execSync(
-      `cat "${tmpFile}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`,
-      {
-        encoding: "utf-8",
-        timeout: 600000, // 10分
-        maxBuffer: 10 * 1024 * 1024,
-        env: execEnv,
-        cwd: projectDir,
-      }
-    );
+    // spawn（非同期）でClaude Code CLIを実行 — サーバーをブロックしない
+    await runClaudeCLI(tmpFile, projectDir, execEnv, 600000);
     try { fs.unlinkSync(tmpFile); } catch {}
 
     console.log(`[DX Impl] ${caseId}: 実装完了。`);
@@ -4319,16 +4311,8 @@ ${revisionNote}
 
     const execEnv = { ...process.env, HOME: "/Users/Inaryo", PATH: process.env.PATH };
 
-    execSync(
-      `cat "${tmpFile}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`,
-      {
-        encoding: "utf-8",
-        timeout: 300000, // 5分
-        maxBuffer: 10 * 1024 * 1024,
-        env: execEnv,
-        cwd: projectDir,
-      }
-    );
+    // spawn（非同期）でClaude Code CLIを実行 — サーバーをブロックしない
+    await runClaudeCLI(tmpFile, projectDir, execEnv, 300000);
     try { fs.unlinkSync(tmpFile); } catch {}
 
     console.log(`[DX Revision] ${caseId}: 修正完了。再デプロイ開始...`);
@@ -4346,22 +4330,90 @@ ${revisionNote}
   }
 }
 
+// ========== 非同期シェルコマンド実行ヘルパー ==========
+
+/**
+ * Claude Code CLIを非同期で実行する（サーバーをブロックしない）
+ * stdinからプロンプトを流し込む形式
+ */
+function runClaudeCLI(promptFile, cwd, env, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("sh", ["-c", `cat "${promptFile}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`], {
+      cwd,
+      env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => { stdout += d.toString(); });
+    child.stderr.on("data", (d) => { stderr += d.toString(); });
+
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error(`Claude CLI timeout after ${timeoutMs / 1000}s`));
+    }, timeoutMs);
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve(stdout);
+      } else {
+        reject(new Error(`Claude CLI exited with code ${code}: ${stderr.substring(0, 500)}`));
+      }
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+/**
+ * 汎用シェルコマンドを非同期で実行する（サーバーをブロックしない）
+ */
+function runShellCommand(command, cwd, env, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("sh", ["-c", command], {
+      cwd,
+      env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => { stdout += d.toString(); });
+    child.stderr.on("data", (d) => { stderr += d.toString(); });
+
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error(`Command timeout after ${timeoutMs / 1000}s`));
+    }, timeoutMs);
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve(stdout);
+      } else {
+        reject(new Error(`Command exited with code ${code}: ${stderr.substring(0, 500)}`));
+      }
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
 async function deployToVercel(projectDir, caseId) {
   const execEnv = { ...process.env, HOME: "/Users/Inaryo", PATH: process.env.PATH };
   const safeName = caseId.toLowerCase().replace(/[^a-z0-9-]/g, "-");
 
   try {
-    // Vercel CLIでデプロイ（プロジェクト名を指定、確認プロンプトをスキップ）
-    const result = execSync(
-      `npx vercel deploy --prod --yes --name "${safeName}" 2>&1`,
-      {
-        encoding: "utf-8",
-        timeout: 180000, // 3分
-        maxBuffer: 5 * 1024 * 1024,
-        env: execEnv,
-        cwd: projectDir,
-      }
-    );
+    // spawn（非同期）でVercelデプロイ — サーバーをブロックしない
+    const result = await runShellCommand(`npx vercel deploy --prod --yes --name "${safeName}" 2>&1`, projectDir, execEnv, 180000);
 
     // デプロイURLを抽出（Vercel CLIの出力から）
     const lines = result.trim().split("\n");
