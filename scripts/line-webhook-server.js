@@ -25,6 +25,10 @@ const PROMPT_FILE = path.join(REPO_DIR, "logs", ".current-prompt.txt");
 const CLAUDE_PATH = "/Users/Inaryo/.local/bin/claude";
 const CLAUDE_TIMEOUT = 480000; // 8分
 
+// Notion API 設定
+const NOTION_API_KEY = env.NOTION_API_KEY || "";
+const NOTION_DX_HEARING_DB_ID = env.NOTION_DX_HEARING_DB_ID || "";
+
 // Web Push 設定
 webpush.setVapidDetails(
   "mailto:r.inafuku@tonari2tomaru.com",
@@ -3309,6 +3313,11 @@ const server = http.createServer((req, res) => {
 
         pushLineMessage(lineMsg);
 
+        // 8. Notionに案件登録（非同期・エラーでもレスポンスは返す）
+        createNotionDXHearing(body, caseId, estimatedAmount, proposalFile).catch(err => {
+          console.error("[DX Hearing] Notion登録失敗:", err.message);
+        });
+
         res.writeHead(200, dxCorsHeaders);
         res.end(JSON.stringify({ success: true, case_id: caseId, proposal_path: proposalFile, estimated_amount: estimatedAmount }));
 
@@ -3719,6 +3728,106 @@ function estimateDXBudgetFallback(data) {
 // ========== DXヒアリング v2: ヘルパー関数 ==========
 
 // 提案書Markdownから見積もり金額を抽出
+// ========== Notion DXヒアリング登録 ==========
+async function createNotionDXHearing(data, caseId, estimatedAmount, proposalPath) {
+  if (!NOTION_API_KEY || !NOTION_DX_HEARING_DB_ID) {
+    console.log("[Notion] API key or DB ID not configured, skipping");
+    return;
+  }
+
+  // フォームデータ → Notionプロパティのマッピング
+  const properties = {
+    // title: お名前
+    "お名前": { title: [{ text: { content: data.name || "不明" } }] },
+  };
+
+  // テキスト系
+  if (data.company) properties["会社名・屋号"] = { rich_text: [{ text: { content: data.company } }] };
+  if (data.problem_detail) properties["具体的なお困りごと"] = { rich_text: [{ text: { content: data.problem_detail.substring(0, 2000) } }] };
+  if (data.other_requests) properties["その他ご要望"] = { rich_text: [{ text: { content: data.other_requests.substring(0, 2000) } }] };
+  if (estimatedAmount) properties["技術スタック（AI提案）"] = { rich_text: [{ text: { content: `概算: ¥${estimatedAmount.toLocaleString()}` } }] };
+
+  // メール
+  if (data.email) properties["メールアドレス"] = { email: data.email };
+
+  // URL系
+  if (data.reference_url) properties["参考サイト・イメージ"] = { url: data.reference_url };
+  if (data.existing_site_url) properties["既存WebサイトURL"] = { url: data.existing_site_url };
+
+  // select系（値がNotionのオプションに存在する場合のみ）
+  const selectFields = {
+    "ご相談内容": data.consultation_type,
+    "予算感": data.budget,
+    "希望納期": data.deadline,
+    "所在地": data.prefecture,
+    "業種": data.industry,
+    "補助金の利用意向": data.subsidy_interest,
+    "チーム規模": data.team_size,
+    "商品数の目安": data.product_count,
+    "ロゴの有無": data.has_logo,
+    "一番嬉しいこと": data.most_wanted,
+    "作業の頻度": data.task_frequency,
+    "1回あたりの時間": data.task_duration,
+    "コンテンツの準備状況": data.content_status,
+    "商品写真の準備状況": data.photo_status,
+    "在庫管理の現状": data.inventory_management,
+    "定期購入・サブスクの必要性": data.subscription_need,
+    "ページ数の目安": data.page_count,
+    "独自ドメインの有無": data.has_domain,
+    "配送エリア": data.delivery_area,
+    "月間の注文数（目安）": data.monthly_orders,
+    "送料の考え方": data.shipping_policy,
+    "返品・交換への対応": data.return_policy,
+    "計算式やルール": data.has_formulas,
+  };
+  for (const [prop, val] of Object.entries(selectFields)) {
+    if (val) properties[prop] = { select: { name: val } };
+  }
+
+  // multi_select系
+  const multiSelectFields = {
+    "サイトの目的": data.site_purposes,
+    "ラクにしたい作業": data.tasks_to_automate,
+    "一番イヤなところ": data.pain_points,
+    "今のやり方": data.current_methods,
+    "使用サービス": data.current_services,
+    "使用デバイス": data.devices,
+    "商品の発送方法": data.shipping_methods,
+  };
+  for (const [prop, val] of Object.entries(multiSelectFields)) {
+    if (val && Array.isArray(val) && val.length > 0) {
+      properties[prop] = { multi_select: val.map(v => ({ name: v })) };
+    } else if (val && typeof val === "string") {
+      properties[prop] = { multi_select: val.split(",").map(v => ({ name: v.trim() })).filter(v => v.name) };
+    }
+  }
+
+  // ステータスは「問い合わせ」で初期登録
+  properties["ステータス"] = { select: { name: "問い合わせ" } };
+
+  const response = await fetch("https://api.notion.com/v1/pages", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${NOTION_API_KEY}`,
+      "Content-Type": "application/json",
+      "Notion-Version": "2022-06-28",
+    },
+    body: JSON.stringify({
+      parent: { database_id: NOTION_DX_HEARING_DB_ID },
+      properties,
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    throw new Error(`Notion API error ${response.status}: ${errBody}`);
+  }
+
+  const result = await response.json();
+  console.log(`[Notion] DXヒアリング登録成功: ${result.url}`);
+  return result;
+}
+
 function extractEstimateFromProposal(proposalMarkdown) {
   // 行単位で「概算」「合計」を含む行から金額を抽出
   const lines = proposalMarkdown.split("\n");
