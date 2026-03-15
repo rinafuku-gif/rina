@@ -299,7 +299,12 @@ async function syncAirbnbBookings(gToken) {
 
     // Google Calendar にイベント作成
     const calId = parsed.room === "HIBA" ? ENGAWA_HIBA_CAL : ENGAWA_UME_CAL;
-    const eventTitle = `${guestName}（${parsed.guests}名）`;
+    // CI/CO日と泊数をタイトルに明記（カレンダーで一目でわかるように）
+    const ciMonth = parseInt(checkinDate.split("-")[1]);
+    const ciDay = parseInt(checkinDate.split("-")[2]);
+    const coMonth = parseInt(checkoutDate.split("-")[1]);
+    const coDay = parseInt(checkoutDate.split("-")[2]);
+    const eventTitle = `${guestName}（${parsed.guests}名・${parsed.nights}泊）CI:${ciMonth}/${ciDay} → CO:${coMonth}/${coDay}`;
     const description = [
       `ゲスト: ${guestName}（大人${parsed.guests}人）`,
       `確認コード: ${parsed.confirmationCode}`,
@@ -310,10 +315,34 @@ async function syncAirbnbBookings(gToken) {
     ].join("\n");
 
     try {
-      // Google Calendar の allDay イベントは end を実際の最終日+1日にする必要がある
-      const coDate = new Date(checkoutDate + "T00:00:00Z");
-      coDate.setUTCDate(coDate.getUTCDate() + 1);
-      const calEndDate = coDate.toISOString().split("T")[0];
+      // Google Calendar の allDay イベント: end.date = 最終表示日の翌日
+      // checkoutDate（チェックアウト日）をそのまま end に使う → 表示枠 = 泊数分だけになる
+      const calEndDate = checkoutDate;
+
+      // 重複チェック: 同じ日付範囲に同じゲスト名の予定が既にあればスキップ
+      const searchUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${checkinDate}T00:00:00Z&timeMax=${calEndDate}T00:00:00Z&singleEvents=true&maxResults=20`;
+      const existingEvents = await googleApiRequest("GET", searchUrl, null, gToken);
+      const isDuplicate = existingEvents.items && existingEvents.items.some(ev => ev.summary && ev.summary.includes(guestName));
+      if (isDuplicate) {
+        console.log(`Calendar duplicate skipped: ${guestName} (${parsed.confirmationCode}) already exists on ${checkinDate}`);
+        // ログには追加する（次回のメールスキャンで再チェックしないように）
+        existingBookings.push({
+          confirmationCode: parsed.confirmationCode,
+          guestName,
+          guests: parsed.guests,
+          room: parsed.room,
+          checkin: checkinDate,
+          checkout: checkoutDate,
+          nightlyRate: parsed.nightlyRate,
+          nights: parsed.nights,
+          hostEarnings: parsed.hostEarnings,
+          guestTotal: parsed.guestTotal,
+          syncedAt: new Date().toISOString(),
+        });
+        existingCodes.add(parsed.confirmationCode);
+        skipped++;
+        continue;
+      }
 
       const calUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`;
       await googleApiRequest("POST", calUrl, JSON.stringify({
@@ -790,7 +819,15 @@ function parseTasksFromCLAUDE(content) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.method === "POST" && req.url === "/webhook") {
+  // クエリパラメータを除いたパス名を取得（POST の URL マッチングに使用）
+  const pathname = req.url?.split("?")[0] || req.url;
+  // DEBUG: リクエストログ（問題解決後に削除）
+  if (req.method === "POST") console.log(`[DEBUG] ${req.method} url=${req.url} pathname=${pathname}`);
+  // クエリパラメータからトークンを取得（POST body のフォールバック用）
+  const _urlObj = new URL(req.url || "/", `http://localhost:${PORT}`);
+  const qToken = _urlObj.searchParams.get("token") || "";
+
+  if (req.method === "POST" && pathname === "/webhook") {
     let body = "";
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
@@ -834,7 +871,7 @@ const server = http.createServer((req, res) => {
         console.error("Error parsing webhook:", e.message);
       }
     });
-  } else if (req.method === "POST" && req.url === "/api/receipt") {
+  } else if (req.method === "POST" && pathname === "/api/receipt") {
     // レシート処理: 画像アップロード → OCR → Drive保存 → Sheet追記
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
@@ -859,7 +896,7 @@ const server = http.createServer((req, res) => {
 
         const parts = parseMultipart(body, boundaryMatch[1]);
         const tokenPart = parts.find(p => p.name === "token");
-        if (!tokenPart || tokenPart.data.toString() !== env.SHIRATAMA_API_TOKEN) {
+        if ((!tokenPart && !qToken) || (tokenPart ? tokenPart.data.toString() : qToken) !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
           return;
@@ -1223,8 +1260,8 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        // ショートカットからの事業カテゴリをフォールバック適用
-        if (receiptBusiness && (!ocrResult.business || ocrResult.business === "不明")) {
+        // ショートカットで選択した事業区分を常に優先
+        if (receiptBusiness) {
           ocrResult.business = receiptBusiness;
         }
 
@@ -1273,7 +1310,7 @@ const server = http.createServer((req, res) => {
         );
       });
     });
-  } else if (req.method === "POST" && req.url === "/api/voice-input") {
+  } else if (req.method === "POST" && pathname === "/api/voice-input") {
     // 音声入力用の同期文字起こし（Whisper → テキスト返却）
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
@@ -1296,7 +1333,7 @@ const server = http.createServer((req, res) => {
 
       const parts = parseMultipart(raw, boundary);
       const tokenPart = parts.find(p => p.name === "token");
-      if (!tokenPart || tokenPart.data.toString() !== env.SHIRATAMA_API_TOKEN) {
+      if ((!tokenPart && !qToken) || (tokenPart ? tokenPart.data.toString() : qToken) !== env.SHIRATAMA_API_TOKEN) {
         res.writeHead(401, corsHeaders);
         res.end(JSON.stringify({ error: "Unauthorized" }));
         return;
@@ -1348,7 +1385,7 @@ const server = http.createServer((req, res) => {
       }
     });
 
-  } else if (req.method === "POST" && req.url === "/api/transcribe") {
+  } else if (req.method === "POST" && pathname === "/api/transcribe") {
     // 音声文字起こし（mlx-whisper）
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
@@ -1372,7 +1409,7 @@ const server = http.createServer((req, res) => {
       const parts = parseMultipart(body, boundaryMatch[1]);
 
       const tokenPart = parts.find(p => p.name === "token");
-      if (!tokenPart || tokenPart.data.toString() !== env.SHIRATAMA_API_TOKEN) {
+      if ((!tokenPart && !qToken) || (tokenPart ? tokenPart.data.toString() : qToken) !== env.SHIRATAMA_API_TOKEN) {
         res.writeHead(401, corsHeaders);
         res.end(JSON.stringify({ error: "Unauthorized" }));
         return;
@@ -1482,7 +1519,7 @@ const server = http.createServer((req, res) => {
     };
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
     const token = parsedUrl.searchParams.get("token");
-    if (token !== env.SHIRATAMA_API_TOKEN) {
+    if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
       res.writeHead(401, corsHeaders);
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -1509,7 +1546,7 @@ const server = http.createServer((req, res) => {
 
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
     const token = parsedUrl.searchParams.get("token");
-    if (token !== env.SHIRATAMA_API_TOKEN) {
+    if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
       res.writeHead(401, corsHeaders);
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -1555,7 +1592,7 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ transcripts: files }));
     }
 
-  } else if (req.method === "POST" && req.url === "/api/upload") {
+  } else if (req.method === "POST" && pathname === "/api/upload") {
     // ファイルアップロード（画像・PDF等）
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
@@ -1584,7 +1621,7 @@ const server = http.createServer((req, res) => {
 
         // Check token
         const tokenPart = parts.find(p => p.name === "token");
-        if (!tokenPart || tokenPart.data.toString() !== env.SHIRATAMA_API_TOKEN) {
+        if ((!tokenPart && !qToken) || (tokenPart ? tokenPart.data.toString() : qToken) !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
           return;
@@ -1616,7 +1653,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: "Upload failed" }));
       }
     });
-  } else if (req.method === "POST" && req.url === "/api/chat") {
+  } else if (req.method === "POST" && pathname === "/api/chat") {
     // 秘書しらたま PWA 用エンドポイント（非同期：即レスポンス→バックグラウンド処理→Web Push通知）
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
@@ -1633,7 +1670,7 @@ const server = http.createServer((req, res) => {
         const { messages, token, attachments } = JSON.parse(body);
 
         // 簡易認証トークン
-        if (token !== env.SHIRATAMA_API_TOKEN) {
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
           return;
@@ -1860,7 +1897,7 @@ const server = http.createServer((req, res) => {
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ error: "Failed to parse tasks" }));
     }
-  } else if (req.method === "POST" && req.url === "/api/tasks/toggle") {
+  } else if (req.method === "POST" && pathname === "/api/tasks/toggle") {
     // タスクの完了/未完了を切り替え
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
@@ -1873,7 +1910,7 @@ const server = http.createServer((req, res) => {
     req.on("end", () => {
       try {
         const { token, taskText, done } = JSON.parse(body);
-        if (token !== env.SHIRATAMA_API_TOKEN) {
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
           return;
@@ -2103,7 +2140,7 @@ const server = http.createServer((req, res) => {
     const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
     const urlParams = new (require("url").URL)(req.url, "http://localhost").searchParams;
     const token = urlParams.get("token");
-    if (token !== env.SHIRATAMA_API_TOKEN) {
+    if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
       res.writeHead(401, corsHeaders);
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -2128,7 +2165,7 @@ const server = http.createServer((req, res) => {
     const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
     const urlParams = new (require("url").URL)(req.url, "http://localhost").searchParams;
     const token = urlParams.get("token");
-    if (token !== env.SHIRATAMA_API_TOKEN) {
+    if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
       res.writeHead(401, corsHeaders);
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -2259,18 +2296,18 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ error: "Failed to fetch finance data" }));
     }
     })();
-  } else if (req.method === "GET" && req.url === "/api/vapid-public-key") {
+  } else if (req.method === "GET" && pathname === "/api/vapid-public-key") {
     const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
     res.writeHead(200, corsHeaders);
     res.end(JSON.stringify({ publicKey: env.VAPID_PUBLIC_KEY }));
-  } else if (req.method === "POST" && req.url === "/api/push-subscribe") {
+  } else if (req.method === "POST" && pathname === "/api/push-subscribe") {
     const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
     const chunks = [];
     req.on("data", (c) => chunks.push(c));
     req.on("end", () => {
       try {
         const { subscription, token } = JSON.parse(Buffer.concat(chunks).toString());
-        if (token !== env.SHIRATAMA_API_TOKEN) {
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
           return;
@@ -2289,8 +2326,171 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     });
+  // ========== POST /api/push-briefing — ブリーフィングをPWA Push通知で送信 ==========
+  } else if (req.method === "POST" && pathname === "/api/push-briefing") {
+    const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", async () => {
+      try {
+        const { token, title, body } = JSON.parse(Buffer.concat(chunks).toString());
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(401, corsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+        // ブリーフィング本文が長い場合は通知用に短縮
+        const shortBody = body.length > 200 ? body.slice(0, 200) + "..." : body;
+        await sendWebPush(title || "しらたま", shortBody);
+        console.log(`[${new Date().toISOString()}] Briefing push sent`);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true }));
+      } catch (e) {
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+  // ========== GET /api/daily-briefing — 今日のスキャン結果（提案・タスク更新）を返す ==========
+  } else if (req.method === "GET" && req.url?.startsWith("/api/daily-briefing")) {
+    const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+    try {
+      const scanFile = path.join(__dirname, "..", "logs", ".daily-scan.json");
+      if (fs.existsSync(scanFile)) {
+        const data = JSON.parse(fs.readFileSync(scanFile, "utf-8"));
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify(data));
+      } else {
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ calendar_suggestions: [], task_updates: [], date: null }));
+      }
+    } catch (e) {
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ error: e.message }));
+    }
+  // ========== POST /api/calendar-suggestion — カレンダー提案を承認/却下 ==========
+  } else if (req.method === "POST" && pathname === "/api/calendar-suggestion") {
+    const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", async () => {
+      try {
+        const { token, suggestion, action } = JSON.parse(Buffer.concat(chunks).toString());
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(401, corsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+
+        if (action === "approve" && suggestion) {
+          // Google Calendar に登録
+          const calendarId = "primary";
+          const startDateTime = suggestion.time
+            ? `${suggestion.date}T${suggestion.time}:00`
+            : `${suggestion.date}T09:00:00`;
+          const durationMin = suggestion.duration_min || 60;
+          // 時刻文字列を直接計算（タイムゾーン変換を避ける）
+          const [startH, startM] = (suggestion.time || "09:00").split(":").map(Number);
+          const totalMin = startH * 60 + startM + durationMin;
+          const endH = String(Math.floor(totalMin / 60)).padStart(2, "0");
+          const endM = String(totalMin % 60).padStart(2, "0");
+          const endDateTime = `${suggestion.date}T${endH}:${endM}:00`;
+
+          const event = {
+            summary: suggestion.title,
+            description: `[しらたま提案] ${suggestion.reason || ""}\n出典: ${suggestion.source || ""}`,
+            start: suggestion.time
+              ? { dateTime: startDateTime, timeZone: "Asia/Tokyo" }
+              : { date: suggestion.date },
+            end: suggestion.time
+              ? { dateTime: endDateTime, timeZone: "Asia/Tokyo" }
+              : { date: suggestion.date },
+          };
+
+          // Google Calendar API で登録
+          const accessToken = await getGoogleAccessToken();
+          const calData = await googleApiRequest(
+            "POST",
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+            JSON.stringify(event),
+            accessToken,
+            "application/json"
+          );
+          console.log(`[${new Date().toISOString()}] Calendar event created: ${suggestion.title}`);
+
+          // スキャン結果から提案を削除
+          const scanFile = path.join(__dirname, "..", "logs", ".daily-scan.json");
+          if (fs.existsSync(scanFile)) {
+            const scan = JSON.parse(fs.readFileSync(scanFile, "utf-8"));
+            scan.calendar_suggestions = (scan.calendar_suggestions || []).filter(
+              s => s.title !== suggestion.title || s.date !== suggestion.date
+            );
+            fs.writeFileSync(scanFile, JSON.stringify(scan, null, 2));
+          }
+
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify({ success: true, eventId: calData.id }));
+        } else if (action === "dismiss") {
+          // スキャン結果から提案を削除のみ
+          const scanFile = path.join(__dirname, "..", "logs", ".daily-scan.json");
+          if (fs.existsSync(scanFile)) {
+            const scan = JSON.parse(fs.readFileSync(scanFile, "utf-8"));
+            scan.calendar_suggestions = (scan.calendar_suggestions || []).filter(
+              s => s.title !== suggestion.title || s.date !== suggestion.date
+            );
+            fs.writeFileSync(scanFile, JSON.stringify(scan, null, 2));
+          }
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify({ success: true }));
+        } else {
+          res.writeHead(400, corsHeaders);
+          res.end(JSON.stringify({ error: "Invalid action" }));
+        }
+      } catch (e) {
+        console.error("Calendar suggestion error:", e);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+  // ========== POST /api/task-action — タスク更新を承認 ==========
+  } else if (req.method === "POST" && pathname === "/api/task-action") {
+    const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => {
+      try {
+        const { token, task_update, action } = JSON.parse(Buffer.concat(chunks).toString());
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(401, corsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+
+        // スキャン結果から該当タスクを削除
+        const scanFile = path.join(__dirname, "..", "logs", ".daily-scan.json");
+        if (action === "acknowledge" && fs.existsSync(scanFile)) {
+          const scan = JSON.parse(fs.readFileSync(scanFile, "utf-8"));
+          scan.task_updates = (scan.task_updates || []).filter(
+            t => t.title !== task_update.title || t.project !== task_update.project
+          );
+          fs.writeFileSync(scanFile, JSON.stringify(scan, null, 2));
+        }
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true }));
+      } catch (e) {
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
   // ========== POST /api/sync-airbnb-bookings — Airbnb予約メール→カレンダー同期 ==========
-  } else if (req.method === "POST" && req.url === "/api/sync-airbnb-bookings") {
+  } else if (req.method === "POST" && pathname === "/api/sync-airbnb-bookings") {
     const origin = req.headers["origin"] || "";
     const corsHeaders = { "Access-Control-Allow-Origin": origin, "Content-Type": "application/json" };
     let body = "";
@@ -2298,7 +2498,7 @@ const server = http.createServer((req, res) => {
     req.on("end", () => {
       try {
         const { token } = JSON.parse(body || "{}");
-        if (token !== env.SHIRATAMA_API_TOKEN) {
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
           return;
@@ -2419,7 +2619,7 @@ const server = http.createServer((req, res) => {
     })();
 
   // ========== POST /api/expense-memo — ワンタップ経費メモ ==========
-  } else if (req.method === "POST" && req.url === "/api/expense-memo") {
+  } else if (req.method === "POST" && pathname === "/api/expense-memo") {
     const origin = req.headers["origin"] || "";
     const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
 
@@ -2428,7 +2628,7 @@ const server = http.createServer((req, res) => {
     req.on("end", () => {
       try {
         const { token, text, business } = JSON.parse(body);
-        if (token !== env.SHIRATAMA_API_TOKEN) {
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
           return;
@@ -2495,7 +2695,7 @@ const server = http.createServer((req, res) => {
     });
 
   // ========== POST /api/condition — 体調記録 ==========
-  } else if (req.method === "POST" && req.url === "/api/condition") {
+  } else if (req.method === "POST" && pathname === "/api/condition") {
     const origin = req.headers["origin"] || "";
     const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
 
@@ -2504,7 +2704,7 @@ const server = http.createServer((req, res) => {
     req.on("end", () => {
       try {
         const { token, score, note } = JSON.parse(body);
-        if (token !== env.SHIRATAMA_API_TOKEN) {
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
           return;
@@ -2572,6 +2772,67 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, corsHeaders);
     res.end(JSON.stringify({ entries: filtered, average }));
 
+  // ========== GET /api/habits — 習慣トラッキング取得 ==========
+  } else if (req.method === "GET" && req.url?.startsWith("/api/habits")) {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
+
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    const now = new Date();
+    const jst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+    const dateStr = `${jst.getFullYear()}-${String(jst.getMonth() + 1).padStart(2, "0")}-${String(jst.getDate()).padStart(2, "0")}`;
+    const habits = loadHabits(dateStr);
+    // 各習慣のstreak計算
+    const items = habits.items.map(h => ({ ...h, streak: getStreak(h.id) }));
+
+    res.writeHead(200, corsHeaders);
+    res.end(JSON.stringify({ date: habits.date, items }));
+
+  // ========== POST /api/habits — 習慣トグル ==========
+  } else if (req.method === "POST" && pathname === "/api/habits") {
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
+
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+      const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+      if (qToken !== env.SHIRATAMA_API_TOKEN) {
+        res.writeHead(401, corsHeaders);
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+
+      try {
+        const { id, done } = JSON.parse(body);
+        const now = new Date();
+        const jst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+        const dateStr = `${jst.getFullYear()}-${String(jst.getMonth() + 1).padStart(2, "0")}-${String(jst.getDate()).padStart(2, "0")}`;
+        const habits = loadHabits(dateStr);
+        const item = habits.items.find(h => h.id === id);
+        if (!item) {
+          res.writeHead(404, corsHeaders);
+          res.end(JSON.stringify({ error: "Habit not found" }));
+          return;
+        }
+        item.done = typeof done === "boolean" ? done : !item.done;
+        saveHabits(dateStr, habits);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ ok: true, item: { ...item, streak: getStreak(item.id) } }));
+      } catch (e) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+
   // ========== GET /api/templates — 定型文テンプレート取得 ==========
   } else if (req.method === "GET" && req.url?.startsWith("/api/templates") && !req.url?.startsWith("/api/templates/")) {
     const origin = req.headers["origin"] || "";
@@ -2597,7 +2858,7 @@ const server = http.createServer((req, res) => {
     }
 
   // ========== POST /api/templates/use — テンプレート使用（変数置換） ==========
-  } else if (req.method === "POST" && req.url === "/api/templates/use") {
+  } else if (req.method === "POST" && pathname === "/api/templates/use") {
     const origin = req.headers["origin"] || "";
     const corsHeaders = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
 
@@ -2606,7 +2867,7 @@ const server = http.createServer((req, res) => {
     req.on("end", () => {
       try {
         const { token, id, variables } = JSON.parse(body);
-        if (token !== env.SHIRATAMA_API_TOKEN) {
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
           return;
@@ -2792,7 +3053,7 @@ const server = http.createServer((req, res) => {
     const corsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
     const urlParams = new (require("url").URL)(req.url, "http://localhost").searchParams;
     const token = urlParams.get("token");
-    if (token !== env.SHIRATAMA_API_TOKEN) { res.writeHead(401, corsHeaders); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
+    if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) { res.writeHead(401, corsHeaders); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
     const folderId = urlParams.get("folderId"); // null = 最近のファイル表示、指定あり = そのフォルダの中身
     (async () => {
       try {
@@ -2822,7 +3083,7 @@ const server = http.createServer((req, res) => {
     const urlParams = new (require("url").URL)(req.url, "http://localhost").searchParams;
     const token = urlParams.get("token");
     const fileId = urlParams.get("fileId");
-    if (token !== env.SHIRATAMA_API_TOKEN) { res.writeHead(401, corsHeaders); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
+    if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) { res.writeHead(401, corsHeaders); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
     if (!fileId) { res.writeHead(400, corsHeaders); res.end(JSON.stringify({ error: "fileId required" })); return; }
     (async () => {
       try {
@@ -2865,7 +3126,186 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     })();
-  } else if (req.method === "GET" && req.url === "/health") {
+  // ========== GET /api/sns-drafts — SNS投稿案の取得 ==========
+  // ?account=ryosuke_ina  特定アカウント
+  // ?date=2026-03-11      特定日付
+  // パラメータなし → 全アカウントの最新
+  } else if (req.method === "GET" && req.url?.startsWith("/api/sns-drafts")) {
+    const snsCorsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const account = params.get("account");
+    const date = params.get("date");
+    const draftsDir = path.join(REPO_DIR, "logs", ".sns-drafts");
+
+    try {
+      if (!fs.existsSync(draftsDir)) {
+        res.writeHead(200, snsCorsHeaders);
+        res.end(JSON.stringify({ drafts: [], message: "No drafts yet" }));
+        return;
+      }
+
+      const files = fs.readdirSync(draftsDir).filter(f => f.endsWith(".json") && !f.startsWith("summary"));
+      const drafts = [];
+
+      for (const file of files) {
+        const match = file.match(/^(.+?)-(latest|\d{4}-\d{2}-\d{2})\.json$/);
+        if (!match) continue;
+        const fileAccount = match[1];
+        const fileDate = match[2];
+
+        if (account && fileAccount !== account) continue;
+        if (date && fileDate !== date && fileDate !== "latest") continue;
+        if (!date && fileDate !== "latest") continue; // デフォルトは latest のみ
+
+        try {
+          const data = JSON.parse(fs.readFileSync(path.join(draftsDir, file), "utf-8"));
+          drafts.push({ file, account: fileAccount, date: fileDate, ...data });
+        } catch {}
+      }
+
+      res.writeHead(200, snsCorsHeaders);
+      res.end(JSON.stringify({ drafts }));
+    } catch (e) {
+      res.writeHead(500, snsCorsHeaders);
+      res.end(JSON.stringify({ error: e.message }));
+    }
+
+  // ========== POST /api/sns-generate — SNS投稿案を生成（非同期） ==========
+  } else if (req.method === "POST" && pathname === "/api/sns-generate") {
+    const snsGenCorsHeaders = { "Access-Control-Allow-Origin": req.headers["origin"] || "*", "Content-Type": "application/json" };
+    const bodyChunks = [];
+    req.on("data", chunk => bodyChunks.push(chunk));
+    req.on("end", () => {
+      try {
+        const body = Buffer.concat(bodyChunks).toString();
+        const { token, account, theme, photoDescription, photo } = JSON.parse(body);
+        if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
+          res.writeHead(403, snsGenCorsHeaders);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+
+        res.writeHead(202, snsGenCorsHeaders);
+        res.end(JSON.stringify({ status: "generating", account: account || "all" }));
+
+        // 写真が添付されている場合、ファイルに保存
+        let photoPath = "";
+        if (photo) {
+          try {
+            const photoBuffer = Buffer.from(photo, "base64");
+            photoPath = `/tmp/sns-photo-${Date.now()}.jpg`;
+            require("fs").writeFileSync(photoPath, photoBuffer);
+            console.log(`Saved photo: ${photoPath} (${(photoBuffer.length / 1024).toFixed(0)}KB)`);
+          } catch (e) {
+            console.error("Failed to save photo:", e.message);
+          }
+        }
+
+        // バックグラウンドで生成
+        const scriptPath = path.join(__dirname, "sns-generate.sh");
+        const args = [];
+        if (account) args.push(account);
+        // テーマ or 写真説明をコンテキストとして渡す
+        let extraContext = "";
+        if (theme) extraContext += `テーマ指定: ${theme}\n`;
+        if (photoDescription) extraContext += `写真の補足説明: ${photoDescription}\n`;
+
+        const envVars = {
+          ...process.env,
+          PATH: "/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+        };
+        if (extraContext) envVars.EXTRA_CONTEXT = extraContext;
+        if (photoPath) envVars.PHOTO_PATH = photoPath;
+
+        const cmd = `bash "${scriptPath}" ${args.join(" ")}`;
+        const child = require("child_process").exec(cmd, {
+          cwd: REPO_DIR,
+          timeout: 600000,
+          env: envVars,
+        });
+        child.on("close", (code) => {
+          console.log(`sns-generate ${account || "all"} exited with code ${code}`);
+          // 写真の一時ファイルを削除
+          if (photoPath) {
+            try { require("fs").unlinkSync(photoPath); } catch {}
+          }
+          sendWebPush(
+            "SNS投稿案が完成しました",
+            `@${account || "全アカウント"} の投稿案を生成しました。しらたまで確認してください。`
+          );
+        });
+      } catch (e) {
+        res.writeHead(400, snsGenCorsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+
+  // ========== POST /api/dx-hearing — DXヒアリング回答受信 → 提案書自動生成 + LINE通知 ==========
+  } else if (req.method === "POST" && pathname === "/api/dx-hearing") {
+    const dxCorsHeaders = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
+    let bodyChunks = [];
+    req.on("data", (chunk) => bodyChunks.push(chunk));
+    req.on("end", () => {
+      try {
+        const body = JSON.parse(Buffer.concat(bodyChunks).toString());
+        console.log(`[${new Date().toISOString()}] DX Hearing received: ${body.name} - ${body.consultation_type}`);
+
+        // 1. データ保存
+        const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+        const proposalDir = path.join(hearingDir, "proposals");
+        if (!fs.existsSync(hearingDir)) fs.mkdirSync(hearingDir, { recursive: true });
+        if (!fs.existsSync(proposalDir)) fs.mkdirSync(proposalDir, { recursive: true });
+
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+        const caseId = `DX-${dateStr}-${(body.form_response_id || "").slice(0, 6) || String(now.getTime()).slice(-6)}`;
+        const safeName = (body.name || "unknown").replace(/[\/\\:*?"<>|]/g, "_");
+        const jsonFile = path.join(hearingDir, `${caseId}-${safeName}-${dateStr}.json`);
+
+        fs.writeFileSync(jsonFile, JSON.stringify(body, null, 2), "utf-8");
+        console.log(`Saved hearing data: ${jsonFile}`);
+
+        // 2. 見積もり算出
+        const estimate = estimateDXBudget(body);
+
+        // 3. 提案書Markdown生成
+        const proposal = generateDXProposal(body, caseId, estimate);
+        const proposalFile = path.join(proposalDir, `${caseId}-提案書.md`);
+        fs.writeFileSync(proposalFile, proposal, "utf-8");
+        console.log(`Generated proposal: ${proposalFile}`);
+
+        // 4. LINE通知
+        const lineMsg = [
+          `📋 新規DXヒアリング`,
+          ``,
+          `👤 ${body.name || "不明"}（${body.company || "不明"}）`,
+          `📍 ${body.prefecture || "不明"} / ${body.industry || "不明"}`,
+          `💬 ${body.consultation_type || "不明"}`,
+          ``,
+          `📝 ${(body.problem_detail || "詳細なし").substring(0, 100)}${(body.problem_detail || "").length > 100 ? "..." : ""}`,
+          ``,
+          `💰 予算: ${body.budget || "未回答"}`,
+          `📅 希望納期: ${body.deadline || "未回答"}`,
+          `🏷 補助金: ${body.subsidy_interest || "未回答"}`,
+          `💵 概算見積もり: ¥${estimate.toLocaleString()}`,
+          ``,
+          `📄 提案書: 生成済み`,
+          `→ ${proposalFile}`,
+        ].join("\n");
+
+        pushLineMessage(lineMsg);
+
+        res.writeHead(200, dxCorsHeaders);
+        res.end(JSON.stringify({ success: true, case_id: caseId, proposal_path: proposalFile, estimate }));
+
+      } catch (e) {
+        console.error("DX Hearing error:", e.message);
+        res.writeHead(500, dxCorsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+
+  } else if (req.method === "GET" && pathname === "/health") {
     res.writeHead(200);
     res.end("OK");
   } else {
@@ -2937,8 +3377,383 @@ async function processMessage(userMessage) {
   }
 }
 
+// ========== イベントリマインダー（5分ごと） ==========
+const sentReminders = new Set();
+let lastReminderDate = new Date().toDateString();
+
+async function checkEventReminders() {
+  try {
+    const now = new Date();
+    // 日替わりで送信済みSetをリセット
+    if (now.toDateString() !== lastReminderDate) {
+      sentReminders.clear();
+      lastReminderDate = now.toDateString();
+    }
+
+    const gToken = await getGoogleAccessToken();
+    const calendarIds = [
+      "r.inafuku@tonari2tomaru.com",
+      "9c0d4af92a70ced546b135411feda7120c9fd874beda1363874c03faf8953f18@group.calendar.google.com",
+      "misocacoffee@gmail.com",
+      "4651f62429c52388651033e5b59f4cb81a418694431ab262748b231c663e461f@group.calendar.google.com",
+      "engawa.yanagawa@gmail.com",
+      "b6ff2100d451e679aa52c0afca510ce6268b673ddb904e7526c5bec7fb38836a@group.calendar.google.com",
+    ];
+
+    const timeMin = now.toISOString();
+    const future = new Date(now.getTime() + 20 * 60 * 1000); // 20分先まで
+    const timeMax = future.toISOString();
+
+    for (const calId of calendarIds) {
+      try {
+        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&fields=items(id,summary,start,end,status)`;
+        const result = await googleApiRequest("GET", url, null, gToken);
+        if (!result.items) continue;
+        for (const ev of result.items) {
+          if (ev.status === "cancelled" || !ev.start.dateTime) continue;
+          const eventStart = new Date(ev.start.dateTime);
+          const diffMin = (eventStart.getTime() - now.getTime()) / 60000;
+          // 15分前〜0分前の範囲で通知
+          if (diffMin >= 0 && diffMin <= 15) {
+            const reminderId = `${ev.id}_${ev.start.dateTime}`;
+            if (!sentReminders.has(reminderId)) {
+              sentReminders.add(reminderId);
+              const timeStr = eventStart.toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hour12: false });
+              const title = ev.summary || "(予定)";
+              const minLeft = Math.round(diffMin);
+              await sendWebPush("まもなく予定", `${timeStr} ${title}（あと${minLeft}分）`);
+              console.log(`[Reminder] Sent: ${title} at ${timeStr} (${minLeft}min left)`);
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`[Reminder] Calendar error (${calId}):`, e.message);
+      }
+    }
+  } catch (e) {
+    console.error("[Reminder] Check failed:", e.message);
+  }
+}
+
+setInterval(checkEventReminders, 5 * 60 * 1000); // 5分ごと
+setTimeout(checkEventReminders, 10 * 1000); // 起動10秒後に初回チェック
+
+// ========== 習慣トラッキングAPI ==========
+const HABITS_DIR = path.join(REPO_DIR, "logs", "habits");
+const HABIT_CONFIG_FILE = path.join(REPO_DIR, "logs", ".habit-config.json");
+
+function getDefaultHabits() {
+  try {
+    return JSON.parse(fs.readFileSync(HABIT_CONFIG_FILE, "utf-8"));
+  } catch {
+    return [
+      { id: "exercise", label: "運動", icon: "🏃" },
+      { id: "reading", label: "読書", icon: "📖" },
+      { id: "journal", label: "日記", icon: "✍️" },
+    ];
+  }
+}
+
+function getTodayHabitsPath(dateStr) {
+  return path.join(HABITS_DIR, `${dateStr}.json`);
+}
+
+function loadHabits(dateStr) {
+  const filePath = getTodayHabitsPath(dateStr);
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  } catch {
+    // 新しい日 → デフォルトから生成
+    const defaults = getDefaultHabits();
+    return {
+      date: dateStr,
+      items: defaults.map(h => ({ ...h, done: false })),
+    };
+  }
+}
+
+function saveHabits(dateStr, data) {
+  if (!fs.existsSync(HABITS_DIR)) fs.mkdirSync(HABITS_DIR, { recursive: true });
+  fs.writeFileSync(getTodayHabitsPath(dateStr), JSON.stringify(data, null, 2));
+}
+
+function getStreak(habitId) {
+  const today = new Date();
+  let streak = 0;
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const filePath = getTodayHabitsPath(dateStr);
+    try {
+      const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+      const item = data.items.find(h => h.id === habitId);
+      if (item && item.done) {
+        streak++;
+      } else {
+        // 今日はまだ未完了でもOK（カウント続行）、昨日以前で途切れたらbreak
+        if (i > 0) break;
+      }
+    } catch {
+      if (i > 0) break;
+    }
+  }
+  return streak;
+}
+
+// ========== DXヒアリング: 見積もり算出 ==========
+function estimateDXBudget(data) {
+  let base = 0;
+  const type = data.consultation_type || "";
+
+  if (type.includes("EC")) {
+    base = 200000;
+    if (data.product_count === "21〜50点") base += 50000;
+    if (data.product_count === "51点以上") base += 100000;
+    if (data.subscription_need === "あり") base += 50000;
+    if (data.shipping_fee_type === "地域別") base += 30000;
+  } else if (type.includes("Web") || type.includes("サイト")) {
+    base = 100000;
+    if (data.page_count === "6〜10ページ") base += 50000;
+    if (data.page_count === "10ページ以上") base += 100000;
+    if (data.logo_status === "ない（作ってほしい）") base += 30000;
+  } else if (type.includes("業務") || type.includes("効率") || type.includes("改善")) {
+    base = 50000;
+    const taskCount = Array.isArray(data.tasks_to_simplify) ? data.tasks_to_simplify.length : 1;
+    base += (taskCount - 1) * 30000;
+  } else {
+    base = 100000;
+  }
+
+  return base;
+}
+
+// ========== DXヒアリング: 提案書Markdown生成 ==========
+function generateDXProposal(data, caseId, estimate) {
+  const type = data.consultation_type || "不明";
+  const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+
+  let techStack = "";
+  let features = "";
+  let currentAnalysis = "";
+  let schedule = "";
+
+  if (type.includes("EC")) {
+    const payments = Array.isArray(data.payment_methods) ? data.payment_methods.join("・") : "クレジットカード";
+    const shipping = Array.isArray(data.shipping_method) ? data.shipping_method.join("・") : "常温";
+    const salesCh = Array.isArray(data.sales_channels) ? data.sales_channels.join("・") : "未回答";
+
+    currentAnalysis = [
+      `- 現在の販売チャネル: ${salesCh}`,
+      `- 商品数: ${data.product_count || "未回答"}`,
+      `- 発送方法: ${shipping}`,
+      `- 配送エリア: ${data.delivery_area || "未回答"}`,
+      `- 送料体系: ${data.shipping_fee_type || "未回答"}`,
+      `- 月間注文数: ${data.monthly_orders || "未回答"}`,
+      `- 在庫管理: ${data.inventory_management || "未回答"}`,
+      `- 商品写真: ${data.photo_status || "未回答"}`,
+    ].join("\n");
+
+    techStack = [
+      `- フレームワーク: Next.js（高速・SEO対応）`,
+      `- 決済: Stripe（${payments} 対応）`,
+      `- データベース: Supabase（管理画面付き・無料枠で運用可能）`,
+      `- メール: Brevo（顧客管理+メルマガ配信）`,
+      `- ホスティング: Vercel（自動デプロイ・高速配信）`,
+    ].join("\n");
+
+    const featureList = [
+      "- [ ] 商品一覧・詳細ページ",
+      "- [ ] カート・購入フロー",
+      `- [ ] 決済連携（${payments}）`,
+      "- [ ] 注文管理（Supabase管理画面）",
+      "- [ ] 顧客管理",
+      "- [ ] メルマガ配信",
+    ];
+    if (data.subscription_need === "あり" || data.subscription_need === "将来的に検討") {
+      featureList.push("- [ ] 定期購入機能");
+    }
+    if (data.return_policy === "対応する") {
+      featureList.push("- [ ] 返品・交換管理");
+    }
+    features = featureList.join("\n");
+
+    schedule = [
+      `- フェーズ1（設計）: 2週間`,
+      `- フェーズ2（実装）: 3〜4週間`,
+      `- フェーズ3（テスト・調整）: 1〜2週間`,
+      `- 納品目標: ${data.deadline || "要相談"} 以内`,
+    ].join("\n");
+
+  } else if (type.includes("Web") || type.includes("サイト")) {
+    const purposes = Array.isArray(data.site_purpose) ? data.site_purpose.join("・") : "会社紹介";
+
+    currentAnalysis = [
+      `- サイトの目的: ${purposes}`,
+      `- ページ数: ${data.page_count || "未回答"}`,
+      `- コンテンツ準備状況: ${data.content_status || "未回答"}`,
+      `- ロゴ: ${data.logo_status || "未回答"}`,
+      `- ドメイン: ${data.domain_status || "未回答"}`,
+    ].join("\n");
+
+    techStack = [
+      `- フレームワーク: Next.js（高速・SEO対応）`,
+      `- ホスティング: Vercel（自動デプロイ・高速配信）`,
+      `- CMS: Notion API（更新の手軽さ重視の場合）`,
+      `- お問い合わせ: Google Forms or カスタムフォーム`,
+    ].join("\n");
+
+    const featureList = [
+      "- [ ] トップページ",
+      "- [ ] 会社/事業紹介ページ",
+      "- [ ] お問い合わせフォーム",
+      "- [ ] スマホ対応（レスポンシブ）",
+      "- [ ] SEO基本設定",
+    ];
+    if (purposes.includes("集客") || purposes.includes("ブログ")) {
+      featureList.push("- [ ] ブログ/お知らせ機能");
+    }
+    if (data.logo_status === "ない（作ってほしい）") {
+      featureList.push("- [ ] ロゴデザイン");
+    }
+    features = featureList.join("\n");
+
+    schedule = [
+      `- フェーズ1（設計・ワイヤーフレーム）: 1〜2週間`,
+      `- フェーズ2（実装）: 2〜3週間`,
+      `- フェーズ3（調整・公開）: 1週間`,
+      `- 納品目標: ${data.deadline || "要相談"} 以内`,
+    ].join("\n");
+
+  } else {
+    // 業務改善・効率化 or その他
+    const tasks = Array.isArray(data.tasks_to_simplify) ? data.tasks_to_simplify.join("・") : "未指定";
+    const pains = Array.isArray(data.pain_points) ? data.pain_points.join("・") : "未回答";
+    const methods = Array.isArray(data.current_method) ? data.current_method.join("・") : "未回答";
+
+    currentAnalysis = [
+      `- 効率化したい業務: ${tasks}`,
+      `- 頻度: ${data.frequency || "未回答"}`,
+      `- 1回あたりの所要時間: ${data.time_per_task || "未回答"}`,
+      `- 現在のやり方: ${methods}`,
+      `- ルール・手順書: ${data.has_rules || "未回答"}`,
+      `- 困っていること: ${pains}`,
+      `- 期待する効果: ${data.desired_outcome || "未回答"}`,
+    ].join("\n");
+
+    // タスクに応じた技術スタック提案
+    const stackItems = [`- ワークフロー自動化: Google Apps Script (GAS)`];
+    if (tasks.includes("見積") || tasks.includes("請求")) {
+      stackItems.push("- 見積書・請求書: GAS + テンプレート自動生成");
+    }
+    if (tasks.includes("スケジュール") || tasks.includes("予約")) {
+      stackItems.push("- 予約管理: Google Calendar API + Webフォーム");
+    }
+    if (tasks.includes("顧客") || tasks.includes("連絡先")) {
+      stackItems.push("- 顧客管理: スプレッドシート + GAS or Supabase");
+    }
+    if (tasks.includes("データ") || tasks.includes("集計") || tasks.includes("入力")) {
+      stackItems.push("- データ入力・集計: GAS + スプレッドシート自動化");
+    }
+    if (tasks.includes("SNS") || tasks.includes("メール") || tasks.includes("配信")) {
+      stackItems.push("- 配信自動化: Make or GAS + メールサービス連携");
+    }
+    techStack = stackItems.join("\n");
+
+    const featureList = [
+      "- [ ] 現行業務フローの整理・可視化",
+      "- [ ] 自動化スクリプト構築",
+      "- [ ] テスト・動作確認",
+      "- [ ] 運用マニュアル作成",
+      "- [ ] 操作レクチャー（オンライン）",
+    ];
+    features = featureList.join("\n");
+
+    schedule = [
+      `- フェーズ1（ヒアリング・設計）: 1週間`,
+      `- フェーズ2（構築・テスト）: 1〜2週間`,
+      `- フェーズ3（レクチャー・引き渡し）: 1週間`,
+      `- 納品目標: ${data.deadline || "要相談"} 以内`,
+    ].join("\n");
+  }
+
+  const subsidyNote = data.subsidy_interest === "興味はある" || data.subsidy_interest === "申請予定"
+    ? `\n> 💡 **補助金のご活用について**\n> IT導入補助金（補助率1/2）や小規模事業者持続化補助金（補助率2/3、上限50万円）の活用で、実質負担を大幅に軽減できます。申請サポートも行っておりますので、お気軽にご相談ください。\n`
+    : "";
+
+  return [
+    `# DX支援 提案書`,
+    ``,
+    `| 項目 | 内容 |`,
+    `|---|---|`,
+    `| 案件ID | ${caseId} |`,
+    `| 作成日 | ${today} |`,
+    `| ステータス | 初回提案 |`,
+    ``,
+    `---`,
+    ``,
+    `## お客様情報`,
+    ``,
+    `- お名前: ${data.name || "不明"}`,
+    `- 会社名: ${data.company || "不明"}`,
+    `- 業種: ${data.industry || "不明"}`,
+    `- 所在地: ${data.prefecture || "不明"}`,
+    `- チーム規模: ${data.team_size || "不明"}`,
+    `- ご連絡先: ${data.email || ""} / ${data.phone_or_line || ""}`,
+    ``,
+    `## ご相談内容`,
+    ``,
+    `**${type}**`,
+    ``,
+    `${data.problem_detail || "詳細なし"}`,
+    ``,
+    data.reference_url ? `参考URL: ${data.reference_url}\n` : "",
+    data.existing_url ? `既存サイト/SNS: ${data.existing_url}\n` : "",
+    `## 現状分析`,
+    ``,
+    currentAnalysis,
+    ``,
+    `## ご提案`,
+    ``,
+    `### 技術スタック`,
+    ``,
+    techStack,
+    ``,
+    `### 機能一覧`,
+    ``,
+    features,
+    ``,
+    `### 概算見積もり`,
+    ``,
+    `| 項目 | 金額 |`,
+    `|---|---|`,
+    `| ${type}（設計+実装） | ¥${estimate.toLocaleString()} |`,
+    `| 運用レクチャー | 含む |`,
+    `| **合計** | **¥${estimate.toLocaleString()}** |`,
+    ``,
+    `※ 正式な見積もりはヒアリング後に作成いたします`,
+    subsidyNote,
+    `### スケジュール案`,
+    ``,
+    schedule,
+    ``,
+    `---`,
+    ``,
+    `## 次のステップ`,
+    ``,
+    `1. オンラインヒアリング（30分〜1時間）で詳細を確認`,
+    `2. 正式見積もり・スケジュール提示`,
+    `3. ご契約・着手`,
+    ``,
+    `---`,
+    ``,
+    `*SATOYAMA AI BASE — AI × DX で、ビジネスをもっとシンプルに。*`,
+  ].filter(line => line !== "").join("\n");
+}
+
 server.listen(PORT, () => {
   console.log(`LINE Webhook server running on port ${PORT}`);
   console.log(`Conversation timeout: ${CONVERSATION_TIMEOUT / 1000}s`);
   console.log(`Claude timeout: ${CLAUDE_TIMEOUT / 1000}s`);
+  console.log(`Event reminders: every 5 minutes`);
 });
