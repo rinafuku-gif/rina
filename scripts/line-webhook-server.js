@@ -3435,9 +3435,21 @@ const server = http.createServer((req, res) => {
           console.error("[DX Cases] Notion status update failed:", err.message);
         });
 
-        // GOサインの場合はLINE通知
+        // GOサインの場合 → 自動実装パイプライン起動
         if (body.status === "GO済み") {
-          pushLineMessage(`🚀 DX案件GOサイン\n\n案件ID: ${caseId}\n→ 実装準備を開始します`);
+          pushLineMessage(`🚀 DX案件GOサイン\n\n案件ID: ${caseId}\n→ 自動実装を開始します`);
+          // 非同期で実装パイプラインを起動（レスポンスはすぐ返す）
+          runDxImplementation(caseId).catch(err => {
+            console.error(`[DX Impl] Pipeline error: ${err.message}`);
+          });
+        }
+
+        // 修正依頼の場合 → 修正パイプライン起動
+        if (body.status === "修正中" && body.revisionNote) {
+          pushLineMessage(`🔧 DX案件修正依頼\n\n案件ID: ${caseId}\n修正内容: ${body.revisionNote.substring(0, 100)}`);
+          runDxRevision(caseId, body.revisionNote).catch(err => {
+            console.error(`[DX Revision] Pipeline error: ${err.message}`);
+          });
         }
 
         res.writeHead(200, dxCorsHeaders);
@@ -4072,6 +4084,233 @@ async function updateNotionDXStatus(caseId, newStatus) {
   if (updateRes.ok) {
     console.log(`[Notion] ステータス更新: ${caseId} → ${newStatus}`);
   }
+}
+
+// ========== DX自動実装パイプライン (Phase 2) ==========
+const DX_PROJECTS_DIR = "/Users/Inaryo/dx-projects";
+
+function updateDxStatus(caseId, updates) {
+  const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+  const statusFile = path.join(hearingDir, `${caseId}-status.json`);
+  let statusData = { status: "問い合わせ", revisionHistory: [] };
+  if (fs.existsSync(statusFile)) {
+    statusData = JSON.parse(fs.readFileSync(statusFile, "utf-8"));
+  }
+  Object.assign(statusData, updates, { updatedAt: new Date().toISOString() });
+  fs.writeFileSync(statusFile, JSON.stringify(statusData, null, 2), "utf-8");
+  // Notion同期
+  if (updates.status) {
+    updateNotionDXStatus(caseId, updates.status).catch(() => {});
+  }
+  return statusData;
+}
+
+async function runDxImplementation(caseId) {
+  const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+  const proposalDir = path.join(hearingDir, "proposals");
+
+  try {
+    // 1. ステータスを「実装中」に更新
+    updateDxStatus(caseId, { status: "実装中" });
+    pushLineMessage(`⚙️ ${caseId}: 自動実装を開始しました`);
+
+    // 2. ヒアリングデータと提案書を読み込む
+    const jsonFiles = fs.readdirSync(hearingDir).filter(f => f.startsWith(caseId) && f.endsWith(".json") && !f.includes("status"));
+    if (jsonFiles.length === 0) throw new Error("ヒアリングデータが見つかりません");
+    const hearingData = JSON.parse(fs.readFileSync(path.join(hearingDir, jsonFiles[0]), "utf-8"));
+
+    const proposalFiles = fs.readdirSync(proposalDir).filter(f => f.startsWith(caseId) && f.endsWith(".md"));
+    const proposal = proposalFiles.length > 0
+      ? fs.readFileSync(path.join(proposalDir, proposalFiles[0]), "utf-8")
+      : "";
+
+    // 3. プロジェクトディレクトリ作成
+    const projectDir = path.join(DX_PROJECTS_DIR, caseId);
+    if (!fs.existsSync(projectDir)) fs.mkdirSync(projectDir, { recursive: true });
+
+    // 4. CLAUDE.md（実装指示書）を配置
+    const claudeMd = buildImplementationPrompt(hearingData, proposal, caseId);
+    fs.writeFileSync(path.join(projectDir, "CLAUDE.md"), claudeMd, "utf-8");
+
+    // 5. Claude Code CLIで実装
+    console.log(`[DX Impl] ${caseId}: Claude Code CLI実装開始...`);
+    const implPrompt = `このディレクトリにCLAUDE.mdの指示に従ってプロジェクトを実装してください。
+まずCLAUDE.mdを読み、その指示通りにプロジェクトを構築してください。
+すべてのファイルを作成し、npm installも実行してください。
+最後にnpm run buildでビルドが通ることを確認してください。`;
+
+    const tmpFile = path.join(REPO_DIR, "logs", `.dx-impl-${caseId}.txt`);
+    fs.writeFileSync(tmpFile, implPrompt, "utf-8");
+
+    const execEnv = { ...process.env, HOME: "/Users/Inaryo", PATH: process.env.PATH };
+
+    execSync(
+      `cat "${tmpFile}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`,
+      {
+        encoding: "utf-8",
+        timeout: 600000, // 10分
+        maxBuffer: 10 * 1024 * 1024,
+        env: execEnv,
+        cwd: projectDir,
+      }
+    );
+    try { fs.unlinkSync(tmpFile); } catch {}
+
+    console.log(`[DX Impl] ${caseId}: 実装完了。デプロイ開始...`);
+    pushLineMessage(`✅ ${caseId}: 実装完了。Vercelデプロイ中...`);
+
+    // 6. Vercelにデプロイ
+    const deployUrl = await deployToVercel(projectDir, caseId);
+
+    // 7. ステータスを「デプロイ済み」に更新
+    updateDxStatus(caseId, { status: "デプロイ済み", deployUrl });
+    pushLineMessage(`🎉 ${caseId}: デプロイ完了！\n\nプレビュー: ${deployUrl}\n\nしらたまのDXタブで確認・修正指示ができます`);
+
+  } catch (error) {
+    console.error(`[DX Impl] ${caseId}: エラー:`, error.message);
+    updateDxStatus(caseId, { status: "GO済み", implError: error.message });
+    pushLineMessage(`❌ ${caseId}: 自動実装でエラーが発生しました\n\n${error.message.substring(0, 200)}\n\nターミナルで確認してください`);
+  }
+}
+
+async function runDxRevision(caseId, revisionNote) {
+  const projectDir = path.join(DX_PROJECTS_DIR, caseId);
+
+  try {
+    if (!fs.existsSync(projectDir)) {
+      throw new Error("プロジェクトディレクトリが見つかりません。先にGOサインで実装を完了してください。");
+    }
+
+    updateDxStatus(caseId, { status: "実装中" });
+    pushLineMessage(`🔧 ${caseId}: 修正を開始しました\n\n${revisionNote.substring(0, 100)}`);
+
+    // Claude Code CLIで修正
+    const revisionPrompt = `以下の修正を行ってください。修正後にnpm run buildでビルドが通ることを確認してください。
+
+## 修正内容
+${revisionNote}
+
+## 注意
+- 既存のコードベースを壊さないでください
+- 修正箇所以外は変更しないでください
+- ビルドエラーが出たら修正してください`;
+
+    const tmpFile = path.join(REPO_DIR, "logs", `.dx-revision-${caseId}.txt`);
+    fs.writeFileSync(tmpFile, revisionPrompt, "utf-8");
+
+    const execEnv = { ...process.env, HOME: "/Users/Inaryo", PATH: process.env.PATH };
+
+    execSync(
+      `cat "${tmpFile}" | "${CLAUDE_PATH}" -p --model claude-sonnet-4-6 --dangerously-skip-permissions`,
+      {
+        encoding: "utf-8",
+        timeout: 300000, // 5分
+        maxBuffer: 10 * 1024 * 1024,
+        env: execEnv,
+        cwd: projectDir,
+      }
+    );
+    try { fs.unlinkSync(tmpFile); } catch {}
+
+    console.log(`[DX Revision] ${caseId}: 修正完了。再デプロイ開始...`);
+
+    // 再デプロイ
+    const deployUrl = await deployToVercel(projectDir, caseId);
+
+    updateDxStatus(caseId, { status: "デプロイ済み", deployUrl });
+    pushLineMessage(`✅ ${caseId}: 修正＆再デプロイ完了！\n\nプレビュー: ${deployUrl}`);
+
+  } catch (error) {
+    console.error(`[DX Revision] ${caseId}: エラー:`, error.message);
+    updateDxStatus(caseId, { status: "デプロイ済み", implError: error.message });
+    pushLineMessage(`❌ ${caseId}: 修正でエラーが発生しました\n\n${error.message.substring(0, 200)}`);
+  }
+}
+
+async function deployToVercel(projectDir, caseId) {
+  const execEnv = { ...process.env, HOME: "/Users/Inaryo", PATH: process.env.PATH };
+  const safeName = caseId.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+
+  try {
+    // Vercel CLIでデプロイ（プロジェクト名を指定、確認プロンプトをスキップ）
+    const result = execSync(
+      `npx vercel deploy --prod --yes --name "${safeName}" 2>&1`,
+      {
+        encoding: "utf-8",
+        timeout: 180000, // 3分
+        maxBuffer: 5 * 1024 * 1024,
+        env: execEnv,
+        cwd: projectDir,
+      }
+    );
+
+    // デプロイURLを抽出（Vercel CLIの出力から）
+    const lines = result.trim().split("\n");
+    const urlLine = lines.find(l => l.includes("https://") && l.includes(".vercel.app"));
+    if (urlLine) {
+      const match = urlLine.match(/(https:\/\/[^\s]+\.vercel\.app[^\s]*)/);
+      if (match) return match[1];
+    }
+
+    // フォールバック: プロジェクト名からURL推測
+    return `https://${safeName}.vercel.app`;
+  } catch (error) {
+    console.error(`[Vercel Deploy] ${caseId}: デプロイエラー:`, error.message);
+    // エラーでもURLを推測して返す
+    return `https://${safeName}.vercel.app`;
+  }
+}
+
+function buildImplementationPrompt(hearingData, proposal, caseId) {
+  const clientName = hearingData.company || hearingData.name || "クライアント";
+  return `# ${clientName} 様向けプロジェクト実装指示書
+
+## 案件ID: ${caseId}
+
+## クライアント情報
+- お名前: ${hearingData.name || "不明"}
+- 会社名: ${hearingData.company || "個人"}
+- 業種: ${hearingData.industry || "不明"}
+- ご相談内容: ${hearingData.consultation_type || "不明"}
+- 予算: ${hearingData.budget || "未回答"}
+- 希望納期: ${hearingData.deadline || "未回答"}
+
+## お困りごと
+${hearingData.problem_detail || "詳細なし"}
+
+## AI提案書（この内容に沿って実装する）
+
+${proposal}
+
+## 実装ルール
+
+### 技術スタック
+- 提案書内の技術スタックに従うこと
+- 特に指定がない場合: Next.js + Tailwind CSS + TypeScript
+- デプロイ先: Vercel（静的サイトまたはServerless Functions）
+
+### コード品質
+- TypeScriptを使用し、型安全なコードを書く
+- モバイルファースト・レスポンシブデザイン
+- 日本語UIで、温かみのあるデザイン
+- SEO基本対応（メタタグ、OGP）
+
+### プロジェクト構成
+- package.json に "build" スクリプトを必ず含める
+- README.md にプロジェクト概要と起動方法を記載
+- .gitignore を適切に設定
+- 環境変数が必要な場合は .env.example を作成
+
+### デザイン方針
+- クライアントの業種・ターゲットに合ったデザイン
+- シンプルで使いやすいUI
+- アクセシビリティに配慮
+
+### 納品物
+- 完全に動作するWebアプリケーション/サイト
+- npm run build でエラーなくビルドできること
+- デモデータ（必要に応じて）
+`;
 }
 
 function extractEstimateFromProposal(proposalMarkdown) {
