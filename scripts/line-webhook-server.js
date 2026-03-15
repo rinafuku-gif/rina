@@ -3245,6 +3245,209 @@ const server = http.createServer((req, res) => {
       }
     });
 
+  // ========== GET /api/dx-cases — DX案件一覧 ==========
+  } else if (req.method === "GET" && pathname === "/api/dx-cases") {
+    const dxCorsHeaders = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, dxCorsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    try {
+      const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+      const proposalDir = path.join(hearingDir, "proposals");
+      const cases = [];
+
+      if (fs.existsSync(hearingDir)) {
+        const files = fs.readdirSync(hearingDir).filter(f => f.endsWith(".json"));
+        for (const file of files) {
+          try {
+            const data = JSON.parse(fs.readFileSync(path.join(hearingDir, file), "utf-8"));
+            const caseId = file.match(/^(DX-[0-9]+-[a-zA-Z0-9_]+)/)?.[1] || file.replace(".json", "");
+
+            // 提案書の存在チェック
+            const proposalFiles = fs.existsSync(proposalDir)
+              ? fs.readdirSync(proposalDir).filter(f => f.startsWith(caseId) && f.endsWith(".md"))
+              : [];
+            const hasProposal = proposalFiles.length > 0;
+
+            // 提案書から金額抽出
+            let estimatedAmount = null;
+            if (hasProposal) {
+              const proposalContent = fs.readFileSync(path.join(proposalDir, proposalFiles[0]), "utf-8");
+              estimatedAmount = extractEstimateFromProposal(proposalContent);
+            }
+
+            // ステータスファイルがあれば読む、なければ推定
+            const statusFile = path.join(hearingDir, `${caseId}-status.json`);
+            let status = "問い合わせ";
+            let deployUrl = null;
+            let revisionNote = null;
+            if (fs.existsSync(statusFile)) {
+              const statusData = JSON.parse(fs.readFileSync(statusFile, "utf-8"));
+              status = statusData.status || status;
+              deployUrl = statusData.deployUrl || null;
+              revisionNote = statusData.revisionNote || null;
+            } else if (hasProposal) {
+              status = "提案中";
+            }
+
+            const stat = fs.statSync(path.join(hearingDir, file));
+            cases.push({
+              caseId,
+              name: data.name || "不明",
+              company: data.company || "",
+              consultationType: data.consultation_type || "",
+              prefecture: data.prefecture || "",
+              industry: data.industry || "",
+              budget: data.budget || "",
+              deadline: data.deadline || "",
+              status,
+              hasProposal,
+              estimatedAmount,
+              deployUrl,
+              createdAt: stat.birthtime || stat.mtime,
+            });
+          } catch (e) {
+            console.error(`[DX Cases] Error reading ${file}:`, e.message);
+          }
+        }
+      }
+
+      // 新しい順にソート
+      cases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      res.writeHead(200, dxCorsHeaders);
+      res.end(JSON.stringify({ cases }));
+    } catch (e) {
+      res.writeHead(500, dxCorsHeaders);
+      res.end(JSON.stringify({ error: e.message }));
+    }
+
+  // ========== GET /api/dx-cases/:caseId — DX案件詳細 ==========
+  } else if (req.method === "GET" && pathname.startsWith("/api/dx-cases/") && pathname.split("/").length === 4) {
+    const dxCorsHeaders = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, dxCorsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    try {
+      const caseId = decodeURIComponent(pathname.split("/")[3]);
+      const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+      const proposalDir = path.join(hearingDir, "proposals");
+
+      // JSONファイルを探す
+      const jsonFiles = fs.readdirSync(hearingDir).filter(f => f.startsWith(caseId) && f.endsWith(".json"));
+      if (jsonFiles.length === 0) {
+        res.writeHead(404, dxCorsHeaders);
+        res.end(JSON.stringify({ error: "Case not found" }));
+        return;
+      }
+
+      const hearing = JSON.parse(fs.readFileSync(path.join(hearingDir, jsonFiles[0]), "utf-8"));
+
+      // 提案書を読む
+      let proposal = null;
+      if (fs.existsSync(proposalDir)) {
+        const proposalFiles = fs.readdirSync(proposalDir).filter(f => f.startsWith(caseId) && f.endsWith(".md"));
+        if (proposalFiles.length > 0) {
+          proposal = fs.readFileSync(path.join(proposalDir, proposalFiles[0]), "utf-8");
+        }
+      }
+
+      // ステータス
+      const statusFile = path.join(hearingDir, `${caseId}-status.json`);
+      let statusData = { status: proposal ? "提案中" : "問い合わせ" };
+      if (fs.existsSync(statusFile)) {
+        statusData = JSON.parse(fs.readFileSync(statusFile, "utf-8"));
+      }
+
+      res.writeHead(200, dxCorsHeaders);
+      res.end(JSON.stringify({
+        caseId,
+        hearing,
+        proposal,
+        status: statusData.status,
+        deployUrl: statusData.deployUrl || null,
+        revisionNote: statusData.revisionNote || null,
+        revisionHistory: statusData.revisionHistory || [],
+      }));
+    } catch (e) {
+      res.writeHead(500, dxCorsHeaders);
+      res.end(JSON.stringify({ error: e.message }));
+    }
+
+  // ========== POST /api/dx-cases/:caseId/status — DX案件ステータス更新 ==========
+  } else if (req.method === "POST" && pathname.match(/^\/api\/dx-cases\/[^/]+\/status$/)) {
+    const dxCorsHeaders = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, dxCorsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    let bodyChunks = [];
+    req.on("data", (chunk) => bodyChunks.push(chunk));
+    req.on("end", async () => {
+      try {
+        const caseId = decodeURIComponent(pathname.split("/")[3]);
+        const body = JSON.parse(Buffer.concat(bodyChunks).toString());
+        const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+        const statusFile = path.join(hearingDir, `${caseId}-status.json`);
+
+        // 既存ステータスを読む or 新規作成
+        let statusData = { status: "問い合わせ", revisionHistory: [] };
+        if (fs.existsSync(statusFile)) {
+          statusData = JSON.parse(fs.readFileSync(statusFile, "utf-8"));
+        }
+
+        // ステータス更新
+        if (body.status) {
+          statusData.status = body.status;
+          statusData.updatedAt = new Date().toISOString();
+        }
+        if (body.deployUrl) {
+          statusData.deployUrl = body.deployUrl;
+        }
+        if (body.revisionNote) {
+          statusData.revisionNote = body.revisionNote;
+          if (!statusData.revisionHistory) statusData.revisionHistory = [];
+          statusData.revisionHistory.push({
+            note: body.revisionNote,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        fs.writeFileSync(statusFile, JSON.stringify(statusData, null, 2), "utf-8");
+        console.log(`[DX Cases] Status updated: ${caseId} → ${statusData.status}`);
+
+        // Notion側のステータスも更新（非同期）
+        updateNotionDXStatus(caseId, statusData.status).catch(err => {
+          console.error("[DX Cases] Notion status update failed:", err.message);
+        });
+
+        // GOサインの場合はLINE通知
+        if (body.status === "GO済み") {
+          pushLineMessage(`🚀 DX案件GOサイン\n\n案件ID: ${caseId}\n→ 実装準備を開始します`);
+        }
+
+        res.writeHead(200, dxCorsHeaders);
+        res.end(JSON.stringify({ success: true, ...statusData }));
+      } catch (e) {
+        res.writeHead(500, dxCorsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+
   // ========== POST /api/dx-hearing — DXヒアリング回答受信 → AI提案書自動生成 + LINE通知 (v2) ==========
   } else if (req.method === "POST" && pathname === "/api/dx-hearing") {
     const dxCorsHeaders = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
@@ -3826,6 +4029,49 @@ async function createNotionDXHearing(data, caseId, estimatedAmount, proposalPath
   const result = await response.json();
   console.log(`[Notion] DXヒアリング登録成功: ${result.url}`);
   return result;
+}
+
+// Notion DXヒアリング ステータス更新
+async function updateNotionDXStatus(caseId, newStatus) {
+  if (!NOTION_API_KEY || !NOTION_DX_HEARING_DB_ID) return;
+
+  // まずDB内で該当ページを検索（お名前 or 案件IDで）
+  const searchRes = await fetch(`https://api.notion.com/v1/databases/${NOTION_DX_HEARING_DB_ID}/query`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${NOTION_API_KEY}`,
+      "Content-Type": "application/json",
+      "Notion-Version": "2022-06-28",
+    },
+    body: JSON.stringify({
+      page_size: 5,
+      sorts: [{ property: "回答日", direction: "descending" }],
+    }),
+  });
+
+  if (!searchRes.ok) return;
+  const searchData = await searchRes.json();
+  if (!searchData.results || searchData.results.length === 0) return;
+
+  // 最新のページのステータスを更新
+  const pageId = searchData.results[0].id;
+  const updateRes = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+    method: "PATCH",
+    headers: {
+      "Authorization": `Bearer ${NOTION_API_KEY}`,
+      "Content-Type": "application/json",
+      "Notion-Version": "2022-06-28",
+    },
+    body: JSON.stringify({
+      properties: {
+        "ステータス": { select: { name: newStatus } },
+      },
+    }),
+  });
+
+  if (updateRes.ok) {
+    console.log(`[Notion] ステータス更新: ${caseId} → ${newStatus}`);
+  }
 }
 
 function extractEstimateFromProposal(proposalMarkdown) {
