@@ -3259,7 +3259,8 @@ const server = http.createServer((req, res) => {
 
         const now = new Date();
         const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-        const caseId = `DX-${dateStr}-${(body.form_response_id || "").slice(0, 6) || String(now.getTime()).slice(-6)}`;
+        const uniqueId = (body.form_response_id || "").slice(0, 6) || Math.random().toString(36).slice(2, 8);
+        const caseId = `DX-${dateStr}-${uniqueId}`;
         const safeName = (body.name || "unknown").replace(/[\/\\:*?"<>|]/g, "_");
         const jsonFile = path.join(hearingDir, `${caseId}-${safeName}-${dateStr}.json`);
 
@@ -3587,7 +3588,13 @@ Markdownで以下の構成の提案書を生成してください：
 1. 本提案書の内容確認
 2. オンラインまたは対面でのすり合わせ（30分程度）
 3. 正式お見積もり・ご契約
-4. 制作開始`;
+4. 制作開始
+
+---
+
+**SATOYAMA AI BASE**
+山梨県大月市 ｜ Web: satoyama-ai-base.com
+担当: 稲福 良祐 ｜ r.inafuku@tonari2tomaru.com`;
 
 async function generateDXProposalV2(hearingData) {
   try {
@@ -3675,7 +3682,11 @@ ${data.budget || "未回答"}
 ⚠️ この提案書はAI生成に失敗したため簡易版です。
 詳細な提案書はRyoが確認の上、改めて作成します。
 
-*SATOYAMA AI BASE — AI × DX で、ビジネスをもっとシンプルに。*`;
+---
+
+**SATOYAMA AI BASE**
+山梨県大月市 ｜ Web: satoyama-ai-base.com
+担当: 稲福 良祐 ｜ r.inafuku@tonari2tomaru.com`;
 }
 
 // フォールバック用の簡易見積もり
@@ -4006,7 +4017,9 @@ function _legacyGenerateDXProposal(data, caseId, estimate) {
     ``,
     `---`,
     ``,
-    `*SATOYAMA AI BASE — AI × DX で、ビジネスをもっとシンプルに。*`,
+    `**SATOYAMA AI BASE**`,
+    `山梨県大月市 ｜ Web: satoyama-ai-base.com`,
+    `担当: 稲福 良祐 ｜ r.inafuku@tonari2tomaru.com`,
   ].filter(line => line !== "").join("\n");
 }
 
