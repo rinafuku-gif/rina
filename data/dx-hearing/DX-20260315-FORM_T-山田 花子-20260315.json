@@ -1,0 +1,32 @@
+{
+  "submitted_at": "2026-03-15T09:00:00.000Z",
+  "form_response_id": "FORM_TEST_pipeline_check",
+  "name": "山田 花子",
+  "email": "test-hanako@example.com",
+  "phone_or_line": "09012345678",
+  "company": "花子のパン工房",
+  "prefecture": "長野県",
+  "industry": "飲食",
+  "team_size": "1人（ソロ）",
+  "consultation_type": "業務効率化・自動化",
+  "problem_detail": "毎日の仕入れ発注を手書きFAXで行っており、在庫管理もノートで手書き。発注ミスや在庫切れが頻発して困っています。Googleスプレッドシートは使えますが、それ以上のことはわかりません。",
+  "reference_url": "",
+  "existing_url": "",
+  "devices": [
+    "iPhone",
+    "Windows PC"
+  ],
+  "services": [
+    "Gmail",
+    "LINE",
+    "Googleスプレッドシート"
+  ],
+  "current_method": [
+    "手書き・紙管理"
+  ],
+  "budget": "5〜15万円",
+  "subsidy_interest": "興味はある",
+  "deadline": "2〜3ヶ月",
+  "domain_status": "こだわりなし",
+  "additional_notes": "パソコンが苦手なので、なるべくシンプルな仕組みにしてほしいです"
+}

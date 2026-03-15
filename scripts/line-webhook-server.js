@@ -1089,7 +1089,8 @@ const server = http.createServer((req, res) => {
   } else if (req.method === "POST" && req.url?.startsWith("/api/receipt-quick")) {
     // iPhoneショートカット用: 即レスポンス→バックグラウンド処理→LINE通知
     const receiptUrl = new URL(req.url, `http://localhost:${PORT}`);
-    const receiptBusiness = receiptUrl.searchParams.get("business") || "";
+    const receiptBusiness = decodeURIComponent(receiptUrl.searchParams.get("business") || "");
+    console.log(`[Receipt] business param: "${receiptBusiness}"`);
     const authHeader = req.headers["authorization"] || "";
     const authToken = authHeader.replace("Bearer ", "");
     if (authToken !== env.SHIRATAMA_API_TOKEN) {
@@ -1266,8 +1267,10 @@ const server = http.createServer((req, res) => {
         }
 
         // ショートカットで選択した事業区分を常に優先
+        console.log(`[Receipt] OCR business: "${ocrResult.business}", shortcut: "${receiptBusiness}"`);
         if (receiptBusiness) {
           ocrResult.business = receiptBusiness;
+          console.log(`[Receipt] Overriding business → "${receiptBusiness}"`);
         }
 
         // Upload to Google Drive & Sheets
@@ -3484,6 +3487,50 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     });
+
+  // ========== DELETE /api/dx-cases/:caseId — DX案件削除 ==========
+  } else if (req.method === "DELETE" && pathname.startsWith("/api/dx-cases/") && pathname.split("/").length === 4) {
+    const dxCorsHeaders = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, dxCorsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    try {
+      const caseId = decodeURIComponent(pathname.split("/")[3]);
+      const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+      const proposalDir = path.join(hearingDir, "proposals");
+
+      // JSONファイル削除
+      const jsonFiles = fs.readdirSync(hearingDir).filter(f => f.startsWith(caseId) && f.endsWith(".json") && !f.endsWith("-status.json"));
+      for (const f of jsonFiles) {
+        fs.unlinkSync(path.join(hearingDir, f));
+      }
+
+      // ステータスファイル削除
+      const statusFile = path.join(hearingDir, `${caseId}-status.json`);
+      if (fs.existsSync(statusFile)) {
+        fs.unlinkSync(statusFile);
+      }
+
+      // 提案書削除
+      if (fs.existsSync(proposalDir)) {
+        const proposalFiles = fs.readdirSync(proposalDir).filter(f => f.startsWith(caseId));
+        for (const f of proposalFiles) {
+          fs.unlinkSync(path.join(proposalDir, f));
+        }
+      }
+
+      console.log(`[DX Cases] Deleted case: ${caseId}`);
+      res.writeHead(200, dxCorsHeaders);
+      res.end(JSON.stringify({ success: true }));
+    } catch (e) {
+      res.writeHead(500, dxCorsHeaders);
+      res.end(JSON.stringify({ error: e.message }));
+    }
 
   // ========== POST /api/dx-hearing — DXヒアリング回答受信 → AI提案書自動生成 + LINE通知 (v2) ==========
   } else if (req.method === "POST" && pathname === "/api/dx-hearing") {

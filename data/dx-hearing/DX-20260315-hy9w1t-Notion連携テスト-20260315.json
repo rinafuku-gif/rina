@@ -1,0 +1,24 @@
+{
+  "name": "Notion連携テスト",
+  "company": "テスト商店",
+  "email": "test@example.com",
+  "consultation_type": "業務改善・効率化",
+  "problem_detail": "請求書を毎月エクセルで手作業で作成しており、ミスが多い",
+  "budget": "〜5万円",
+  "subsidy_interest": "興味はある",
+  "deadline": "2〜3ヶ月",
+  "prefecture": "山梨県",
+  "industry": "サービス業",
+  "team_size": "1人",
+  "task_frequency": "月数回",
+  "task_duration": "30分くらい",
+  "most_wanted": "時間が浮く",
+  "tasks_to_automate": [
+    "請求書作成",
+    "顧客管理"
+  ],
+  "pain_points": [
+    "手作業が多い",
+    "ミスが出る"
+  ]
+}

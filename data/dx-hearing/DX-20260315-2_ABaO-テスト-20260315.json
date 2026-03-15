@@ -1,0 +1,37 @@
+{
+  "submitted_at": "2026-03-15T06:13:10.945Z",
+  "form_response_id": "2_ABaOnudIKfOeqOEwxX1cLywe89M22Fj3MjUfhGyORfyAmoFiJKtqfWr8-mDyedB8GsETEic",
+  "name": "テスト",
+  "email": "fukin.wimps@gmail.com",
+  "phone_or_line": "08061673329",
+  "company": "個人",
+  "prefecture": "山梨県",
+  "industry": "飲食",
+  "team_size": "2〜5人",
+  "consultation_type": "ECサイト構築",
+  "problem_detail": "STORESの手数料を払いたくない",
+  "reference_url": "",
+  "existing_url": "https://misoca-coffee.stores.jp/",
+  "devices": [
+    "Mac",
+    "iPad・タブレット"
+  ],
+  "services": [
+    "Gmail",
+    "LINE",
+    "Googleカレンダー",
+    "Googleスプレッドシート",
+    "会計ソフト（freee・MF等）",
+    "Notion",
+    "その他"
+  ],
+  "current_method": [
+    "Excel・スプレッドシート",
+    "専用ソフト"
+  ],
+  "budget": "5〜15万円",
+  "subsidy_interest": "興味はある",
+  "deadline": "1ヶ月以内",
+  "domain_status": "こだわりなし",
+  "additional_notes": ""
+}
