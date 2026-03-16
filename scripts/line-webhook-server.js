@@ -3394,6 +3394,14 @@ const server = http.createServer((req, res) => {
         }
       }
 
+      // 共有URL生成
+      const sharePassword = statusData.sharePassword || null;
+      const SHARE_BASE = "https://api.tonari2tomaru.com";
+      const shareUrls = sharePassword ? {
+        proposal: `${SHARE_BASE}/proposal/${encodeURIComponent(caseId)}?pass=${sharePassword}`,
+        preview: statusData.deployUrl ? `${SHARE_BASE}/preview/${encodeURIComponent(caseId)}?pass=${sharePassword}` : null,
+      } : null;
+
       res.writeHead(200, dxCorsHeaders);
       res.end(JSON.stringify({
         caseId,
@@ -3406,6 +3414,7 @@ const server = http.createServer((req, res) => {
         revisionHistory: statusData.revisionHistory || [],
         deliverables,
         hasProject: fs.existsSync(projectDir),
+        shareUrls,
       }));
     } catch (e) {
       res.writeHead(500, dxCorsHeaders);
@@ -3567,6 +3576,20 @@ const server = http.createServer((req, res) => {
         fs.writeFileSync(proposalFile, proposal, "utf-8");
         console.log(`Generated AI proposal: ${proposalFile}`);
 
+        // 3.5. 共有パスワード生成 & ステータス保存
+        const sharePassword = crypto.randomBytes(4).toString("hex"); // 8文字のランダム英数字
+        const statusFile = path.join(hearingDir, `${caseId}-status.json`);
+        const initialStatus = {
+          status: "提案中",
+          caseType: classifyCaseType(body.consultation_type),
+          sharePassword,
+          updatedAt: new Date().toISOString(),
+        };
+        fs.writeFileSync(statusFile, JSON.stringify(initialStatus, null, 2), "utf-8");
+
+        const SHARE_BASE = "https://api.tonari2tomaru.com";
+        const proposalShareUrl = `${SHARE_BASE}/proposal/${encodeURIComponent(caseId)}?pass=${sharePassword}`;
+
         // 4. 提案書から見積もり金額を抽出
         const estimatedAmount = extractEstimateFromProposal(proposal);
 
@@ -3595,7 +3618,8 @@ const server = http.createServer((req, res) => {
           `📄 AI提案書: 生成済み`,
           summary ? summary : "",
           ``,
-          `→ ${proposalFile}`,
+          `🔗 提案書URL（お客様共有用）:`,
+          proposalShareUrl,
         ].filter(Boolean).join("\n");
 
         pushLineMessage(lineMsg);
@@ -3618,6 +3642,142 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     });
+
+  // ========== GET /proposal/:caseId — お客様向け提案書ページ ==========
+  } else if (req.method === "GET" && pathname.match(/^\/proposal\/[^/]+$/)) {
+    const caseId = decodeURIComponent(pathname.split("/")[2]);
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const pass = urlObj.searchParams.get("pass") || "";
+
+    const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+    const statusFile = path.join(hearingDir, `${caseId}-status.json`);
+    const proposalDir = path.join(hearingDir, "proposals");
+
+    // パスワード検証
+    let statusData = {};
+    try { statusData = JSON.parse(fs.readFileSync(statusFile, "utf-8")); } catch {}
+    if (!statusData.sharePassword || statusData.sharePassword !== pass) {
+      res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(renderPasswordPage(caseId, "proposal"));
+      return;
+    }
+
+    // ヒアリングデータ読み込み
+    const jsonFiles = fs.readdirSync(hearingDir).filter(f => f.startsWith(caseId) && f.endsWith(".json") && !f.includes("status"));
+    let hearingData = {};
+    if (jsonFiles.length > 0) {
+      try { hearingData = JSON.parse(fs.readFileSync(path.join(hearingDir, jsonFiles[0]), "utf-8")); } catch {}
+    }
+
+    // 提案書読み込み
+    const proposalFiles = fs.readdirSync(proposalDir).filter(f => f.startsWith(caseId) && f.endsWith(".md"));
+    let proposalMd = "";
+    if (proposalFiles.length > 0) {
+      try { proposalMd = fs.readFileSync(path.join(proposalDir, proposalFiles[0]), "utf-8"); } catch {}
+    }
+
+    if (!proposalMd) {
+      res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+      res.end("<html><body><p>提案書が見つかりません</p></body></html>");
+      return;
+    }
+
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(renderProposalHTML(hearingData, proposalMd, caseId));
+
+  // ========== GET /preview/:caseId — お客様向けプレビュー確認ページ ==========
+  } else if (req.method === "GET" && pathname.match(/^\/preview\/[^/]+$/)) {
+    const caseId = decodeURIComponent(pathname.split("/")[2]);
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const pass = urlObj.searchParams.get("pass") || "";
+
+    const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+    const statusFile = path.join(hearingDir, `${caseId}-status.json`);
+
+    // パスワード検証
+    let statusData = {};
+    try { statusData = JSON.parse(fs.readFileSync(statusFile, "utf-8")); } catch {}
+    if (!statusData.sharePassword || statusData.sharePassword !== pass) {
+      res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(renderPasswordPage(caseId, "preview"));
+      return;
+    }
+
+    if (!statusData.deployUrl) {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(renderMessagePage("まだデプロイが完了していません", "制作が完了次第、こちらのページでプレビューを確認いただけます。"));
+      return;
+    }
+
+    // ヒアリングデータ
+    const jsonFiles = fs.readdirSync(hearingDir).filter(f => f.startsWith(caseId) && f.endsWith(".json") && !f.includes("status"));
+    let hearingData = {};
+    if (jsonFiles.length > 0) {
+      try { hearingData = JSON.parse(fs.readFileSync(path.join(hearingDir, jsonFiles[0]), "utf-8")); } catch {}
+    }
+
+    // コメント読み込み
+    const commentsFile = path.join(hearingDir, `${caseId}-comments.json`);
+    let comments = [];
+    try { comments = JSON.parse(fs.readFileSync(commentsFile, "utf-8")); } catch {}
+
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(renderPreviewHTML(hearingData, statusData, comments, caseId, pass));
+
+  // ========== POST /api/dx-cases/:caseId/comments — コメント送信 ==========
+  } else if (req.method === "POST" && pathname.match(/^\/api\/dx-cases\/[^/]+\/comments$/)) {
+    const caseId = decodeURIComponent(pathname.split("/")[3]);
+    const corsH = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
+
+    let bodyChunks = [];
+    req.on("data", (chunk) => bodyChunks.push(chunk));
+    req.on("end", () => {
+      try {
+        const body = JSON.parse(Buffer.concat(bodyChunks).toString());
+        const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+        const statusFile = path.join(hearingDir, `${caseId}-status.json`);
+
+        // パスワード検証
+        let statusData = {};
+        try { statusData = JSON.parse(fs.readFileSync(statusFile, "utf-8")); } catch {}
+        if (!statusData.sharePassword || statusData.sharePassword !== body.pass) {
+          res.writeHead(401, corsH);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+
+        // コメント保存
+        const commentsFile = path.join(hearingDir, `${caseId}-comments.json`);
+        let comments = [];
+        try { comments = JSON.parse(fs.readFileSync(commentsFile, "utf-8")); } catch {}
+        const newComment = {
+          id: crypto.randomBytes(4).toString("hex"),
+          name: (body.name || "お客様").substring(0, 50),
+          message: (body.message || "").substring(0, 1000),
+          timestamp: new Date().toISOString(),
+        };
+        comments.push(newComment);
+        fs.writeFileSync(commentsFile, JSON.stringify(comments, null, 2), "utf-8");
+
+        // LINE通知
+        pushLineMessage(`💬 DX案件コメント\n\n案件: ${caseId}\n送信者: ${newComment.name}\n\n${newComment.message.substring(0, 200)}`);
+
+        res.writeHead(200, corsH);
+        res.end(JSON.stringify({ success: true, comment: newComment }));
+      } catch (e) {
+        res.writeHead(400, corsH);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+
+  // ========== OPTIONS for comments CORS ==========
+  } else if (req.method === "OPTIONS" && pathname.match(/^\/api\/dx-cases\/[^/]+\/comments$/)) {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    });
+    res.end();
 
   } else if (req.method === "GET" && pathname === "/health") {
     res.writeHead(200);
@@ -4242,16 +4402,28 @@ async function runDxImplementation(caseId) {
     console.log(`[DX Impl] ${caseId}: 実装完了。`);
 
     // 7. 案件タイプ別の後処理
+    // 共有パスワードを取得（ステータスファイルから）
+    const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
+    const currentStatusFile = path.join(hearingDir, `${caseId}-status.json`);
+    let sharePassword = "";
+    try {
+      const sd = JSON.parse(fs.readFileSync(currentStatusFile, "utf-8"));
+      sharePassword = sd.sharePassword || crypto.randomBytes(4).toString("hex");
+    } catch { sharePassword = crypto.randomBytes(4).toString("hex"); }
+
+    const SHARE_BASE = "https://api.tonari2tomaru.com";
+
     let deployUrl = null;
     if (caseType === "website" || caseType === "ec") {
       // Webサイト/EC → Vercelデプロイ
       pushLineMessage(`✅ ${caseId}: 実装完了。Vercelデプロイ中...`);
       deployUrl = await deployToVercel(projectDir, caseId);
-      updateDxStatus(caseId, { status: "デプロイ済み", deployUrl, caseType });
-      pushLineMessage(`🎉 ${caseId}: デプロイ完了！\n\nプレビュー: ${deployUrl}\n\nしらたまのDXタブで確認・修正指示ができます`);
+      updateDxStatus(caseId, { status: "デプロイ済み", deployUrl, caseType, sharePassword });
+      const previewShareUrl = `${SHARE_BASE}/preview/${encodeURIComponent(caseId)}?pass=${sharePassword}`;
+      pushLineMessage(`🎉 ${caseId}: デプロイ完了！\n\nプレビュー: ${deployUrl}\n\n🔗 お客様共有用:\n${previewShareUrl}\n\nしらたまのDXタブで確認・修正指示ができます`);
     } else {
       // 業務改善/SNS → デプロイなし、納品物一式で完了
-      updateDxStatus(caseId, { status: "デプロイ済み", caseType, projectDir });
+      updateDxStatus(caseId, { status: "デプロイ済み", caseType, projectDir, sharePassword });
       pushLineMessage(`✅ ${caseId}: ${caseTypeLabel}の成果物が完成しました\n\n📁 ${projectDir}\n\nしらたまのDXタブで確認・修正指示ができます`);
     }
 
@@ -4984,6 +5156,275 @@ function _legacyGenerateDXProposal(data, caseId, estimate) {
     `山梨県大月市 ｜ Web: satoyama-ai-base.com`,
     `担当: 稲福 良祐 ｜ r.inafuku@tonari2tomaru.com`,
   ].filter(line => line !== "").join("\n");
+}
+
+// ========== 共有ページ HTML生成関数 ==========
+
+const BRAND_CSS = `
+  :root {
+    --green: #2d5016;
+    --green-light: #f0f5ec;
+    --gold: #b8963e;
+    --gold-light: #faf6ee;
+    --text: #333;
+    --text-muted: #777;
+    --border: #e5e5e5;
+    --bg: #fafaf8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; color: var(--text); background: var(--bg); line-height: 1.8; }
+  .container { max-width: 800px; margin: 0 auto; padding: 24px 20px; }
+  h1, h2, h3 { font-weight: 600; line-height: 1.4; }
+  .brand-header { background: var(--green); color: #fff; padding: 20px 0; text-align: center; }
+  .brand-header h1 { font-size: 14px; letter-spacing: 0.15em; font-weight: 400; }
+  .brand-header .sub { font-size: 11px; opacity: 0.7; margin-top: 4px; letter-spacing: 0.1em; }
+  .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .badge { display: inline-block; background: var(--gold-light); color: var(--gold); font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; letter-spacing: 0.05em; }
+  .section-title { font-size: 18px; color: var(--green); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--green-light); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--green-light); color: var(--green); font-weight: 600; font-size: 12px; white-space: nowrap; }
+  ul, ol { padding-left: 20px; }
+  li { margin-bottom: 6px; font-size: 14px; }
+  .footer { text-align: center; padding: 32px 20px; color: var(--text-muted); font-size: 12px; }
+  .footer a { color: var(--green); text-decoration: none; }
+  .btn { display: inline-block; background: var(--green); color: #fff; border: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; cursor: pointer; text-decoration: none; letter-spacing: 0.05em; }
+  .btn:hover { opacity: 0.9; }
+  .btn-outline { background: transparent; color: var(--green); border: 1px solid var(--green); }
+  .btn-outline:hover { background: var(--green-light); }
+  @media (max-width: 600px) { .container { padding: 16px 12px; } .card { padding: 16px; } }
+  @media print { .no-print { display: none; } .card { border: none; box-shadow: none; } }
+`;
+
+function renderPasswordPage(caseId, type) {
+  const title = type === "proposal" ? "ご提案書" : "プレビュー確認";
+  return `<!DOCTYPE html><html lang="ja"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} - SATOYAMA AI BASE</title>
+<style>${BRAND_CSS}
+  .pass-form { max-width: 360px; margin: 80px auto; text-align: center; }
+  .pass-input { width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; text-align: center; letter-spacing: 0.2em; margin: 16px 0; }
+  .pass-input:focus { outline: none; border-color: var(--green); }
+</style></head><body>
+<div class="brand-header"><h1>SATOYAMA AI BASE</h1><div class="sub">DX支援サービス</div></div>
+<div class="pass-form">
+  <p style="font-size:14px;color:var(--text-muted);margin-bottom:8px">${title}の閲覧にはパスワードが必要です</p>
+  <form onsubmit="location.href='/${type}/${encodeURIComponent(caseId)}?pass='+document.getElementById('p').value;return false;">
+    <input id="p" class="pass-input" type="text" placeholder="パスワードを入力" autocomplete="off">
+    <button type="submit" class="btn" style="width:100%">確認する</button>
+  </form>
+</div></body></html>`;
+}
+
+function renderMessagePage(title, message) {
+  return `<!DOCTYPE html><html lang="ja"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} - SATOYAMA AI BASE</title>
+<style>${BRAND_CSS}</style></head><body>
+<div class="brand-header"><h1>SATOYAMA AI BASE</h1><div class="sub">DX支援サービス</div></div>
+<div class="container" style="text-align:center;padding-top:60px;">
+  <h2 style="font-size:20px;margin-bottom:12px;">${title}</h2>
+  <p style="color:var(--text-muted);font-size:14px;">${message}</p>
+</div></body></html>`;
+}
+
+function markdownToHTML(md) {
+  // 軽量Markdown→HTML変換（外部ライブラリ不要）
+  let html = md;
+  // 見出し
+  html = html.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2 class="section-title">$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1 style="font-size:22px;color:var(--green);margin:24px 0 16px;">$1</h1>');
+  // 太字
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // テーブル
+  html = html.replace(/^\|(.+)\|$/gm, (match) => {
+    const cells = match.split("|").filter(c => c.trim());
+    return "<tr>" + cells.map(c => {
+      const content = c.trim();
+      if (content.match(/^[-:]+$/)) return null; // セパレーター行
+      return `<td>${content}</td>`;
+    }).filter(Boolean).join("") + "</tr>";
+  });
+  html = html.replace(/(<tr>[\s\S]*?<\/tr>\n?)+/g, (match) => {
+    // セパレーター行を除去
+    const rows = match.split("\n").filter(r => r.trim() && !r.includes("---"));
+    if (rows.length === 0) return "";
+    // 最初の行をヘッダーに
+    const headerRow = rows[0].replace(/<td>/g, "<th>").replace(/<\/td>/g, "</th>");
+    return `<table>${headerRow}${rows.slice(1).join("\n")}</table>`;
+  });
+  // リスト
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  // 水平線
+  html = html.replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:24px 0;">');
+  // コードブロック
+  html = html.replace(/```[\s\S]*?```/g, (match) => {
+    const content = match.replace(/```\w*\n?/g, "").replace(/```/g, "");
+    return `<pre style="background:var(--green-light);padding:16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;"><code>${content}</code></pre>`;
+  });
+  // 段落（空行区切り）
+  html = html.replace(/\n\n/g, '</p><p>');
+  // 残りの改行
+  html = html.replace(/\n/g, '<br>');
+  return `<p>${html}</p>`;
+}
+
+function renderProposalHTML(hearingData, proposalMd, caseId) {
+  const clientName = hearingData.company || hearingData.name || "お客様";
+  const proposalHTML = markdownToHTML(proposalMd);
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+
+  return `<!DOCTYPE html><html lang="ja"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${clientName} 様 ご提案書 - SATOYAMA AI BASE</title>
+<style>${BRAND_CSS}
+  .md-h3 { font-size: 16px; color: var(--green); margin: 20px 0 10px; }
+  .proposal-header { text-align: center; padding: 40px 20px 24px; }
+  .proposal-header .to { font-size: 20px; color: var(--green); margin-bottom: 8px; }
+  .proposal-header .date { font-size: 12px; color: var(--text-muted); }
+  .proposal-body p { font-size: 14px; margin-bottom: 12px; }
+  .proposal-body ul { margin-bottom: 16px; }
+  .proposal-body table { margin: 12px 0 20px; }
+</style></head><body>
+<div class="brand-header">
+  <h1>SATOYAMA AI BASE</h1>
+  <div class="sub">AI活用 DX支援サービス</div>
+</div>
+<div class="container">
+  <div class="proposal-header">
+    <div class="to">${clientName} 様</div>
+    <h2 style="font-size: 24px; color: var(--green); margin: 8px 0;">ご提案書</h2>
+    <div class="date">作成日: ${dateStr}</div>
+  </div>
+  <div class="card proposal-body">
+    ${proposalHTML}
+  </div>
+  <div class="card no-print" style="text-align:center;">
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px;">ご不明な点やご要望がございましたら、お気軽にご連絡ください。</p>
+    <a href="mailto:r.inafuku@tonari2tomaru.com" class="btn">お問い合わせ</a>
+  </div>
+  <div class="footer">
+    <p><strong>SATOYAMA AI BASE</strong></p>
+    <p>山梨県大月市 ｜ <a href="https://satoyama-ai-base.com">satoyama-ai-base.com</a></p>
+    <p>担当: 稲福 良祐 ｜ r.inafuku@tonari2tomaru.com</p>
+  </div>
+</div></body></html>`;
+}
+
+function renderPreviewHTML(hearingData, statusData, comments, caseId, pass) {
+  const clientName = hearingData.company || hearingData.name || "お客様";
+  const deployUrl = statusData.deployUrl || "";
+  const commentsHtml = comments.map(c => {
+    const d = new Date(c.timestamp);
+    const time = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return `<div style="padding:12px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <strong style="font-size:13px;">${c.name}</strong>
+        <span style="font-size:11px;color:var(--text-muted);">${time}</span>
+      </div>
+      <p style="font-size:14px;white-space:pre-wrap;">${c.message}</p>
+    </div>`;
+  }).join("");
+
+  return `<!DOCTYPE html><html lang="ja"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${clientName} 様 プレビュー確認 - SATOYAMA AI BASE</title>
+<style>${BRAND_CSS}
+  .preview-frame { width: 100%; height: 70vh; min-height: 500px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .device-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .device-tab { padding: 6px 16px; border: 1px solid var(--border); border-radius: 6px; background: #fff; cursor: pointer; font-size: 13px; }
+  .device-tab.active { background: var(--green); color: #fff; border-color: var(--green); }
+  textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; resize: vertical; min-height: 100px; font-family: inherit; }
+  textarea:focus { outline: none; border-color: var(--green); }
+  .comment-input { display: flex; gap: 8px; margin-bottom: 12px; }
+  .comment-input input { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+  .comment-input input:focus { outline: none; border-color: var(--green); }
+  .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .success-msg { display: none; background: var(--green-light); color: var(--green); padding: 12px; border-radius: 8px; font-size: 14px; margin-top: 12px; }
+</style></head><body>
+<div class="brand-header">
+  <h1>SATOYAMA AI BASE</h1>
+  <div class="sub">プレビュー確認ページ</div>
+</div>
+<div class="container">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div>
+        <h2 style="font-size:18px;color:var(--green);">${clientName} 様</h2>
+        <p style="font-size:12px;color:var(--text-muted);">案件ID: ${caseId}</p>
+      </div>
+      <span class="status-pill" style="background:var(--green-light);color:var(--green);">プレビュー確認中</span>
+    </div>
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px;">
+      下記がお客様のWebサイトのプレビューです。デザインや内容をご確認いただき、<br>
+      修正のご要望がありましたら、下のコメント欄からお送りください。
+    </p>
+
+    <div class="device-tabs no-print">
+      <button class="device-tab active" onclick="setDevice('100%')">PC</button>
+      <button class="device-tab" onclick="setDevice('430px')">スマホ</button>
+      <button class="device-tab" onclick="setDevice('768px')">タブレット</button>
+    </div>
+    <div style="display:flex;justify-content:center;background:#f5f5f5;border-radius:12px;padding:8px;">
+      <iframe id="previewFrame" src="${deployUrl}" class="preview-frame" style="transition:width 0.3s;"></iframe>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center;">
+      <a href="${deployUrl}" target="_blank" style="color:var(--green);">新しいタブで開く</a>
+    </p>
+  </div>
+
+  <div class="card">
+    <h3 class="section-title">修正・ご要望</h3>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">気になる点やご要望をお気軽にお書きください。担当者に直接届きます。</p>
+    <div class="comment-input">
+      <input type="text" id="commentName" placeholder="お名前" value="${hearingData.name || ""}">
+    </div>
+    <textarea id="commentMsg" placeholder="例: トップ画像をもう少し明るい雰囲気にしてほしい、メニューの順番を変えたい、など"></textarea>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end;">
+      <button class="btn" onclick="sendComment()">送信する</button>
+    </div>
+    <div id="successMsg" class="success-msg">コメントを送信しました。担当者が確認次第、対応いたします。</div>
+  </div>
+
+  ${comments.length > 0 ? `<div class="card">
+    <h3 class="section-title">これまでのコメント</h3>
+    ${commentsHtml}
+  </div>` : ""}
+
+  <div class="footer">
+    <p><strong>SATOYAMA AI BASE</strong></p>
+    <p>山梨県大月市 ｜ <a href="https://satoyama-ai-base.com">satoyama-ai-base.com</a></p>
+    <p>担当: 稲福 良祐 ｜ r.inafuku@tonari2tomaru.com</p>
+  </div>
+</div>
+
+<script>
+function setDevice(w) {
+  document.getElementById('previewFrame').style.width = w;
+  document.querySelectorAll('.device-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+}
+async function sendComment() {
+  const name = document.getElementById('commentName').value.trim();
+  const message = document.getElementById('commentMsg').value.trim();
+  if (!message) { alert('コメントを入力してください'); return; }
+  try {
+    const res = await fetch('/api/dx-cases/${encodeURIComponent(caseId)}/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, message, pass: '${pass}' }),
+    });
+    if (res.ok) {
+      document.getElementById('commentMsg').value = '';
+      document.getElementById('successMsg').style.display = 'block';
+      setTimeout(() => { document.getElementById('successMsg').style.display = 'none'; }, 5000);
+    } else { alert('送信に失敗しました。もう一度お試しください。'); }
+  } catch (e) { alert('通信エラーが発生しました。'); }
+}
+</script></body></html>`;
 }
 
 server.listen(PORT, () => {
