@@ -1803,6 +1803,32 @@ const server = http.createServer((req, res) => {
               prompt += "\nファイルの内容を読み取った上で、Ryoのメッセージに回答してください。";
             }
 
+            // SNS投稿文作成検出 → スタイルガイド注入
+            const SNS_KEYWORDS = /投稿|SNS|インスタ|Instagram|IG|キャプション|ポスト|post/i;
+            if (SNS_KEYWORDS.test(lastUserMsg.content) || (attachments?.length > 0 && /投稿|SNS|インスタ/i.test(lastUserMsg.content))) {
+              try {
+                const styleGuide = JSON.parse(fs.readFileSync(path.join(REPO_DIR, "data", "sns-style-guide.json"), "utf-8"));
+                prompt += `\n\n--- SNS投稿文スタイルガイド ---
+あなたはRyoのゴーストライターです。以下のルールに従って投稿文を作成してください。
+
+【最重要】AIが書いたとバレないこと。Ryoの文体を完璧に再現する。
+
+【アカウント別文体】
+${JSON.stringify(styleGuide.accounts, null, 2)}
+
+【共通ルール】
+- 写真の内容からアカウントを自動判定する（古民家・縁側→engawa_yanagawa、コーヒー→misoca_coffee、AI・DX→satoyama_ai_base、個人的な風景・思索→ryosuke_ina）
+- Ryoに「どのアカウントで投稿する？」と聞いてから作成する。ただし写真から明らかな場合は判定結果を提案してよい
+- ryosuke_inaの場合: 写真から感じたことを起点に内省的に深掘り。自問自答、話が逸れる、結論が軽い、がRyoの味。完璧すぎる文章はNG
+- engawa_yanagawaの場合: 五感に訴える丁寧な描写。最後に予約案内を入れる
+- ハッシュタグはアカウントごとの定番＋テーマ別を組み合わせる
+- 投稿文は一つだけ出力し、「これでどう？」と確認する。修正があれば調整する
+---`;
+              } catch (e) {
+                console.error("[SNS] Style guide load error:", e.message);
+              }
+            }
+
             // 日程調整検出 → カレンダー情報注入
             if (SCHEDULE_KEYWORDS.test(lastUserMsg.content)) {
               try {
@@ -3867,6 +3893,22 @@ async function processMessage(userMessage) {
     let prompt = buildPrompt(userMessage);
 
     // 日程調整検出 → カレンダー情報を直接取得してプロンプトに注入
+    // SNS投稿文作成検出（LINE側）
+    const SNS_KW_LINE = /投稿|SNS|インスタ|Instagram|キャプション/i;
+    if (SNS_KW_LINE.test(userMessage)) {
+      try {
+        const styleGuide = JSON.parse(fs.readFileSync(path.join(REPO_DIR, "data", "sns-style-guide.json"), "utf-8"));
+        prompt += `\n\n--- SNS投稿文スタイルガイド ---
+あなたはRyoのゴーストライターです。Ryoの文体を完璧に再現してください。
+【アカウント別文体】
+${JSON.stringify(styleGuide.accounts, null, 2)}
+【ルール】AIが書いたとバレないこと。ryosuke_inaは内省的・自問自答。engawaは丁寧な空間描写。
+---`;
+      } catch (e) {
+        console.error("[SNS] Style guide load error:", e.message);
+      }
+    }
+
     if (SCHEDULE_KEYWORDS.test(userMessage)) {
       try {
         const range = detectScheduleDateRange(userMessage);
