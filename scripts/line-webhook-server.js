@@ -383,7 +383,7 @@ async function syncAirbnbBookings(gToken) {
   // キャンセルメールもチェックして反映
   let cancelled = 0;
   try {
-    const cancelQuery = encodeURIComponent(`from:automated@airbnb.com subject:キャンセルのお知らせ after:${after}`);
+    const cancelQuery = encodeURIComponent(`from:automated@airbnb.com subject:キャンセル after:${after}`);
     const cancelUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${cancelQuery}&maxResults=20`;
     const cancelResult = await googleApiRequest("GET", cancelUrl, null, gToken);
 
@@ -393,18 +393,46 @@ async function syncAirbnbBookings(gToken) {
       const cancelledCodes = [];
 
       for (const msg of cancelResult.messages) {
-        const msgUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject`;
+        // Subject + 本文の両方から確認コードを探す
+        const msgUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`;
         const msgData = await googleApiRequest("GET", msgUrl, null, gToken);
         const subjectH = msgData.payload?.headers?.find(h => h.name === "Subject");
         const subj = subjectH?.value || "";
-        const codeMatch = subj.match(/\(([A-Z0-9]+)\)/);
-        if (codeMatch && activeCodes.has(codeMatch[1])) {
-          cancelledCodes.push(codeMatch[1]);
+
+        // 全角括弧（）と半角括弧()の両方に対応
+        let confirmCode = null;
+        const subjectMatch = subj.match(/[（(]([A-Z0-9]{8,})[）)]/);
+        if (subjectMatch) confirmCode = subjectMatch[1];
+
+        // Subjectで見つからなければ本文からも探す
+        if (!confirmCode) {
+          let bodyText = "";
+          function extractCancelText(part) {
+            if (!part) return;
+            if (part.mimeType === "text/plain" && part.body?.data) {
+              bodyText += Buffer.from(part.body.data, "base64url").toString("utf-8");
+            }
+            if (part.mimeType === "text/html" && part.body?.data) {
+              const html = Buffer.from(part.body.data, "base64url").toString("utf-8");
+              bodyText += html.replace(/<[^>]+>/g, " ");
+            }
+            if (part.parts) part.parts.forEach(extractCancelText);
+          }
+          if (msgData.payload) extractCancelText(msgData.payload);
+
+          // 本文中のAirbnb予約コードパターン（HMで始まる10文字の英数字）
+          const bodyCodeMatch = bodyText.match(/[（(]?(HM[A-Z0-9]{6,10})[）)]?/);
+          if (bodyCodeMatch) confirmCode = bodyCodeMatch[1];
+        }
+
+        if (confirmCode && activeCodes.has(confirmCode)) {
+          cancelledCodes.push(confirmCode);
+          console.log(`[cancel] Found cancelled booking: ${confirmCode} (from: ${subj.slice(0, 50)})`);
         }
       }
 
       if (cancelledCodes.length > 0) {
-        // カレンダーから削除
+        // カレンダーから削除（確認コード + ゲスト名の両方で検索）
         for (const code of cancelledCodes) {
           const booking = currentBookings.find(b => b.confirmationCode === code);
           if (!booking) continue;
@@ -413,20 +441,28 @@ async function syncAirbnbBookings(gToken) {
           const coD = new Date(booking.checkout + "T00:00:00Z");
           coD.setUTCDate(coD.getUTCDate() + 2);
           const timeMax = coD.toISOString();
+          let deleted = false;
           try {
             const evUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&maxResults=50`;
             const evResult = await googleApiRequest("GET", evUrl, null, gToken);
             if (evResult.items) {
               for (const ev of evResult.items) {
-                if ((ev.description || "").includes(code)) {
+                // 確認コードまたはゲスト名でマッチ
+                const desc = ev.description || "";
+                const summary = ev.summary || "";
+                if (desc.includes(code) || summary.includes(booking.guestName)) {
                   const delUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${ev.id}`;
                   await googleApiRequest("DELETE", delUrl, null, gToken);
-                  console.log(`Cancelled booking removed: ${booking.guestName} (${code})`);
+                  console.log(`[cancel] Calendar event deleted: ${booking.guestName} (${code}) from ${calId === ENGAWA_HIBA_CAL ? "HIBA" : "UME"}`);
+                  deleted = true;
                 }
               }
             }
+            if (!deleted) {
+              console.log(`[cancel] No calendar event found for: ${booking.guestName} (${code}) — may have been manually removed`);
+            }
           } catch (e) {
-            console.error(`Cancel cleanup error (${code}):`, e.message);
+            console.error(`[cancel] Cleanup error (${code}):`, e.message);
           }
         }
         // ログから削除
@@ -434,6 +470,7 @@ async function syncAirbnbBookings(gToken) {
         const remaining = currentBookings.filter(b => !cancelSet.has(b.confirmationCode));
         saveBookingsLog(remaining);
         cancelled = cancelledCodes.length;
+        console.log(`[cancel] Removed ${cancelled} cancelled bookings from log`);
       }
     }
   } catch (cancelErr) {
