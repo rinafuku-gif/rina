@@ -856,6 +856,9 @@ const server = http.createServer((req, res) => {
           const replyToken = event.replyToken;
           console.log(`[${new Date().toISOString()}] Received: ${userMessage}`);
 
+          // フォローアップ応答チェック（カレンダー予定の「どうだった？」への返事）
+          if (tryParseFollowupReply(userMessage)) return;
+
           if (userMessage === "リセット" || userMessage.toLowerCase() === "reset") {
             conversationHistory = [];
             replyLineMessage(replyToken, "会話履歴をリセットしました。");
@@ -1880,7 +1883,7 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ error: "Failed to read result" }));
     }
   } else if (req.method === "GET" && req.url?.startsWith("/api/tasks")) {
-    // タスク一覧を CLAUDE.md からパース + 完了状態をJSONからマージ
+    // タスク一覧を tasks.json から取得（新ストア）
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
       "Access-Control-Allow-Origin": origin,
@@ -1888,38 +1891,42 @@ const server = http.createServer((req, res) => {
     };
 
     const urlObj = new URL(req.url, `http://localhost:${PORT}`);
-    const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
-    if (qToken !== env.SHIRATAMA_API_TOKEN) {
+    const qTokenLocal = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qTokenLocal !== env.SHIRATAMA_API_TOKEN) {
       res.writeHead(401, corsHeaders);
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
     }
 
     try {
-      const claudeMd = fs.readFileSync(path.join(REPO_DIR, "CLAUDE.md"), "utf-8");
-      const tasks = parseTasksFromCLAUDE(claudeMd);
+      const taskStoreModule = require("./task-store");
+      const allTasks = taskStoreModule.loadTasks().tasks;
 
-      // JSONから完了状態をマージ（CLAUDE.mdがgit pullで上書きされても保持される）
-      const completionsFile = path.join(REPO_DIR, "logs", ".task-completions.json");
-      let completions = {};
-      try { completions = JSON.parse(fs.readFileSync(completionsFile, "utf-8")); } catch {}
-      for (const section of tasks) {
-        for (const task of section.tasks) {
-          if (completions[task.text] !== undefined) {
-            task.done = completions[task.text];
-          }
-        }
+      // しらたまPWA互換形式: プロジェクト別セクションに変換
+      const sectionMap = {};
+      for (const t of allTasks) {
+        if (t.status === "done") continue; // 完了済みは非表示（直近完了は別で見せる）
+        if (!sectionMap[t.project]) sectionMap[t.project] = [];
+        sectionMap[t.project].push({ text: t.title, done: false, id: t.id, priority: t.priority, dueDate: t.dueDate, status: t.status });
       }
 
+      const tasks = Object.entries(sectionMap).map(([title, tasks]) => ({ title, tasks }));
+
+      // 直近完了タスク（24時間以内）
+      const recentDone = taskStoreModule.getRecentlyCompleted(1).map(t => ({
+        text: t.title, done: true, id: t.id, completedAt: t.completedAt,
+        completedBy: t.history?.find(h => h.action === "completed")?.by || "manual",
+      }));
+
       res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ tasks }));
+      res.end(JSON.stringify({ tasks, recentlyCompleted: recentDone }));
     } catch (e) {
       console.error("Tasks API error:", e.message);
       res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ error: "Failed to parse tasks" }));
+      res.end(JSON.stringify({ error: "Failed to load tasks" }));
     }
   } else if (req.method === "POST" && pathname === "/api/tasks/toggle") {
-    // タスクの完了/未完了をJSONファイルに記録（CLAUDE.mdは書き換えない）
+    // タスクの完了/未完了を tasks.json で管理
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
       "Access-Control-Allow-Origin": origin,
@@ -1930,26 +1937,38 @@ const server = http.createServer((req, res) => {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
       try {
-        const { token, taskText, done } = JSON.parse(body);
+        const { token, taskText, done, taskId } = JSON.parse(body);
         if ((token || qToken) !== env.SHIRATAMA_API_TOKEN) {
           res.writeHead(401, corsHeaders);
           res.end(JSON.stringify({ error: "Unauthorized" }));
           return;
         }
 
-        const completionsFile = path.join(REPO_DIR, "logs", ".task-completions.json");
-        let completions = {};
-        try { completions = JSON.parse(fs.readFileSync(completionsFile, "utf-8")); } catch {}
+        const taskStoreModule = require("./task-store");
 
-        if (done) {
-          completions[taskText] = true;
-        } else {
-          delete completions[taskText];
+        // taskId があればそれで検索、なければtextで検索
+        let task;
+        if (taskId) {
+          const data = taskStoreModule.loadTasks();
+          task = data.tasks.find(t => t.id === taskId);
+        }
+        if (!task && taskText) {
+          task = taskStoreModule.findTaskByTitle(taskText);
         }
 
-        fs.writeFileSync(completionsFile, JSON.stringify(completions, null, 2));
-        console.log(`[${new Date().toISOString()}] Task toggled: "${taskText}" → ${done ? "done" : "undone"}`);
+        if (!task) {
+          res.writeHead(404, corsHeaders);
+          res.end(JSON.stringify({ error: "Task not found" }));
+          return;
+        }
 
+        if (done) {
+          taskStoreModule.completeTask(task.id, { by: "manual", note: "PWAから完了" });
+        } else {
+          taskStoreModule.updateTask(task.id, { status: "open", completedAt: null }, "manual", "PWAから未完了に戻す");
+        }
+
+        console.log(`[${new Date().toISOString()}] Task toggled: "${task.title}" → ${done ? "done" : "undone"}`);
         res.writeHead(200, corsHeaders);
         res.end(JSON.stringify({ success: true }));
       } catch (e) {
@@ -3928,6 +3947,159 @@ async function checkEventReminders() {
 
 setInterval(checkEventReminders, 5 * 60 * 1000); // 5分ごと
 setTimeout(checkEventReminders, 10 * 1000); // 起動10秒後に初回チェック
+
+// ========== Gitスキャナー定期実行 ==========
+const { scanAllRepos } = require("./git-scanner");
+setInterval(scanAllRepos, 30 * 60 * 1000); // 30分ごと
+setTimeout(scanAllRepos, 30 * 1000); // 起動30秒後に初回
+
+// ========== カレンダーフォローアップ ==========
+const FOLLOWUP_STATE_FILE = path.join(REPO_DIR, "data", ".followup-state.json");
+const sentFollowups = new Set();
+
+function loadFollowupState() {
+  try { return JSON.parse(fs.readFileSync(FOLLOWUP_STATE_FILE, "utf-8")); } catch { return { pending: null, sentToday: [] }; }
+}
+function saveFollowupState(state) {
+  fs.writeFileSync(FOLLOWUP_STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+// 予定終了後にLINEで「どうだった？」と聞く
+async function checkPostEventFollowup() {
+  try {
+    const state = loadFollowupState();
+    // 日替わりリセット
+    const today = new Date().toDateString();
+    if (state.lastDate !== today) {
+      state.sentToday = [];
+      state.lastDate = today;
+    }
+    // pending中なら新しいフォローアップは送らない
+    if (state.pending) return;
+
+    const gToken = await getGoogleAccessToken();
+    // プライマリとR&M共有のみ（Airbnb等は除外）
+    const calendarIds = [
+      "r.inafuku@tonari2tomaru.com",
+      "9c0d4af92a70ced546b135411feda7120c9fd874beda1363874c03faf8953f18@group.calendar.google.com",
+    ];
+
+    const now = new Date();
+    // 10〜70分前に終了したイベントを検出
+    const timeMin = new Date(now.getTime() - 70 * 60 * 1000).toISOString();
+    const timeMax = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
+
+    // 除外キーワード
+    const SKIP_KEYWORDS = ["ブロック", "予約", "Airbnb", "チェックイン", "チェックアウト"];
+
+    for (const calId of calendarIds) {
+      try {
+        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${encodeURIComponent(new Date(now.getTime() - 120 * 60 * 1000).toISOString())}&timeMax=${encodeURIComponent(now.toISOString())}&singleEvents=true&orderBy=startTime&fields=items(id,summary,start,end,status)`;
+        const result = await googleApiRequest("GET", url, null, gToken);
+        if (!result.items) continue;
+
+        for (const ev of result.items) {
+          if (ev.status === "cancelled" || !ev.end?.dateTime || !ev.summary) continue;
+          const eventEnd = new Date(ev.end.dateTime);
+          const endedMinAgo = (now.getTime() - eventEnd.getTime()) / 60000;
+
+          // 10〜70分前に終了したもののみ
+          if (endedMinAgo < 10 || endedMinAgo > 70) continue;
+
+          // 除外チェック
+          if (SKIP_KEYWORDS.some(kw => ev.summary.includes(kw))) continue;
+          // 終日イベントは除外（dateTimeがないものは既にスキップ済み）
+          // 既に今日送信済みならスキップ
+          if (state.sentToday.includes(ev.id)) continue;
+
+          // タスクとの関連を探す
+          const taskStore = require("./task-store");
+          const relatedTask = taskStore.findTaskByTitle(ev.summary.replace(/^\(R\)\s*/, "").replace(/^\(M\)\s*/, ""));
+
+          // LINEで聞く
+          const title = ev.summary.replace(/^\(R\)\s*/, "").replace(/^\(M\)\s*/, "");
+          pushLineMessage(`「${title}」おわった？どうだった？\n\n（例: 「終わった」「延期」「途中」など簡単に教えてね）`);
+
+          state.pending = {
+            eventId: ev.id,
+            eventTitle: title,
+            askedAt: now.toISOString(),
+            relatedTaskId: relatedTask ? relatedTask.id : null,
+          };
+          state.sentToday.push(ev.id);
+          saveFollowupState(state);
+          console.log(`[followup] Asked about: ${title}`);
+          return; // 1つずつ聞く
+        }
+      } catch (e) {
+        console.error(`[followup] Calendar error:`, e.message);
+      }
+    }
+  } catch (e) {
+    console.error("[followup] Check failed:", e.message);
+  }
+}
+
+setInterval(checkPostEventFollowup, 5 * 60 * 1000);
+setTimeout(checkPostEventFollowup, 60 * 1000);
+
+// --- フォローアップ応答の解析（webhookハンドラから呼ばれる） ---
+function tryParseFollowupReply(userMessage) {
+  const state = loadFollowupState();
+  if (!state.pending) return false;
+
+  // 2時間以上前のpendingは無視
+  const elapsed = Date.now() - new Date(state.pending.askedAt).getTime();
+  if (elapsed > 2 * 60 * 60 * 1000) {
+    state.pending = null;
+    saveFollowupState(state);
+    return false;
+  }
+
+  const msg = userMessage.trim().toLowerCase();
+  const taskStore = require("./task-store");
+  const taskId = state.pending.relatedTaskId;
+  const eventTitle = state.pending.eventTitle;
+  let handled = false;
+  let replyText = "";
+
+  // 完了パターン
+  if (["終わった", "おわった", "ok", "完了", "うん", "はい", "done", "できた", "やった"].some(kw => msg.includes(kw))) {
+    if (taskId) {
+      taskStore.completeTask(taskId, { by: "calendar-followup", note: `予定「${eventTitle}」完了 — Ryo回答` });
+    }
+    replyText = `了解！「${eventTitle}」完了にしたよ。おつかれさま！`;
+    handled = true;
+  }
+  // 延期パターン
+  else if (["延期", "まだ", "途中", "進行中", "半分"].some(kw => msg.includes(kw))) {
+    if (taskId) {
+      taskStore.updateTask(taskId, { status: "in_progress" }, "calendar-followup", `予定「${eventTitle}」進行中 — Ryo回答`);
+    }
+    replyText = `了解、「${eventTitle}」は進行中にしておくね。`;
+    handled = true;
+  }
+  // キャンセルパターン
+  else if (["やめた", "キャンセル", "なし", "不要"].some(kw => msg.includes(kw))) {
+    if (taskId) {
+      taskStore.updateTask(taskId, { status: "postponed" }, "calendar-followup", `予定「${eventTitle}」キャンセル — Ryo回答`);
+    }
+    replyText = `了解、「${eventTitle}」はキャンセルにしたよ。`;
+    handled = true;
+  }
+
+  if (handled) {
+    pushLineMessage(replyText);
+    state.pending = null;
+    saveFollowupState(state);
+    console.log(`[followup] Resolved: ${eventTitle} → ${replyText}`);
+    return true;
+  }
+
+  // パターンにマッチしない場合はfalseを返し、通常のprocessMessageに流す
+  // ただしコンテキストとしてフォローアップ中であることを記録
+  return false;
+}
 
 // ========== 習慣トラッキングAPI ==========
 const HABITS_DIR = path.join(REPO_DIR, "logs", "habits");
