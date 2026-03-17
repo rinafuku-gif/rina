@@ -1880,7 +1880,7 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ error: "Failed to read result" }));
     }
   } else if (req.method === "GET" && req.url?.startsWith("/api/tasks")) {
-    // タスク一覧を CLAUDE.md からパース
+    // タスク一覧を CLAUDE.md からパース + 完了状態をJSONからマージ
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
       "Access-Control-Allow-Origin": origin,
@@ -1898,6 +1898,19 @@ const server = http.createServer((req, res) => {
     try {
       const claudeMd = fs.readFileSync(path.join(REPO_DIR, "CLAUDE.md"), "utf-8");
       const tasks = parseTasksFromCLAUDE(claudeMd);
+
+      // JSONから完了状態をマージ（CLAUDE.mdがgit pullで上書きされても保持される）
+      const completionsFile = path.join(REPO_DIR, "logs", ".task-completions.json");
+      let completions = {};
+      try { completions = JSON.parse(fs.readFileSync(completionsFile, "utf-8")); } catch {}
+      for (const section of tasks) {
+        for (const task of section.tasks) {
+          if (completions[task.text] !== undefined) {
+            task.done = completions[task.text];
+          }
+        }
+      }
+
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({ tasks }));
     } catch (e) {
@@ -1906,7 +1919,7 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ error: "Failed to parse tasks" }));
     }
   } else if (req.method === "POST" && pathname === "/api/tasks/toggle") {
-    // タスクの完了/未完了を切り替え
+    // タスクの完了/未完了をJSONファイルに記録（CLAUDE.mdは書き換えない）
     const origin = req.headers["origin"] || "";
     const corsHeaders = {
       "Access-Control-Allow-Origin": origin,
@@ -1924,25 +1937,17 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        const claudeMdPath = path.join(REPO_DIR, "CLAUDE.md");
-        let content = fs.readFileSync(claudeMdPath, "utf-8");
+        const completionsFile = path.join(REPO_DIR, "logs", ".task-completions.json");
+        let completions = {};
+        try { completions = JSON.parse(fs.readFileSync(completionsFile, "utf-8")); } catch {}
 
-        const escapedText = taskText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         if (done) {
-          // [ ] → [x]
-          content = content.replace(
-            new RegExp(`- \\[ \\] ${escapedText}`),
-            `- [x] ${taskText}`
-          );
+          completions[taskText] = true;
         } else {
-          // [x] → [ ]
-          content = content.replace(
-            new RegExp(`- \\[x\\] ${escapedText}`),
-            `- [ ] ${taskText}`
-          );
+          delete completions[taskText];
         }
 
-        fs.writeFileSync(claudeMdPath, content, "utf-8");
+        fs.writeFileSync(completionsFile, JSON.stringify(completions, null, 2));
         console.log(`[${new Date().toISOString()}] Task toggled: "${taskText}" → ${done ? "done" : "undone"}`);
 
         res.writeHead(200, corsHeaders);
@@ -3567,6 +3572,18 @@ const server = http.createServer((req, res) => {
         fs.writeFileSync(jsonFile, JSON.stringify(body, null, 2), "utf-8");
         console.log(`Saved hearing data: ${jsonFile}`);
 
+        // 1.5. 既存サイトURLがあれば自動分析（提案書の精度UP）
+        let siteAnalysis = null;
+        const siteUrl = body.existing_site_url || body.existing_url || body.reference_url;
+        if (siteUrl) {
+          console.log(`[DX Hearing] 既存サイト分析中: ${siteUrl}`);
+          siteAnalysis = await fetchAndAnalyzeSite(siteUrl);
+          if (siteAnalysis) {
+            body._siteAnalysis = siteAnalysis;
+            console.log(`[DX Hearing] サイト分析完了: ${siteAnalysis.title || "タイトルなし"}`);
+          }
+        }
+
         // 2. Claude API で提案書生成（フォールバック付き）
         console.log(`[DX Hearing] Claude APIで提案書生成中... 案件: ${body.name}`);
         const proposal = await generateDXProposalV2(body);
@@ -3624,10 +3641,10 @@ const server = http.createServer((req, res) => {
 
         pushLineMessage(lineMsg);
 
-        // 8. Notionに案件登録（非同期・エラーでもレスポンスは返す）
-        createNotionDXHearing(body, caseId, estimatedAmount, proposalFile).catch(err => {
-          console.error("[DX Hearing] Notion登録失敗:", err.message);
-        });
+        // 8. Notion同期は無効化（GAS側でも同期していたため二重登録になる。しらたまのDXパネルで管理する）
+        // createNotionDXHearing(body, caseId, estimatedAmount, proposalFile).catch(err => {
+        //   console.error("[DX Hearing] Notion登録失敗:", err.message);
+        // });
 
         res.writeHead(200, dxCorsHeaders);
         res.end(JSON.stringify({ success: true, case_id: caseId, proposal_path: proposalFile, estimated_amount: estimatedAmount }));
@@ -3975,6 +3992,178 @@ function getStreak(habitId) {
   return streak;
 }
 
+// ========== DXヒアリング v2: 既存サイト自動分析 ==========
+
+/**
+ * 顧客の既存サイトURLをフェッチし、事業情報を自動抽出する
+ * フォームの項目を増やさずに、URLだけで深い情報を取得する
+ */
+async function fetchAndAnalyzeSite(url) {
+  if (!url || typeof url !== "string") return null;
+  // URLの正規化
+  let targetUrl = url.trim();
+  if (!targetUrl.startsWith("http")) targetUrl = "https://" + targetUrl;
+
+  try {
+    console.log(`[Site Analysis] フェッチ開始: ${targetUrl}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    const res = await fetch(targetUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; SATOYAMA-AI-BASE/1.0; DX Hearing Bot)",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "ja,en;q=0.9",
+      },
+      signal: controller.signal,
+      redirect: "follow",
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      console.log(`[Site Analysis] HTTP ${res.status} — スキップ`);
+      return null;
+    }
+
+    const html = await res.text();
+    if (!html || html.length < 100) return null;
+
+    // HTML からメタ情報・テキストを抽出
+    const analysis = {
+      url: targetUrl,
+      title: extractMeta(html, /<title[^>]*>([\s\S]*?)<\/title>/i),
+      description: extractMeta(html, /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
+        || extractMeta(html, /<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i),
+      ogTitle: extractMeta(html, /<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i),
+      ogDescription: extractMeta(html, /<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i),
+      ogImage: extractMeta(html, /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i),
+      // SNSリンク
+      socialLinks: extractSocialLinks(html),
+      // ページ内テキスト（主要部分を抽出、最大3000文字）
+      bodyText: extractBodyText(html, 3000),
+      // 商品・価格情報のヒント
+      priceHints: extractPriceHints(html),
+      // 連絡先情報
+      contactInfo: extractContactInfo(html),
+      // ECプラットフォーム検出
+      platform: detectPlatform(html),
+    };
+
+    console.log(`[Site Analysis] 完了: ${analysis.title || "タイトルなし"} (${analysis.bodyText.length}文字)`);
+    return analysis;
+
+  } catch (e) {
+    console.error(`[Site Analysis] エラー: ${e.message}`);
+    return null;
+  }
+}
+
+function extractMeta(html, regex) {
+  const m = html.match(regex);
+  return m ? m[1].trim().replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#039;/g, "'").replace(/&quot;/g, '"') : "";
+}
+
+function extractSocialLinks(html) {
+  const links = [];
+  const patterns = [
+    { name: "Instagram", regex: /href=["'](https?:\/\/(www\.)?instagram\.com\/[^"']+)["']/gi },
+    { name: "Twitter/X", regex: /href=["'](https?:\/\/(www\.)?(twitter|x)\.com\/[^"']+)["']/gi },
+    { name: "Facebook", regex: /href=["'](https?:\/\/(www\.)?facebook\.com\/[^"']+)["']/gi },
+    { name: "LINE", regex: /href=["'](https?:\/\/lin\.ee\/[^"']+|https?:\/\/line\.me\/[^"']+)["']/gi },
+    { name: "YouTube", regex: /href=["'](https?:\/\/(www\.)?youtube\.com\/(channel|c|@)[^"']+)["']/gi },
+  ];
+  for (const p of patterns) {
+    const matches = html.matchAll(p.regex);
+    for (const m of matches) links.push({ platform: p.name, url: m[1] });
+  }
+  return links;
+}
+
+function extractBodyText(html, maxLength) {
+  // script, style, nav, footer, header を除去
+  let cleaned = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, "")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, "")
+    .replace(/<header[\s\S]*?<\/header>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned.substring(0, maxLength);
+}
+
+function extractPriceHints(html) {
+  // 日本円の価格パターンを検出
+  const prices = [];
+  const priceRegex = /[¥￥][\s]?([0-9,]+)|([0-9,]+)\s*円/g;
+  let match;
+  while ((match = priceRegex.exec(html)) !== null && prices.length < 20) {
+    const val = parseInt((match[1] || match[2]).replace(/,/g, ""), 10);
+    if (val >= 100 && val <= 10000000) prices.push(val);
+  }
+  return [...new Set(prices)].sort((a, b) => a - b);
+}
+
+function extractContactInfo(html) {
+  const info = {};
+  // 電話番号
+  const phone = html.match(/(?:tel|phone|電話)[^0-9]*([0-9]{2,4}[-\s]?[0-9]{2,4}[-\s]?[0-9]{3,4})/i);
+  if (phone) info.phone = phone[1];
+  // メール
+  const email = html.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+  if (email) info.email = email[0];
+  // 住所パターン
+  const address = html.match(/([\u4e00-\u9fa5]{2,3}[都道府県][\u4e00-\u9fa5\u30a0-\u30ff\u3040-\u309f0-9０-９\-ー－]+)/);
+  if (address) info.address = address[1];
+  return info;
+}
+
+function detectPlatform(html) {
+  if (html.includes("Shopify") || html.includes("shopify")) return "Shopify";
+  if (html.includes("base-next") || html.includes("thebase.in")) return "BASE";
+  if (html.includes("stores.jp") || html.includes("STORES")) return "STORES";
+  if (html.includes("wp-content") || html.includes("wordpress")) return "WordPress";
+  if (html.includes("wix.com")) return "Wix";
+  if (html.includes("jimdo")) return "Jimdo";
+  if (html.includes("squarespace")) return "Squarespace";
+  if (html.includes("_next") || html.includes("__next")) return "Next.js";
+  return null;
+}
+
+/**
+ * サイト分析結果を提案書プロンプト用のテキストに整形する
+ */
+function formatSiteAnalysisForPrompt(analysis) {
+  if (!analysis) return "";
+
+  const parts = [`\n## 既存サイト分析（自動取得）\n`];
+  parts.push(`- URL: ${analysis.url}`);
+  if (analysis.title) parts.push(`- サイト名: ${analysis.title}`);
+  if (analysis.description) parts.push(`- 説明: ${analysis.description}`);
+  if (analysis.platform) parts.push(`- 使用プラットフォーム: ${analysis.platform}`);
+
+  if (analysis.socialLinks.length > 0) {
+    parts.push(`- SNS: ${analysis.socialLinks.map(s => `${s.platform}(${s.url})`).join(", ")}`);
+  }
+  if (analysis.contactInfo.phone) parts.push(`- 電話: ${analysis.contactInfo.phone}`);
+  if (analysis.contactInfo.email) parts.push(`- メール: ${analysis.contactInfo.email}`);
+  if (analysis.contactInfo.address) parts.push(`- 住所: ${analysis.contactInfo.address}`);
+
+  if (analysis.priceHints.length > 0) {
+    const min = Math.min(...analysis.priceHints);
+    const max = Math.max(...analysis.priceHints);
+    parts.push(`- 価格帯: ¥${min.toLocaleString()} 〜 ¥${max.toLocaleString()}（${analysis.priceHints.length}件検出）`);
+  }
+
+  if (analysis.bodyText) {
+    parts.push(`\n### サイト本文（抜粋）`);
+    parts.push(analysis.bodyText.substring(0, 2000));
+  }
+
+  return parts.join("\n");
+}
+
 // ========== DXヒアリング v2: Claude API 提案書生成 ==========
 
 const DX_PROPOSAL_SYSTEM_PROMPT = `あなたはSATOYAMA AI BASEの提案書作成AIです。
@@ -4001,6 +4190,25 @@ DXヒアリングフォームの回答データを分析し、顧客に最適な
 - 30〜50万円: フル機能EC or 複合システム。管理画面カスタマイズ含む
 - 50万円以上: エンタープライズ級。独自機能開発・API連携多数
 - 補助金利用: IT導入補助金（最大450万円・補助率1/2〜3/4）活用で実質負担を大幅軽減
+
+## ECサイト案件の追加考慮事項
+ECサイトの相談の場合、以下を必ず提案に含めること:
+- **食品EC特有の要件**: 冷蔵・冷凍配送の対応、食品表示法への準拠、特定商取引法ページ
+- **配送・送料設計**: 顧客の配送エリア・方法に合った送料テーブル設計を提案
+- **決済手段**: Stripe（クレカ+コンビニ）を基本に、顧客の希望に応じて追加
+- **在庫管理**: 現状（手書き/Excel/なし）に合わせた移行プラン
+- **プラットフォーム比較**: 予算〜10万ならBASE/STORESを推奨、15万以上でフルカスタム（Next.js+Stripe）を推奨。判断根拠を明記
+- **既存サイトがある場合**: 分析結果から事業の雰囲気・商品特性・ブランドカラーを読み取り、デザイン提案に活かす
+- **本番化ロードマップ**: デモ制作→確認→本番設定（Stripe実接続・商品データ投入・ドメイン設定）のステップを明示
+
+## 既存サイト分析の活用
+顧客の既存サイトURLが提供された場合、自動分析データが「既存サイト分析」セクションに含まれる。
+この情報を以下のように活用すること:
+- サイト名・事業内容から顧客のビジネスを深く理解して提案に反映
+- 商品の価格帯があれば、ECの売上シミュレーションや送料設計の参考にする
+- SNSアカウントがあれば、EC連携（Instagram Shopping等）を提案材料に
+- 既存プラットフォーム（WordPress, BASE等）があれば、移行コスト or 連携を考慮
+- デザインの雰囲気やブランドカラーは、新サイトでも踏襲する方向で提案
 
 ## 出力形式
 Markdownで以下の構成の提案書を生成してください：
@@ -4054,6 +4262,15 @@ Markdownで以下の構成の提案書を生成してください：
 
 async function generateDXProposalV2(hearingData) {
   try {
+    // サイト分析結果があればプロンプトに追加
+    const siteAnalysisText = hearingData._siteAnalysis
+      ? formatSiteAnalysisForPrompt(hearingData._siteAnalysis)
+      : "";
+
+    // _siteAnalysis はプロンプト用なのでJSONダンプからは除外
+    const cleanData = { ...hearingData };
+    delete cleanData._siteAnalysis;
+
     const fullPrompt = `${DX_PROPOSAL_SYSTEM_PROMPT}
 
 ---
@@ -4061,7 +4278,8 @@ async function generateDXProposalV2(hearingData) {
 以下のDXヒアリングフォームの回答データを分析し、提案書を生成してください。
 
 ## 回答データ
-${JSON.stringify(hearingData, null, 2)}
+${JSON.stringify(cleanData, null, 2)}
+${siteAnalysisText}
 
 ## 重要な注意点
 - 予算「${hearingData.budget || "未回答"}」を必ず考慮してください
@@ -4069,6 +4287,7 @@ ${JSON.stringify(hearingData, null, 2)}
 - 予算が低い場合は、スコープを絞って実現可能な提案にしてください
 - 「まだ決めてない」の場合は、相談内容に応じた相場感を提示してください
 - 補助金利用意向「${hearingData.subsidy_interest || "未回答"}」も考慮してください
+${siteAnalysisText ? `- 「既存サイト分析」セクションの情報を最大限活用してください。顧客の事業内容・商品・価格帯・ブランドの雰囲気を分析に織り込み、顧客が「ちゃんと見てくれている」と感じる提案にしてください` : ""}
 - 提案書のMarkdownだけを出力してください。前置きや説明は不要です`;
 
     // claude -p にパイプして提案書を生成
@@ -4453,14 +4672,46 @@ Webサイトを構築してください。
     case "ec":
       return `${common}
 ECサイトのデモを構築してください。
+
+## 基本要件
 - すべてのファイルを作成し、npm installも実行してください
 - npm run buildでビルドが通ることを確認してください
 - 決済はモックで実装（Stripeは.env.exampleにキー名だけ記載）
-- 商品データはデモ用のモックデータを5〜10点用意してください
-- カート・注文フローはUI上で動作するようにしてください（実際の決済はしない）
-- 最後に以下のドキュメントを必ず生成してください:
-  - docs/SETUP-GUIDE.md（本番構築手順書: Stripeキー取得、商品登録、配送設定など）
-  - docs/CREDENTIALS-CHECKLIST.md（必要な認証情報・アカウント一覧）`;
+- カート・注文フローはUI上で完全に動作させる（決済部分はモック）
+
+## 商品データ
+- CLAUDE.mdに記載のヒアリングデータ・既存サイト分析から、顧客の実際の商品に近いデモデータを作成
+- 商品名・説明・価格は顧客の業種に合ったリアルなものにする（「商品A」のようなダミーは禁止）
+- 既存サイトから価格帯が分かっている場合はそれに合わせる
+- 商品画像はunsplashのプレースホルダーで、業種に合った写真を選ぶ
+
+## デザイン
+- 顧客の業種・ブランドイメージに合ったデザイン
+- 既存サイトの分析結果がある場合は、色合い・雰囲気を踏襲する
+- 商品が映えるレイアウト（大きな写真、清潔感、余白）
+- モバイルファースト・レスポンシブ
+
+## 必須ページ
+- トップページ（ヒーロー + おすすめ商品 + ストーリー）
+- 商品一覧
+- 商品詳細（カートに追加）
+- カート
+- 注文フロー（配送先入力 → 注文確認 → 完了）
+- 特定商取引法に基づく表記（テンプレート）
+- 配送・送料について（ヒアリングの配送エリア・送料タイプを反映）
+- お問い合わせ
+
+## 必須ドキュメント
+- docs/SETUP-GUIDE.md:
+  - Stripeアカウント作成・APIキー取得手順（スクショレベル）
+  - 商品データの登録方法（管理画面 or データファイル編集）
+  - 配送設定（送料テーブル、配送エリア）
+  - 決済テスト方法（Stripeテストモード）
+  - 本番切り替え手順（テスト→ライブキー）
+  - ドメイン・ホスティング設定
+- docs/CREDENTIALS-CHECKLIST.md:
+  - 必要なアカウント一覧と作成手順リンク
+  - 環境変数一覧と取得方法`;
 
     case "automation":
       return `${common}
@@ -4673,6 +4924,7 @@ ${hearingData.devices ? `- 使用デバイス: ${Array.isArray(hearingData.devic
 
 ## お困りごと
 ${hearingData.problem_detail || "詳細なし"}
+${hearingData._siteAnalysis ? formatSiteAnalysisForPrompt(hearingData._siteAnalysis) : ""}
 
 ## AI提案書（この内容に沿って実装する）
 
@@ -4716,9 +4968,16 @@ docs/SETUP-GUIDE.md に以下を含める:
 
 ### デモサイトとして構築
 - 実際の決済は行わないデモ版を構築する
-- 商品データはデモ用モックデータ（5〜10点）
 - カート・注文フローはUI上で完全に動作させる（決済部分はモック）
 - Stripe等の決済キーは .env.example にキー名のみ記載
+
+### 商品データ（最重要）
+- **「商品A」「サンプル商品」のようなダミーは絶対禁止**
+- ヒアリングデータと既存サイト分析から、顧客の実際の商品に近いデモデータを作成する
+- 商品名・説明文・価格は業種に合ったリアルなものにする
+- 既存サイトの価格帯が分かっている場合はそれに合わせる
+- 商品画像はunsplashから業種に合った写真のプレースホルダーを使用
+- 商品数は提案書のプランに合わせる（最低5点）
 
 ### 技術スタック
 - Next.js + Tailwind CSS + TypeScript
@@ -4727,8 +4986,19 @@ docs/SETUP-GUIDE.md に以下を含める:
 
 ### ビジュアル
 - 商品が映えるデザイン。写真を大きく、清潔感のあるレイアウト
-- モバイルファースト
-- クライアントの業種に合った配色・トーン
+- モバイルファースト・レスポンシブデザイン
+- クライアントの業種・ブランドに合った配色・トーン
+- 既存サイトの分析結果がある場合は、デザインの雰囲気を踏襲する
+
+### 必須ページ
+- トップ（ヒーロー + おすすめ商品 + ブランドストーリー）
+- 商品一覧（カテゴリフィルター付き）
+- 商品詳細（カートに追加、数量選択）
+- カート（数量変更、削除、小計表示）
+- 注文フロー（配送先 → 確認 → 完了）
+- 特定商取引法に基づく表記（テンプレート。クライアント情報を埋めておく）
+- 配送・送料について（ヒアリングの配送エリア・送料タイプを反映）
+- お問い合わせ
 
 ### 必須納品ドキュメント
 docs/SETUP-GUIDE.md:
