@@ -594,7 +594,7 @@ async function generateToday() {
     { type: "urgent", title: "今すぐ対応", items: allItems.filter(i => i.urgency === "urgent").sort((a, b) => a.sortKey.localeCompare(b.sortKey)) },
     { type: "today", title: "今日やること", items: allItems.filter(i => i.urgency === "today").sort((a, b) => a.sortKey.localeCompare(b.sortKey)) },
     { type: "upcoming", title: "近日中", items: allItems.filter(i => i.urgency === "upcoming").sort((a, b) => a.sortKey.localeCompare(b.sortKey)) },
-    { type: "fyi", title: "参考情報", items: allItems.filter(i => i.urgency === "fyi") },
+    // fyi（参考情報）はホーム画面に表示しない。ブリーフィングのみで使用
   ].filter(s => s.items.length > 0);
 
   const urgentCount = allItems.filter(i => i.urgency === "urgent").length;
