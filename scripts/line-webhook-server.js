@@ -4203,7 +4203,7 @@ function tryParseFollowupReply(userMessage) {
   let replyText = "";
 
   // 完了パターン
-  if (["終わった", "おわった", "ok", "完了", "うん", "はい", "done", "できた", "やった"].some(kw => msg.includes(kw))) {
+  if (["終わ", "おわ", "ok", "完了", "うん", "はい", "done", "できた", "やった", "帰った", "帰って", "つきました", "戻った", "戻って"].some(kw => msg.includes(kw))) {
     if (taskId) {
       taskStore.completeTask(taskId, { by: "calendar-followup", note: `予定「${eventTitle}」完了 — Ryo回答` });
     }
@@ -4235,9 +4235,16 @@ function tryParseFollowupReply(userMessage) {
     return true;
   }
 
-  // パターンにマッチしない場合はfalseを返し、通常のprocessMessageに流す
-  // ただしコンテキストとしてフォローアップ中であることを記録
-  return false;
+  // パターンに明確にマッチしなくても、返事があった時点で完了扱い
+  // （何か返してくれたなら予定は終わったと判断）
+  if (taskId) {
+    taskStore.completeTask(taskId, { by: "calendar-followup", note: `予定「${eventTitle}」— Ryo回答: ${userMessage.slice(0, 50)}` });
+  }
+  pushLineMessage(`了解！「${eventTitle}」おつかれさま！`);
+  state.pending = null;
+  saveFollowupState(state);
+  console.log(`[followup] Auto-resolved (freeform reply): ${eventTitle}`);
+  return true;
 }
 
 // ========== 習慣トラッキングAPI ==========
