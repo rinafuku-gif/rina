@@ -69,7 +69,7 @@ if [ $SCAN_EXIT -ne 0 ] || [ -z "$BRIEFING" ]; then
 今朝のブリーフィング生成に失敗しました。
 手動で確認してください：
 - Google Calendar の予定
-- CLAUDE.md のタスク一覧"
+- しらたまPWA のタスク一覧"
 fi
 
 echo "Briefing ready (${#BRIEFING} chars)"

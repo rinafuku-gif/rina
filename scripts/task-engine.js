@@ -5,8 +5,8 @@
  * 実行タイミング: 朝7時（ブリーフィング前）+ 手動トリガー
  *
  * Phase 1: Calendar + Airbnb Bookings + deadlines.json
- * Phase 2: Git repos + Notion
- * Phase 3: Gmail + Drive
+ * Phase 2: Git repos + Notion + Gmail
+ * Phase 3: Drive
  */
 
 const fs = require("fs");
@@ -88,6 +88,36 @@ function googleApiGet(url, token) {
       });
     });
     req.on("error", reject);
+    req.end();
+  });
+}
+
+// --- Notion API ---
+function notionApiPost(endpoint, body) {
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify(body);
+    const urlObj = new URL(`https://api.notion.com/v1/${endpoint}`);
+    const req = https.request({
+      hostname: urlObj.hostname,
+      path: urlObj.pathname,
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.NOTION_API_KEY}`,
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+        "Content-Length": Buffer.byteLength(postData),
+      },
+    }, (res) => {
+      let data = "";
+      res.on("data", (c) => (data += c));
+      res.on("end", () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try { resolve(JSON.parse(data)); } catch { resolve(data); }
+        } else { reject(new Error(`Notion API ${res.statusCode}: ${data.slice(0, 300)}`)); }
+      });
+    });
+    req.on("error", reject);
+    req.write(postData);
     req.end();
   });
 }
@@ -326,6 +356,185 @@ function extractGitSummary() {
   return items;
 }
 
+// --- Source: Notion Databases ---
+async function extractNotionActions() {
+  const items = [];
+  if (!env.NOTION_API_KEY) {
+    console.error("[task-engine] NOTION_API_KEY not set, skipping Notion");
+    return items;
+  }
+
+  // 1. DXヒアリングDB — 完了・見送り以外のアクティブ案件
+  const DX_HEARING_DB = "970d40a58c9f4db8b562c0d9196be4c4";
+  try {
+    const result = await notionApiPost(`databases/${DX_HEARING_DB}/query`, {
+      filter: {
+        and: [
+          { property: "ステータス", select: { does_not_equal: "完了" } },
+          { property: "ステータス", select: { does_not_equal: "見送り" } },
+        ],
+      },
+    });
+    for (const page of (result.results || [])) {
+      const props = page.properties || {};
+      // タイトル取得（名前 or タイトルプロパティを探す）
+      let title = "DX案件";
+      for (const key of Object.keys(props)) {
+        const prop = props[key];
+        if (prop.type === "title" && prop.title && prop.title.length > 0) {
+          title = prop.title.map(t => t.plain_text).join("");
+          break;
+        }
+      }
+      // ステータス取得
+      let status = "";
+      if (props["ステータス"] && props["ステータス"].select) {
+        status = props["ステータス"].select.name || "";
+      }
+
+      items.push({
+        id: genId(),
+        source: "notion",
+        title: `DX案件: ${title}`,
+        detail: status ? `ステータス: ${status}` : "アクティブ案件",
+        action: null,
+        actionLabel: null,
+        urgency: "fyi",
+        date: todayStr(),
+        sortKey: `${todayStr()}22:00`,
+      });
+    }
+  } catch (e) {
+    console.error("[task-engine] Notion DX Hearing error:", e.message);
+  }
+
+  // 2. コンテンツDB — 下書き・非公開のアイテム
+  const CONTENT_DB = "5db17e69ab3045bdb5099e33fbf4155f";
+  try {
+    const result = await notionApiPost(`databases/${CONTENT_DB}/query`, {
+      filter: {
+        or: [
+          { property: "ステータス", select: { equals: "下書き" } },
+          { property: "ステータス", select: { equals: "非公開" } },
+        ],
+      },
+    });
+    for (const page of (result.results || [])) {
+      const props = page.properties || {};
+      let title = "コンテンツ";
+      for (const key of Object.keys(props)) {
+        const prop = props[key];
+        if (prop.type === "title" && prop.title && prop.title.length > 0) {
+          title = prop.title.map(t => t.plain_text).join("");
+          break;
+        }
+      }
+      items.push({
+        id: genId(),
+        source: "notion",
+        title: `下書き: ${title}`,
+        detail: "コンテンツDB — 公開待ち",
+        action: null,
+        actionLabel: null,
+        urgency: "fyi",
+        date: todayStr(),
+        sortKey: `${todayStr()}22:10`,
+      });
+    }
+  } catch (e) {
+    // コンテンツDBにアクセスできない場合はスキップ（graceful failure）
+    console.error("[task-engine] Notion Content DB error (skipped):", e.message);
+  }
+
+  // 3. 学習教材DB — 非公開のアイテム
+  const LEARNING_DB = "fca921d948e7425396128e1fa135baf1";
+  try {
+    const result = await notionApiPost(`databases/${LEARNING_DB}/query`, {
+      filter: {
+        property: "ステータス",
+        select: { equals: "非公開" },
+      },
+    });
+    for (const page of (result.results || [])) {
+      const props = page.properties || {};
+      let title = "教材";
+      for (const key of Object.keys(props)) {
+        const prop = props[key];
+        if (prop.type === "title" && prop.title && prop.title.length > 0) {
+          title = prop.title.map(t => t.plain_text).join("");
+          break;
+        }
+      }
+      items.push({
+        id: genId(),
+        source: "notion",
+        title: `下書き教材: ${title}`,
+        detail: "学習教材DB — 公開待ち",
+        action: null,
+        actionLabel: null,
+        urgency: "fyi",
+        date: todayStr(),
+        sortKey: `${todayStr()}22:20`,
+      });
+    }
+  } catch (e) {
+    console.error("[task-engine] Notion Learning DB error (skipped):", e.message);
+  }
+
+  return items;
+}
+
+// --- Source: Gmail (未読重要メール) ---
+async function extractGmailActions(gToken) {
+  const items = [];
+  if (!gToken) return items;
+
+  try {
+    const query = encodeURIComponent("is:unread is:important -from:automated@airbnb.com -from:noreply");
+    const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=5`;
+    const listResult = await googleApiGet(url, gToken);
+
+    if (!listResult.messages || listResult.messages.length === 0) return items;
+
+    for (const msg of listResult.messages) {
+      try {
+        const msgUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From`;
+        const msgData = await googleApiGet(msgUrl, gToken);
+
+        let subject = "(件名なし)";
+        let from = "";
+        if (msgData.payload && msgData.payload.headers) {
+          for (const h of msgData.payload.headers) {
+            if (h.name === "Subject") subject = h.value || subject;
+            if (h.name === "From") from = h.value || "";
+          }
+        }
+
+        // From表示を短くする（メールアドレス部分を省略）
+        const fromName = from.replace(/<[^>]+>/, "").trim() || from;
+
+        items.push({
+          id: genId(),
+          source: "gmail",
+          title: subject,
+          detail: fromName ? `From: ${fromName}` : "未読・重要メール",
+          action: null,
+          actionLabel: null,
+          urgency: "today",
+          date: todayStr(),
+          sortKey: `${todayStr()}08:00`,
+        });
+      } catch (e) {
+        console.error(`[task-engine] Gmail message fetch error:`, e.message);
+      }
+    }
+  } catch (e) {
+    console.error("[task-engine] Gmail search error:", e.message);
+  }
+
+  return items;
+}
+
 // --- Main Engine ---
 async function generateToday() {
   console.log("[task-engine] Generating today.json...");
@@ -359,6 +568,26 @@ async function generateToday() {
   const gitItems = extractGitSummary();
   allItems.push(...gitItems);
   console.log(`[task-engine] Git: ${gitItems.length} items`);
+
+  // Notion
+  try {
+    const notionItems = await extractNotionActions();
+    allItems.push(...notionItems);
+    console.log(`[task-engine] Notion: ${notionItems.length} items`);
+  } catch (e) {
+    console.error("[task-engine] Notion failed:", e.message);
+  }
+
+  // Gmail
+  if (gToken) {
+    try {
+      const gmailItems = await extractGmailActions(gToken);
+      allItems.push(...gmailItems);
+      console.log(`[task-engine] Gmail: ${gmailItems.length} items`);
+    } catch (e) {
+      console.error("[task-engine] Gmail failed:", e.message);
+    }
+  }
 
   // セクションに分類
   const sections = [

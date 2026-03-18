@@ -7,13 +7,152 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="$REPO_DIR/logs"
+DATA_DIR="$REPO_DIR/data"
 OUTPUT_FILE="$LOG_DIR/.daily-scan.json"
 
 export PATH="/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 unset CLAUDECODE 2>/dev/null || true
 
+# --- task-engine.js を実行して today.json を生成 ---
+echo "daily-scan: Running task-engine.js..." >&2
+node "$SCRIPT_DIR/task-engine.js" >&2 2>&1
+TASK_ENGINE_EXIT=$?
+if [ $TASK_ENGINE_EXIT -ne 0 ]; then
+  echo "daily-scan: task-engine.js failed (exit=$TASK_ENGINE_EXIT)" >&2
+fi
+
+# today.json からアクション情報を読み込み
+TODAY_ACTIONS_CONTEXT=""
+if [ -f "$DATA_DIR/today.json" ]; then
+  TODAY_ACTIONS_CONTEXT=$(python3 -c "
+import json, sys
+
+with open('$DATA_DIR/today.json', 'r') as f:
+    data = json.load(f)
+
+lines = []
+for section in data.get('sections', []):
+    lines.append(f\"### {section['title']}\")
+    for item in section.get('items', []):
+        src = item.get('source', '')
+        title = item.get('title', '')
+        detail = item.get('detail', '')
+        action_label = item.get('actionLabel', '')
+        action_str = f' → [{action_label}]' if action_label else ''
+        lines.append(f'- [{src}] {title} — {detail}{action_str}')
+    lines.append('')
+
+stats = data.get('stats', {})
+lines.append(f\"合計: urgent={stats.get('urgent',0)}, today={stats.get('today',0)}, upcoming={stats.get('upcoming',0)}, total={stats.get('total',0)}\")
+
+print('\n'.join(lines))
+" 2>/dev/null)
+  echo "daily-scan: Loaded today.json ($(echo "$TODAY_ACTIONS_CONTEXT" | wc -l | tr -d ' ') lines)" >&2
+else
+  echo "daily-scan: today.json not found" >&2
+fi
+
 # プロジェクト進捗を収集
 PROJECT_CONTEXT=$("$SCRIPT_DIR/scan-projects.sh" 2>/dev/null)
+
+# --- 期限データの読み込みと残り日数計算 ---
+DEADLINES_CONTEXT=""
+if [ -f "$DATA_DIR/deadlines.json" ]; then
+  DEADLINES_CONTEXT=$(python3 -c "
+import json, sys
+from datetime import datetime, date
+
+with open('$DATA_DIR/deadlines.json', 'r') as f:
+    data = json.load(f)
+
+today = date.today()
+lines = []
+for d in data.get('deadlines', []):
+    if d.get('status') == '完了':
+        continue
+    deadline_date = date.fromisoformat(d['date'])
+    days_remaining = (deadline_date - today).days
+    if days_remaining < 0:
+        marker = '❌ 期限超過（D+' + str(abs(days_remaining)) + '）'
+    elif days_remaining <= 3:
+        marker = '⚠️ D-' + str(days_remaining) + '（残り' + str(days_remaining) + '日）'
+    elif days_remaining <= 7:
+        marker = '🔔 D-' + str(days_remaining) + '（残り' + str(days_remaining) + '日）'
+    else:
+        marker = 'D-' + str(days_remaining) + '（残り' + str(days_remaining) + '日）'
+
+    checklist_str = ''
+    if d.get('checklist'):
+        checklist_str = '  チェックリスト: ' + ' / '.join(d['checklist'])
+
+    notes_str = ''
+    if d.get('notes'):
+        notes_str = '  備考: ' + d['notes']
+
+    lines.append(f\"- [{d['status']}] {d['title']}（{d['business']}）{d['date']} {marker}{checklist_str}{notes_str}\")
+
+print('\n'.join(lines))
+" 2>/dev/null)
+  echo "daily-scan: Loaded $(echo "$DEADLINES_CONTEXT" | wc -l | tr -d ' ') deadlines" >&2
+fi
+
+# --- 天気予報の取得（OpenMeteo API、上野原市） ---
+WEATHER_CONTEXT=""
+WEATHER_JSON=$(curl -s --max-time 10 "https://api.open-meteo.com/v1/forecast?latitude=35.6275&longitude=139.1111&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia/Tokyo&forecast_days=3" 2>/dev/null)
+
+if [ -n "$WEATHER_JSON" ] && echo "$WEATHER_JSON" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  WEATHER_CONTEXT=$(python3 -c "
+import json, sys
+from datetime import datetime, date
+
+weather_json = '''$WEATHER_JSON'''
+data = json.loads(weather_json)
+
+daily = data.get('daily', {})
+dates = daily.get('time', [])
+codes = daily.get('weather_code', [])
+t_max = daily.get('temperature_2m_max', [])
+t_min = daily.get('temperature_2m_min', [])
+precip = daily.get('precipitation_probability_max', [])
+
+# 天気コード → 日本語
+def weather_desc(code):
+    if code == 0: return '☀️ 晴れ'
+    elif code <= 3: return '⛅ くもり'
+    elif code <= 48: return '🌫️ 霧'
+    elif code <= 55: return '🌦️ 小雨'
+    elif code <= 65: return '🌧️ 雨'
+    elif code <= 77: return '🌨️ 雪'
+    elif code <= 82: return '🌧️ にわか雨'
+    elif code <= 99: return '⛈️ 雷雨'
+    return '不明'
+
+# 曜日
+weekdays = ['月', '火', '水', '木', '金', '土', '日']
+
+lines = []
+for i in range(len(dates)):
+    d = date.fromisoformat(dates[i])
+    wd = weekdays[d.weekday()]
+    desc = weather_desc(codes[i]) if i < len(codes) else '不明'
+    hi = t_max[i] if i < len(t_max) else '?'
+    lo = t_min[i] if i < len(t_min) else '?'
+    rain = precip[i] if i < len(precip) else '?'
+
+    wed_note = ''
+    if d.weekday() == 2:  # 水曜日
+        wed_note = ' 【コーヒースタンド営業日】'
+        if codes[i] >= 51:  # 雨系コード
+            wed_note += '⚠️ 雨予報あり！営業判断要検討'
+
+    lines.append(f'- {dates[i]}（{wd}）{desc} {lo}℃〜{hi}℃ 降水確率{rain}%{wed_note}')
+
+print('\n'.join(lines))
+" 2>/dev/null)
+  echo "daily-scan: Weather data loaded" >&2
+else
+  echo "daily-scan: Weather API failed or returned invalid data" >&2
+fi
 
 # プロンプトを組み立て
 PROMPT_FILE=$(mktemp)
@@ -22,16 +161,15 @@ cat > "$PROMPT_FILE" << 'PROMPT_HEADER'
 以下の情報源を分析し、JSON形式で提案を出力してください。
 
 ## やること
-1. Google Calendarで今日・明日の予定を確認
-2. CLAUDE.mdのタスク管理セクションを読む
-3. 下に添付する「プロジェクト進捗情報」（Claude Code会話ログ）を分析
-4. 以下のJSON形式で出力
+1. 下に添付する「今日のアクション（today.json）」を確認（カレンダー・Airbnb・期限情報は統合済み）
+2. 下に添付する「プロジェクト進捗情報」（Claude Code会話ログ）を分析
+3. 以下のJSON形式で出力
 
 ## 出力JSON形式（これ以外は出力しないこと）
 
 ```json
 {
-  "briefing": "おはよう、Ryo。\n\n📅 今日の予定\n・○○（10:00〜）\n\n📋 タスク・宿題\n・○○\n\n📌 プロジェクト状況\n・○○\n\n🔮 先回りメモ\n・○○の予定を登録した方がよさそう\n・○○のタスクが期限近い\n\n💡 ひとこと\n○○",
+  "briefing": "おはよう、Ryo。\n\n📅 今日の予定\n・○○\n\n📋 やること\n・○○\n\n🔮 先回りメモ\n・○○\n\n💡 ひとこと\n○○",
   "calendar_suggestions": [
     {
       "title": "予定のタイトル",
@@ -56,16 +194,70 @@ cat > "$PROMPT_FILE" << 'PROMPT_HEADER'
 }
 ```
 
-## ルール
+## ブリーフィング生成の最重要ルール
+
+あなたはRyoの専属秘書です。単なる情報リストではなく、「秘書としての判断と提案」を提供してください。
+
+### 出力の原則: 事実→判断→提案
+すべての項目は以下の3段構成で書くこと:
+1. 事実: 何が起きている/予定されているか（簡潔に）
+2. 判断: それがRyoにとってどういう意味か（時間の衝突、準備の必要性、リスク等）
+3. 提案: だからRyoは何をすべきか（具体的なアクション）
+
+### 悪い例と良い例
+❌「13:30〜焙煎体験（鎌倉さま2名）」
+✅「13:30〜焙煎体験（鎌倉さま2名、酸味少なめ希望）→ 深煎り寄りの豆を準備。午前中に焙煎しておくと余裕あり」
+
+❌「えんがわ UME: Estelle Rouxさん → 3/16チェックアウト」
+✅「Estelle Rouxさん今日チェックアウト → チェックアウト後に清掃、明日のHugo Bouquetさん（フランス2名）チェックインに備える。焙煎体験を案内するチャンス」
+
+❌「確定申告 → 3/17（D-2）」
+✅「⚠️ 確定申告あさって。明日は予定が詰まっているので、今日の空き時間（14:00-15:00）に提出準備を」
+
+❌「退去通知書 内容証明発送 → 3/31（D-16）」
+✅「退去通知書の内容証明発送、あと16日。来週のどこかで郵便局に行く時間を確保」
+
+### クロス事業の判断
+Ryoは三十日珈琲・えんがわ・蔵サウナ・鳥沢・SATOYAMAの5事業を1人で運営している。
+- 予定の衝突や移動時間の危うさを検知したら警告する
+- あるイベントが別の事業にチャンスを生む場合は指摘する（例: えんがわゲスト→焙煎体験案内）
+- 空き時間があれば、期限が近いタスクを当てはめて提案する
+
+### 天気×事業判断
+- 水曜日はコーヒースタンド営業日。雨予報なら営業判断を提案する
+- 雨の日は屋内作業（事務、コンテンツ作成、プログラミング）を提案する
+
+### 期限の扱い
+- statusが「完了」のものは表示しない
+- D-3以内: ⚠️をつけて「今日中に何をすべきか」まで踏み込む
+- D-7以内: 具体的なアクションステップを提案する
+- D-30以内: 存在をリマインドする程度でOK
+
+### 🔮先回りメモのルール
+このセクションが秘書としての真価。以下のような「Ryoが気づいていないかもしれないこと」を指摘する:
+- 予定の衝突や移動時間のリスク
+- 明日以降の予定に対して今日やっておくべき準備
+- ゲスト情報から推測される送客チャンス
+- 天気変化による営業判断
+- 期限タスクを空き時間にマッピングした提案
+- 「この人に連絡した方がいい」「この資料を準備しておいた方がいい」等の気づき
+
+## Airbnb予約のチェックイン/チェックアウト判定ルール（重要）
+- カレンダーの予約期間の最初の日 = チェックイン日
+- カレンダーの予約期間の最後の日 = チェックアウト日（この日は宿泊しない、退出する日）
+- 例: 「3/14-3/16」→ 3/14チェックイン、3/16チェックアウト（3/14と3/15の2泊）
+- チェックアウト日には「清掃→次のゲスト準備」のリマインドを添える
+- チェックイン日には「おもてなし準備」のリマインドを添える
+
+## その他のルール
 - briefing: LINEで読みやすい朝ブリーフィング。**必ず2000文字以内に収めること（厳守）**
 - briefingの文字数制約を守るための書き方ルール:
-  - 箇条書きは1項目1行。説明は最小限に（補足があれば「→」で短く添える）
+  - 箇条書きは1項目1行。「事実→判断→提案」は「→」でつないで1行にまとめる
   - 同種の情報はまとめる（例: 予定なし→「特になし」の一言でOK）
   - 冗長な挨拶・前置き・まとめは不要。「おはよう、Ryo。」の一言で始める
   - 「💡 ひとこと」は2行以内。短く刺さる一言にする
   - 情報の優先度: 今日の予定 > 期限の近いタスク > プロジェクト状況 > その他
   - 重要度の低い項目は思い切って省略する
-- 「🔮 先回りメモ」セクション: calendar_suggestionsやtask_updatesの内容を人間が読める形で簡潔に記載する（例:「○○の打ち合わせ、カレンダー未登録かも」「○○の期限が近い」）。提案がなければセクションごと省略してOK
 - calendar_suggestions: 会話ログからカレンダーに未登録と思われる予定を検出。確実なものだけ。空配列OK
 - task_updates:
   - add: 会話で出てきた新しい宿題・やるべきこと
@@ -75,9 +267,60 @@ cat > "$PROMPT_FILE" << 'PROMPT_HEADER'
 - calendar_suggestionsとtask_updatesは引き続きJSON内に出力すること（PWAが参照するため）
 - priority: カレンダーの空き状況・期日・事業の重要度から総合判断
 - 出力は```jsonブロック内のJSONのみ。前後に説明文を入れないこと
-- Airbnbチェックアウト判定ルール: カレンダーに宿泊予約が「3/8〜3/10」のように入っている場合、チェックアウト日は最終日の3/10。「3/10チェックアウト」と表記すること。最終日の翌日ではない。えんがわUMEやAirbnb予約では、予約の最終日＝チェックアウト日である
 - 重要: このタスクはJSON出力のみ。LINE送信、メール送信、API呼び出し、ファイル書き込みなどの副作用のあるアクションは絶対に実行しないこと。分析と出力だけを行うこと
+
+## 今日のアクション（task-engine.js が生成した today.json）
+以下はカレンダー・Airbnb予約・期限情報・Git活動を統合した今日のアクションリストです。
+これを元にブリーフィングを生成してください。
+
+{today_actions}
+
+## 追加データ
+
+### 期限情報（詳細）
+{deadlines_with_days_remaining}
+
+### 天気予報（3日間）
+{weather_summary}
 PROMPT_HEADER
+
+# プロンプト内のプレースホルダーを実データで置換
+if [ -n "$TODAY_ACTIONS_CONTEXT" ]; then
+  TODAY_ACTIONS_DATA="$TODAY_ACTIONS_CONTEXT"
+else
+  TODAY_ACTIONS_DATA="（today.json データなし — task-engine.js の実行に失敗した可能性あり）"
+fi
+
+if [ -n "$DEADLINES_CONTEXT" ]; then
+  DEADLINES_DATA="$DEADLINES_CONTEXT"
+else
+  DEADLINES_DATA="（期限データなし）"
+fi
+
+if [ -n "$WEATHER_CONTEXT" ]; then
+  WEATHER_DATA="$WEATHER_CONTEXT"
+else
+  WEATHER_DATA="（天気データ取得失敗）"
+fi
+
+# sedで置換（複数行対応のためpython3を使用）
+python3 -c "
+import sys
+
+with open('$PROMPT_FILE', 'r') as f:
+    content = f.read()
+
+today_actions = '''$TODAY_ACTIONS_DATA'''
+deadlines = '''$DEADLINES_DATA'''
+weather = '''$WEATHER_DATA'''
+
+content = content.replace('{today_actions}', today_actions)
+content = content.replace('{deadlines_with_days_remaining}', deadlines)
+content = content.replace('{weather_summary}', weather)
+
+with open('$PROMPT_FILE', 'w') as f:
+    f.write(content)
+"
 
 cat >> "$PROMPT_FILE" << PROMPT_PROJECTS
 
