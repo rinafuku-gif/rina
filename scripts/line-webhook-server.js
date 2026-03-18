@@ -62,9 +62,9 @@ function loadSubscriptions() {
 function saveSubscriptions(subs) {
   fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subs, null, 2));
 }
-async function sendWebPush(title, body) {
+async function sendWebPush(title, body, options = {}) {
   const subs = loadSubscriptions();
-  const payload = JSON.stringify({ title, body });
+  const payload = JSON.stringify({ title, body, ...options });
   const expired = [];
   for (let i = 0; i < subs.length; i++) {
     try {
@@ -2040,6 +2040,90 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         res.end(JSON.stringify({ error: "Failed to toggle task" }));
       }
     });
+  } else if (req.method === "GET" && req.url?.startsWith("/api/action-required")) {
+    // 判断待ちキュー: Ryoの確認が必要なアイテムを返す
+    const origin = req.headers["origin"] || "";
+    const corsHeaders = { "Access-Control-Allow-Origin": origin, "Content-Type": "application/json" };
+    const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+    const qTokenLocal = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
+    if (qTokenLocal !== env.SHIRATAMA_API_TOKEN) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    try {
+      const taskStoreModule = require("./task-store");
+      const items = [];
+
+      // 1. 期限切れ・期限今日のタスク
+      const today = taskStoreModule.todayStr();
+      const openTasks = taskStoreModule.getAllOpen();
+      for (const t of openTasks) {
+        if (t.dueDate && t.dueDate <= today) {
+          items.push({
+            type: "overdue_task",
+            id: t.id,
+            title: t.title,
+            project: t.project,
+            dueDate: t.dueDate,
+            priority: "high",
+            message: t.dueDate === today ? `今日が期限: ${t.title}` : `期限超過: ${t.title}（${t.dueDate}）`,
+          });
+        }
+      }
+
+      // 2. Gitスキャナーが自動完了したタスク（確認待ち）
+      const recentDone = taskStoreModule.getRecentlyCompleted(2);
+      for (const t of recentDone) {
+        const completedBy = t.history?.find(h => h.action === "completed")?.by;
+        if (completedBy === "git-scanner") {
+          items.push({
+            type: "auto_completed",
+            id: t.id,
+            title: t.title,
+            project: t.project,
+            priority: "medium",
+            message: `自動完了: ${t.title}（合ってる？）`,
+          });
+        }
+      }
+
+      // 3. カレンダーフォローアップの未回答
+      const followupState = loadFollowupState();
+      if (followupState.pending) {
+        items.push({
+          type: "followup",
+          id: followupState.pending.eventId,
+          title: followupState.pending.eventTitle,
+          priority: "medium",
+          message: `「${followupState.pending.eventTitle}」どうだった？`,
+        });
+      }
+
+      // 4. 今日のAirbnbゲスト到着
+      const bookings = loadBookingsLog();
+      for (const b of bookings) {
+        if (b.checkin === today) {
+          items.push({
+            type: "guest_arrival",
+            id: b.confirmationCode,
+            title: `${b.guestName}（${b.guests}名）チェックイン`,
+            project: "えんがわ",
+            priority: "high",
+            message: `今日ゲスト到着: ${b.guestName}（${b.room}）`,
+          });
+        }
+      }
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ items, count: items.length }));
+    } catch (e) {
+      console.error("Action required error:", e.message);
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ error: e.message }));
+    }
+
   } else if (req.method === "GET" && req.url?.startsWith("/api/schedule")) {
     // 今日の予定を返す
     const origin = req.headers["origin"] || "";
