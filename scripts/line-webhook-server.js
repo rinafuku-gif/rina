@@ -4179,8 +4179,9 @@ async function checkPostEventFollowup() {
   }
 }
 
-setInterval(checkPostEventFollowup, 5 * 60 * 1000);
-setTimeout(checkPostEventFollowup, 60 * 1000);
+// カレンダーフォローアップのLINE通知は停止（PWA集約方針）
+// setInterval(checkPostEventFollowup, 5 * 60 * 1000);
+// setTimeout(checkPostEventFollowup, 60 * 1000);
 
 // --- フォローアップ応答の解析（webhookハンドラから呼ばれる） ---
 function tryParseFollowupReply(userMessage) {
