@@ -4183,6 +4183,50 @@ async function checkPostEventFollowup() {
 // setInterval(checkPostEventFollowup, 5 * 60 * 1000);
 // setTimeout(checkPostEventFollowup, 60 * 1000);
 
+// ========== PWAバッジ定期更新 ==========
+let lastBadgeCount = -1;
+
+async function updatePwaBadge() {
+  try {
+    const { generateToday } = require("./task-engine");
+    const data = await generateToday();
+    const badgeCount = data.stats.badgeCount || 0;
+
+    // バッジ件数が変わった時だけ通知を送る
+    if (badgeCount !== lastBadgeCount) {
+      lastBadgeCount = badgeCount;
+
+      if (badgeCount > 0) {
+        const urgentItems = data.sections.find(s => s.type === "urgent");
+        const firstUrgent = urgentItems?.items?.[0];
+        const body = firstUrgent
+          ? `${firstUrgent.title}`
+          : `${badgeCount}件のアクションがあるよ`;
+
+        await sendWebPush("しらたま", body, {
+          badgeCount,
+          tag: "today-badge",
+          url: "/",
+        });
+        console.log(`[badge] Sent: ${badgeCount} items`);
+      } else {
+        // バッジクリア
+        await sendWebPush("しらたま", "", {
+          badgeCount: 0,
+          tag: "badge-clear",
+        });
+        console.log("[badge] Cleared");
+      }
+    }
+  } catch (e) {
+    console.error("[badge] Update failed:", e.message);
+  }
+}
+
+// 朝7:05（ブリーフィング直後）と、1時間ごとに更新
+setInterval(updatePwaBadge, 60 * 60 * 1000); // 1時間ごと
+setTimeout(updatePwaBadge, 60 * 1000); // 起動1分後に初回
+
 // --- フォローアップ応答の解析（webhookハンドラから呼ばれる） ---
 function tryParseFollowupReply(userMessage) {
   const state = loadFollowupState();
