@@ -2077,8 +2077,14 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         if (needsRefresh) {
           const { generateToday } = require("./task-engine");
           const data = await generateToday();
+          // 秘書コメント生成（バックグラウンドで非同期実行、レスポンスは先に返す）
           res.writeHead(200, corsHeaders);
           res.end(JSON.stringify(data));
+          // コメント生成後にtoday.jsonが更新される → 次回読み込み時に反映
+          try {
+            const { enrichToday } = require("./secretary-enrich");
+            enrichToday().catch(e => console.error("[secretary-enrich] Error:", e.message));
+          } catch {}
         } else {
           const data = JSON.parse(fs.readFileSync(todayFile, "utf-8"));
           res.writeHead(200, corsHeaders);
@@ -4190,6 +4196,8 @@ async function updatePwaBadge() {
   try {
     const { generateToday } = require("./task-engine");
     const data = await generateToday();
+    // 秘書コメントも生成
+    try { const { enrichToday } = require("./secretary-enrich"); await enrichToday(); } catch {}
     const badgeCount = data.stats.badgeCount || 0;
 
     // バッジ件数が変わった時だけ通知を送る

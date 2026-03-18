@@ -1,6 +1,6 @@
 {
   "date": "2026-03-19",
-  "generatedAt": "2026-03-18T18:19:32.213Z",
+  "generatedAt": "2026-03-18T18:38:20.597Z",
   "acknowledged": false,
   "sections": [
     {
@@ -8,7 +8,7 @@
       "title": "今すぐ対応",
       "items": [
         {
-          "id": "act_dbfc4db8",
+          "id": "act_727b93f9",
           "source": "airbnb",
           "title": "ゲスト到着: Victor Everaard（2名・UME）",
           "detail": "チェックイン今日",
@@ -16,7 +16,8 @@
           "actionLabel": "準備OK",
           "urgency": "urgent",
           "date": "2026-03-19",
-          "sortKey": "2026-03-1909:00"
+          "sortKey": "2026-03-1909:00",
+          "secretaryNote": "Victorさんは外国籍ゲストだから英語チェックインメッセージを事前送信しておくといいよ"
         }
       ]
     },
@@ -25,7 +26,7 @@
       "title": "今日やること",
       "items": [
         {
-          "id": "act_dc0e6bea",
+          "id": "act_f218a116",
           "source": "calendar",
           "title": "13:00-13:30 上野原警察署（旅館業申請手数料支払い）",
           "detail": "R&M共有",
@@ -33,10 +34,11 @@
           "actionLabel": "確認",
           "urgency": "today",
           "date": "2026-03-19",
-          "sortKey": "2026-03-1913:00-13:30"
+          "sortKey": "2026-03-1913:00-13:30",
+          "secretaryNote": "手数料の金額と支払い方法（現金か？）を事前に確認してから向かってね"
         },
         {
-          "id": "act_ebfb8703",
+          "id": "act_f5411c76",
           "source": "calendar",
           "title": "14:00-15:30 シオンさん",
           "detail": "R&M共有",
@@ -44,10 +46,11 @@
           "actionLabel": "確認",
           "urgency": "today",
           "date": "2026-03-19",
-          "sortKey": "2026-03-1914:00-15:30"
+          "sortKey": "2026-03-1914:00-15:30",
+          "secretaryNote": null
         },
         {
-          "id": "act_9d7d8bc4",
+          "id": "act_475221a1",
           "source": "calendar",
           "title": "14:00-18:00 🚗(R)見晴亭作業（PC作業可能）",
           "detail": "プライベート",
@@ -55,10 +58,11 @@
           "actionLabel": "確認",
           "urgency": "today",
           "date": "2026-03-19",
-          "sortKey": "2026-03-1914:00-18:00"
+          "sortKey": "2026-03-1914:00-18:00",
+          "secretaryNote": "シオンさんとの時間が14時からかぶってるから移動タイミング注意だよ"
         },
         {
-          "id": "act_2df071fe",
+          "id": "act_426c06d1",
           "source": "calendar",
           "title": "17:00-18:00 あっきーさんAI相談",
           "detail": "R&M共有",
@@ -66,10 +70,11 @@
           "actionLabel": "確認",
           "urgency": "today",
           "date": "2026-03-19",
-          "sortKey": "2026-03-1917:00-18:00"
+          "sortKey": "2026-03-1917:00-18:00",
+          "secretaryNote": "見晴亭作業中の予定だから、17時前には準備・接続テストを済ませておくといいね"
         },
         {
-          "id": "act_28e3d8c0",
+          "id": "act_a45bc58b",
           "source": "calendar",
           "title": "2026-03-20 終日 鳥沢 ギア選定フィックス→オーナー承認→発注",
           "detail": "プライベート",
@@ -77,10 +82,11 @@
           "actionLabel": null,
           "urgency": "today",
           "date": "2026-03-20",
-          "sortKey": "2026-03-2000:00"
+          "sortKey": "2026-03-2000:00",
+          "secretaryNote": "配送リードタイム確保のためGW前オープンの要でもあるから、今日中に決めきるつもりで臨んでね"
         },
         {
-          "id": "act_5484fd6a",
+          "id": "act_2e7d231a",
           "source": "airbnb",
           "title": "明日ゲスト到着: 慧 吕（2名・UME）",
           "detail": "チェックイン 2026-03-20",
@@ -88,7 +94,8 @@
           "actionLabel": null,
           "urgency": "today",
           "date": "2026-03-20",
-          "sortKey": "2026-03-2009:00"
+          "sortKey": "2026-03-2009:00",
+          "secretaryNote": "Victorさんチェックアウト後そのまま慧さんチェックインになるから清掃・準備の時間を確保しておいてね"
         }
       ]
     },
@@ -97,7 +104,7 @@
       "title": "近日中",
       "items": [
         {
-          "id": "act_09c92317",
+          "id": "act_57eb803b",
           "source": "calendar",
           "title": "2026-03-21 14:00-15:30 大神田さんMTG",
           "detail": "R&M共有",
@@ -105,101 +112,8 @@
           "actionLabel": null,
           "urgency": "upcoming",
           "date": "2026-03-21",
-          "sortKey": "2026-03-2114:00-15:30"
-        }
-      ]
-    },
-    {
-      "type": "fyi",
-      "title": "参考情報",
-      "items": [
-        {
-          "id": "act_bc127a9c",
-          "source": "git",
-          "title": "しらたまPWA: 直近6件のコミット",
-          "detail": "最新: となりにとまる売上のハードコード計算を無効化",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "fyi",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1923:00"
-        },
-        {
-          "id": "act_d5e8e304",
-          "source": "git",
-          "title": "rina: 直近6件のコミット",
-          "detail": "最新: PWAバッジ自動更新: 1時間ごとにtask-engineで件数チェック→Push送信",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "fyi",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1923:00"
-        },
-        {
-          "id": "act_5f433f52",
-          "source": "notion",
-          "title": "DX案件: 山田 花子",
-          "detail": "ステータス: デプロイ済み",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "fyi",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1922:00"
-        },
-        {
-          "id": "act_a6f1c1a1",
-          "source": "notion",
-          "title": "DX案件: Notion連携テスト直接",
-          "detail": "ステータス: 問い合わせ",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "fyi",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1922:00"
-        },
-        {
-          "id": "act_4e8ae232",
-          "source": "notion",
-          "title": "DX案件: Notion連携テスト",
-          "detail": "ステータス: 問い合わせ",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "fyi",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1922:00"
-        },
-        {
-          "id": "act_22f30e00",
-          "source": "notion",
-          "title": "下書き: 個人事業主のためのAI活用アイデア10選",
-          "detail": "コンテンツDB — 公開待ち",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "fyi",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1922:10"
-        },
-        {
-          "id": "act_bcfcf17e",
-          "source": "notion",
-          "title": "下書き: ハマるだけでコンテンツが生まれる仕組みを作った",
-          "detail": "コンテンツDB — 公開待ち",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "fyi",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1922:10"
-        },
-        {
-          "id": "act_1896ffdd",
-          "source": "notion",
-          "title": "下書き: 売り込みが怖い人の、もう一つの戦い方",
-          "detail": "コンテンツDB — 公開待ち",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "fyi",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1922:10"
+          "sortKey": "2026-03-2114:00-15:30",
+          "secretaryNote": "契約書の署名・大神田さんの住所確認など、持参・確認事項をリストアップしておくといいよ"
         }
       ]
     }
