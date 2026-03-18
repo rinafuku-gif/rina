@@ -2285,15 +2285,24 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
             }
           }
 
+          // 重複排除（同じタイトル＋同じ時間帯は1つだけ表示）
+          const seen = new Set();
+          const deduped = events.filter(ev => {
+            const key = `${ev.time}|${ev.title.replace(/^\(R\)\s*/, "").replace(/^\(M\)\s*/, "")}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+
           // 時間順にソート
-          events.sort((a, b) => {
+          deduped.sort((a, b) => {
             if (a.time === "終日") return -1;
             if (b.time === "終日") return 1;
             return a.time.localeCompare(b.time);
           });
 
           res.writeHead(200, corsHeaders);
-          res.end(JSON.stringify({ date: dateStr, events, source: "calendar" }));
+          res.end(JSON.stringify({ date: dateStr, events: deduped, source: "calendar" }));
         } catch (calErr) {
           console.error("Schedule calendar direct fetch error:", calErr.message);
           res.writeHead(200, corsHeaders);
