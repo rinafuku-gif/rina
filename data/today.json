@@ -1,0 +1,142 @@
+{
+  "date": "2026-03-18",
+  "generatedAt": "2026-03-18T13:19:51.146Z",
+  "acknowledged": false,
+  "sections": [
+    {
+      "type": "today",
+      "title": "今日やること",
+      "items": [
+        {
+          "id": "act_fef7e162",
+          "source": "calendar",
+          "title": "08:00-13:00 misoca coffee stand",
+          "detail": "R&M共有",
+          "action": "acknowledge",
+          "actionLabel": "確認",
+          "urgency": "today",
+          "date": "2026-03-18",
+          "sortKey": "2026-03-1808:00-13:00"
+        },
+        {
+          "id": "act_8466c534",
+          "source": "airbnb",
+          "title": "明日ゲスト到着: Victor Everaard（2名・UME）",
+          "detail": "チェックイン 2026-03-19",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-19",
+          "sortKey": "2026-03-1909:00"
+        },
+        {
+          "id": "act_ea8118bd",
+          "source": "calendar",
+          "title": "2026-03-19 13:00-13:30 上野原警察署（旅館業申請手数料支払い）",
+          "detail": "R&M共有",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-19",
+          "sortKey": "2026-03-1913:00-13:30"
+        },
+        {
+          "id": "act_d37bf3b8",
+          "source": "calendar",
+          "title": "2026-03-19 14:00-15:30 シオンさん",
+          "detail": "R&M共有",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-19",
+          "sortKey": "2026-03-1914:00-15:30"
+        },
+        {
+          "id": "act_a3b7d737",
+          "source": "calendar",
+          "title": "2026-03-19 14:00-18:00 🚗(R)見晴亭作業（PC作業可能）",
+          "detail": "プライベート",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-19",
+          "sortKey": "2026-03-1914:00-18:00"
+        },
+        {
+          "id": "act_0553f22a",
+          "source": "calendar",
+          "title": "2026-03-19 17:00-18:00 あっきーさんAI相談",
+          "detail": "R&M共有",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-19",
+          "sortKey": "2026-03-1917:00-18:00"
+        }
+      ]
+    },
+    {
+      "type": "upcoming",
+      "title": "近日中",
+      "items": [
+        {
+          "id": "act_37f242b5",
+          "source": "calendar",
+          "title": "2026-03-20 終日 鳥沢 ギア選定フィックス→オーナー承認→発注",
+          "detail": "プライベート",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-20",
+          "sortKey": "2026-03-2000:00"
+        }
+      ]
+    },
+    {
+      "type": "fyi",
+      "title": "参考情報",
+      "items": [
+        {
+          "id": "act_ed74a2b3",
+          "source": "git",
+          "title": "しらたまPWA: 直近5件のコミット",
+          "detail": "最新: Toast色分け: 成功=緑、エラー=赤、情報=茶に統一",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "fyi",
+          "date": "2026-03-18",
+          "sortKey": "2026-03-1823:00"
+        },
+        {
+          "id": "act_3caeebd1",
+          "source": "git",
+          "title": "SATOYAMA: 直近7件のコミット",
+          "detail": "最新: FAQを学習プラットフォーム向けに全面書き直し",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "fyi",
+          "date": "2026-03-18",
+          "sortKey": "2026-03-1823:00"
+        },
+        {
+          "id": "act_1c4bece7",
+          "source": "git",
+          "title": "rina: 直近6件のコミット",
+          "detail": "最新: スケジュール重複表示を修正（同じ予定名+時間は1件のみ表示）",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "fyi",
+          "date": "2026-03-18",
+          "sortKey": "2026-03-1823:00"
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "urgent": 0,
+    "today": 6,
+    "upcoming": 1,
+    "total": 10,
+    "badgeCount": 6
+  }
+}
