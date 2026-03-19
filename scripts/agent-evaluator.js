@@ -185,7 +185,11 @@ const RULES = [
 
 // ===== エバリュエーター実行 =====
 
-async function evaluate() {
+/**
+ * @param {Object} options
+ * @param {Function} [options.onInsight] - 気づき生成時のコールバック（プッシュ通知等）
+ */
+async function evaluate(options = {}) {
   console.log("[evaluator] ========== 自律判断エンジン開始 ==========");
   const start = Date.now();
 
@@ -208,6 +212,15 @@ async function evaluate() {
         await db.addInsight({ id: genId(), ...insight });
         generated++;
         console.log(`[evaluator] 気づき生成: [${insight.urgency}] ${insight.title}`);
+
+        // action_needed以上の気づきはプッシュ通知
+        if ((insight.urgency === "action_needed" || insight.urgency === "critical") && options.onInsight) {
+          try {
+            await options.onInsight(insight);
+          } catch (err) {
+            console.error("[evaluator] プッシュ通知エラー:", err.message);
+          }
+        }
       }
     } catch (err) {
       console.error(`[evaluator] ルール "${rule.name}" エラー:`, err.message);

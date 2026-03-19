@@ -6079,17 +6079,29 @@ async function sendComment() {
 // 統合DB初期化 → データ取り込み → 自律判断エンジン
 unifiedApi.init().then(async () => {
   console.log("[startup] 統合DB初期化完了");
+  // プッシュ通知コールバック（action_needed以上の気づきを通知）
+  const onInsight = async (insight) => {
+    const typeLabel = { anomaly: "📊", suggestion: "💡", reminder: "🔔", alert: "⚠️" };
+    const icon = typeLabel[insight.type] || "📋";
+    await sendWebPush(
+      `${icon} ${insight.title}`,
+      insight.detail || "",
+      { url: "/" }
+    );
+    console.log(`[push] 気づき通知送信: ${insight.title}`);
+  };
+
   // 起動時にデータを取り込み
   await dataIngester.ingestAll();
   // 自律判断エンジン実行
-  await agentEvaluator.evaluate();
+  await agentEvaluator.evaluate({ onInsight });
   console.log("[startup] データ取り込み＋判断エンジン完了");
 
   // 定期実行: 15分ごとにデータ取り込み＋判断
   setInterval(async () => {
     try {
       await dataIngester.ingestAll();
-      await agentEvaluator.evaluate();
+      await agentEvaluator.evaluate({ onInsight });
     } catch (err) {
       console.error("[periodic] 定期取り込みエラー:", err.message);
     }
