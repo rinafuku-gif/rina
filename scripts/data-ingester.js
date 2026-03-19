@@ -34,7 +34,7 @@ async function ingestAirbnbBookings() {
 
   for (const b of bookings) {
     const eventId = `airbnb_${b.confirmationCode}`;
-    const custId = `airbnb_guest_${b.guestName?.replace(/\s/g, "_") || "unknown"}`;
+    const custId = `airbnb_guest_${b.confirmationCode || (b.guestName?.replace(/\s/g, "_") || "unknown")}`;
 
     // 予定として登録
     await db.upsertEvent({

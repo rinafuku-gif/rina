@@ -277,6 +277,9 @@ async function getPendingInsights() {
 }
 
 async function markInsight(id, status) {
+  // 許可されたステータスのみ
+  const ALLOWED = ["shown", "acted", "dismissed"];
+  if (!ALLOWED.includes(status)) status = "acted";
   const db = getClient();
   const field = status === "shown" ? "shown_at" : "acted_at";
   await db.execute({
@@ -303,8 +306,8 @@ async function getDashboardSummary() {
   const now = new Date();
   const jst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
   const thisMonth = `${jst.getFullYear()}-${String(jst.getMonth() + 1).padStart(2, "0")}`;
-  const today = jst.toISOString().slice(0, 10);
-  const weekLater = new Date(jst.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  const today = jst.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const weekLater = new Date(now.getTime() + 7 * 86400000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
   const [revenue, expenses, events, pendingTasks, insights] = await Promise.all([
     db.execute({ sql: "SELECT SUM(amount) as total FROM money_transactions WHERE date LIKE ? AND amount > 0", args: [`${thisMonth}%`] }),

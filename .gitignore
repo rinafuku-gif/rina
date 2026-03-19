@@ -1,41 +1,40 @@
-# Secrets
-.env
-.env.*
-credentials.json
-token.json
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Screenshots (large binary files)
-logs/screenshots/
-
-# Uploaded files (temporary)
-logs/.uploads/
-
-# Push subscriptions (contains endpoint secrets)
-logs/.push-subscriptions.json
-
-# Temporary prompt files
-logs/.current-prompt.txt
-logs/.receipt-prompt.txt
-logs/.shiratama-prompt.txt
-
-# Runtime logs
-logs/cloudflared.log
-logs/line-bot-stderr.log
-logs/line-bot-stdout.log
-logs/briefing-stderr.log
-logs/briefing-stdout.log
-logs/last-tunnel-url.txt
-logs/tunnel.pid
-logs/webhook.pid
-
-# Node
-node_modules/
 
 # Editor
-.vscode/
-*.swp
+# Node
+# OS
+# Push subscriptions (contains endpoint secrets)
+# Runtime logs
+# Screenshots (large binary files)
+# Secrets
+# Temporary prompt files
+# Uploaded files (temporary)
 *.swo
+*.swp
+.DS_Store
+.env
+.env.*
+.vscode/
+Thumbs.db
+credentials.json
+logs/
+logs/.current-prompt.txt
+logs/.push-subscriptions.json
+logs/.receipt-prompt.txt
+logs/.shiratama-prompt.txt
+logs/.uploads/
+logs/briefing-stderr.log
+logs/briefing-stdout.log
+logs/cloudflared.log
+logs/last-tunnel-url.txt
+logs/line-bot-stderr.log
+logs/line-bot-stdout.log
+logs/screenshots/
+logs/tunnel.pid
+logs/webhook.pid
+node_modules/
+token.json
+
+# Unified DB (contains customer/financial data)
+data/*.db
+data/*.db-journal
+data/*.db-wal

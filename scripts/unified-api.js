@@ -14,6 +14,21 @@
 
 const db = require("./unified-db");
 const crypto = require("crypto");
+const path = require("path");
+const fs = require("fs");
+
+// .env からトークン取得
+const envPath = path.join(__dirname, "..", ".env");
+let API_TOKEN = "";
+try {
+  const envContent = fs.readFileSync(envPath, "utf-8");
+  for (const line of envContent.split("\n")) {
+    const match = line.match(/^SHIRATAMA_API_TOKEN=(.*)$/);
+    if (match) API_TOKEN = match[1].trim();
+  }
+} catch {}
+
+const MAX_BODY_SIZE = 1 * 1024 * 1024; // 1MB
 
 function genId() {
   return crypto.randomUUID();
@@ -39,6 +54,18 @@ function canHandle(pathname) {
 }
 
 async function handle(req, res, pathname, searchParams) {
+  // CORS preflight
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,OPTIONS", "Access-Control-Allow-Headers": "Content-Type,Authorization" });
+    return res.end();
+  }
+
+  // 認証チェック
+  const token = searchParams.get("token") || (req.headers["authorization"] || "").replace("Bearer ", "");
+  if (API_TOKEN && token !== API_TOKEN) {
+    return json(res, { error: "Unauthorized" }, 401);
+  }
+
   try {
     // ダッシュボード（統合ビュー）
     if (pathname === "/api/unified/dashboard" && req.method === "GET") {
@@ -233,7 +260,16 @@ function error(res, message) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on("data", chunk => chunks.push(chunk));
+    let size = 0;
+    req.on("data", chunk => {
+      size += chunk.length;
+      if (size > MAX_BODY_SIZE) {
+        req.destroy();
+        reject(new Error("Request body too large"));
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end", () => resolve(Buffer.concat(chunks).toString()));
     req.on("error", reject);
   });

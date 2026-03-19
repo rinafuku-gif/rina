@@ -19,6 +19,21 @@ function today() {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 }
 
+function thisMonthJST() {
+  const d = new Date();
+  const jst = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+  return `${jst.getFullYear()}-${String(jst.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function lastMonthJST() {
+  const d = new Date();
+  const jst = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+  const m = jst.getMonth(); // 0-indexed
+  return m === 0
+    ? `${jst.getFullYear() - 1}-12`
+    : `${jst.getFullYear()}-${String(m).padStart(2, "0")}`;
+}
+
 // ===== ルールエンジン =====
 
 const RULES = [
@@ -52,11 +67,8 @@ const RULES = [
     description: "今月の経費が先月比30%以上増加",
     evaluate: async () => {
       const client = db.getClient();
-      const now = new Date();
-      const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      const lastMonth = now.getMonth() === 0
-        ? `${now.getFullYear() - 1}-12`
-        : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
+      const thisMonth = thisMonthJST();
+      const lastMonth = lastMonthJST();
 
       const [thisResult, lastResult] = await Promise.all([
         client.execute({ sql: "SELECT SUM(ABS(amount)) as total FROM money_transactions WHERE amount < 0 AND date LIKE ?", args: [`${thisMonth}%`] }),
@@ -155,8 +167,7 @@ const RULES = [
     description: "キャッシュフロー警告（経費が売上を上回っている）",
     evaluate: async () => {
       const client = db.getClient();
-      const now = new Date();
-      const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const thisMonth = thisMonthJST();
 
       const [revResult, expResult] = await Promise.all([
         client.execute({ sql: "SELECT SUM(amount) as total FROM money_transactions WHERE amount > 0 AND date LIKE ?", args: [`${thisMonth}%`] }),
