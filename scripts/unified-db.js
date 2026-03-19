@@ -309,13 +309,37 @@ async function getDashboardSummary() {
   const today = jst.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
   const weekLater = new Date(now.getTime() + 7 * 86400000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
-  const [revenue, expenses, events, pendingTasks, insights] = await Promise.all([
+  const [revenue, expenses, events, pendingTasks, insights, bizRevenue, bizBookings, bizCustomers] = await Promise.all([
     db.execute({ sql: "SELECT SUM(amount) as total FROM money_transactions WHERE date LIKE ? AND amount > 0", args: [`${thisMonth}%`] }),
     db.execute({ sql: "SELECT SUM(ABS(amount)) as total FROM money_transactions WHERE date LIKE ? AND amount < 0", args: [`${thisMonth}%`] }),
     db.execute({ sql: "SELECT * FROM schedule_events WHERE start_at >= ? AND start_at <= ? AND status != 'cancelled' ORDER BY start_at LIMIT 10", args: [today, weekLater] }),
     db.execute({ sql: "SELECT COUNT(*) as count FROM tasks WHERE status IN ('pending', 'in_progress')", args: [] }),
     db.execute({ sql: "SELECT * FROM agent_insights WHERE status = 'pending' ORDER BY CASE urgency WHEN 'critical' THEN 1 WHEN 'action_needed' THEN 2 ELSE 3 END LIMIT 5", args: [] }),
+    // 事業別の今月売上
+    db.execute({ sql: "SELECT business, SUM(amount) as total FROM money_transactions WHERE date LIKE ? AND amount > 0 GROUP BY business", args: [`${thisMonth}%`] }),
+    // 事業別の今週予約数
+    db.execute({ sql: "SELECT calendar_name, COUNT(*) as cnt FROM schedule_events WHERE start_at >= ? AND start_at <= ? AND source = 'airbnb' AND status != 'cancelled' GROUP BY calendar_name", args: [today, weekLater] }),
+    // 事業別の顧客数
+    db.execute({ sql: "SELECT business, COUNT(*) as cnt FROM customers GROUP BY business", args: [] }),
   ]);
+
+  // 事業別サマリーを構築
+  const businesses = {};
+  for (const r of bizRevenue.rows) {
+    if (!r.business) continue;
+    if (!businesses[r.business]) businesses[r.business] = {};
+    businesses[r.business].revenue = r.total || 0;
+  }
+  for (const r of bizBookings.rows) {
+    const biz = r.calendar_name || "えんがわ";
+    if (!businesses["えんがわ"]) businesses["えんがわ"] = {};
+    businesses["えんがわ"].weeklyBookings = (businesses["えんがわ"].weeklyBookings || 0) + (r.cnt || 0);
+  }
+  for (const r of bizCustomers.rows) {
+    if (!r.business) continue;
+    if (!businesses[r.business]) businesses[r.business] = {};
+    businesses[r.business].customers = r.cnt || 0;
+  }
 
   return {
     thisMonth,
@@ -324,6 +348,7 @@ async function getDashboardSummary() {
     upcomingEvents: events.rows,
     pendingTaskCount: pendingTasks.rows[0]?.count || 0,
     insights: insights.rows,
+    businesses,
   };
 }
 
