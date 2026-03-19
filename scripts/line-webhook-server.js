@@ -5,6 +5,7 @@ const { execSync, spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const webpush = require("web-push");
+const unifiedApi = require("./unified-api");
 
 // .env 読み込み
 const envPath = path.join(__dirname, "..", ".env");
@@ -868,6 +869,11 @@ const server = http.createServer((req, res) => {
   // クエリパラメータからトークンを取得（POST body のフォールバック用）
   const _urlObj = new URL(req.url || "/", `http://localhost:${PORT}`);
   const qToken = _urlObj.searchParams.get("token") || "";
+
+  // 統合APIハンドラー（/api/unified/* をすべて処理）
+  if (unifiedApi.canHandle(pathname)) {
+    return unifiedApi.handle(req, res, pathname, _urlObj.searchParams);
+  }
 
   if (req.method === "POST" && pathname === "/webhook") {
     let body = "";
@@ -6067,6 +6073,13 @@ async function sendComment() {
 }
 </script></body></html>`;
 }
+
+// 統合DB初期化してからサーバー起動
+unifiedApi.init().then(() => {
+  console.log("[startup] 統合DB初期化完了");
+}).catch(err => {
+  console.error("[startup] 統合DB初期化エラー（サーバーは起動を継続）:", err.message);
+});
 
 server.listen(PORT, () => {
   console.log(`LINE Webhook server running on port ${PORT}`);

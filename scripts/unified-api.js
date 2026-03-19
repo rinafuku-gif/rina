@@ -1,0 +1,242 @@
+/**
+ * 統合DB用APIハンドラー
+ * line-webhook-server.jsから呼び出される
+ *
+ * 使い方:
+ *   const unifiedApi = require('./unified-api');
+ *   // サーバー起動時
+ *   await unifiedApi.init();
+ *   // リクエスト処理内
+ *   if (unifiedApi.canHandle(pathname)) {
+ *     return unifiedApi.handle(req, res, pathname, searchParams);
+ *   }
+ */
+
+const db = require("./unified-db");
+const crypto = require("crypto");
+
+function genId() {
+  return crypto.randomUUID();
+}
+
+async function init() {
+  await db.initSchema();
+  console.log("[unified-api] 統合DB初期化完了");
+}
+
+const ROUTES = [
+  "/api/unified/dashboard",
+  "/api/unified/money",
+  "/api/unified/money/import",
+  "/api/unified/events",
+  "/api/unified/customers",
+  "/api/unified/tasks",
+  "/api/unified/insights",
+];
+
+function canHandle(pathname) {
+  return ROUTES.some(r => pathname === r || pathname.startsWith(r + "/"));
+}
+
+async function handle(req, res, pathname, searchParams) {
+  try {
+    // ダッシュボード（統合ビュー）
+    if (pathname === "/api/unified/dashboard" && req.method === "GET") {
+      const summary = await db.getDashboardSummary();
+      return json(res, summary);
+    }
+
+    // お金: 一覧取得
+    if (pathname === "/api/unified/money" && req.method === "GET") {
+      const month = searchParams.get("month");
+      const business = searchParams.get("business");
+      const limit = parseInt(searchParams.get("limit") || "100");
+      const rows = await db.getTransactions({ month, business, limit });
+      const totals = await db.getMonthlyTotals({ business });
+      return json(res, { transactions: rows, monthlyTotals: totals });
+    }
+
+    // お金: 手動追加（CSVインポート含む）
+    if (pathname === "/api/unified/money" && req.method === "POST") {
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+
+      if (Array.isArray(data.transactions)) {
+        // バッチインポート（CSV等）
+        for (const tx of data.transactions) {
+          await db.upsertTransaction({ id: genId(), ...tx, source: tx.source || "manual" });
+        }
+        return json(res, { imported: data.transactions.length });
+      } else {
+        // 単体追加
+        await db.upsertTransaction({ id: genId(), ...data, source: data.source || "manual" });
+        return json(res, { ok: true });
+      }
+    }
+
+    // お金: 銀行CSVインポート
+    if (pathname === "/api/unified/money/import" && req.method === "POST") {
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+      const transactions = parseBankCsv(data.csv, data.bank || "generic", data.business);
+      for (const tx of transactions) {
+        await db.upsertTransaction(tx);
+      }
+      return json(res, { imported: transactions.length, transactions });
+    }
+
+    // 予定: 取得
+    if (pathname === "/api/unified/events" && req.method === "GET") {
+      const days = parseInt(searchParams.get("days") || "7");
+      const events = await db.getUpcomingEvents({ days });
+      return json(res, { events });
+    }
+
+    // 予定: 追加
+    if (pathname === "/api/unified/events" && req.method === "POST") {
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+      await db.upsertEvent({ id: genId(), ...data, source: data.source || "manual" });
+      return json(res, { ok: true });
+    }
+
+    // 顧客: 取得
+    if (pathname === "/api/unified/customers" && req.method === "GET") {
+      const business = searchParams.get("business");
+      const customers = await db.getCustomers({ business });
+      return json(res, { customers });
+    }
+
+    // 顧客: 追加
+    if (pathname === "/api/unified/customers" && req.method === "POST") {
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+      await db.upsertCustomer({ id: genId(), ...data, source: data.source || "manual" });
+      return json(res, { ok: true });
+    }
+
+    // タスク: 取得
+    if (pathname === "/api/unified/tasks" && req.method === "GET") {
+      const project = searchParams.get("project");
+      const status = searchParams.get("status");
+      const tasks = await db.getTasks({ project, status });
+      return json(res, { tasks });
+    }
+
+    // タスク: 追加/更新
+    if (pathname === "/api/unified/tasks" && req.method === "POST") {
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+      await db.upsertTask({ id: data.id || genId(), ...data, source: data.source || "manual" });
+      return json(res, { ok: true });
+    }
+
+    // 秘書の気づき: 取得
+    if (pathname === "/api/unified/insights" && req.method === "GET") {
+      const insights = await db.getPendingInsights();
+      return json(res, { insights });
+    }
+
+    // 秘書の気づき: ステータス更新（確認済み・対応済み）
+    if (pathname.startsWith("/api/unified/insights/") && req.method === "POST") {
+      const id = pathname.split("/").pop();
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+      await db.markInsight(id, data.status || "acted");
+      return json(res, { ok: true });
+    }
+
+    return notFound(res);
+  } catch (err) {
+    console.error("[unified-api] Error:", err);
+    return error(res, err.message);
+  }
+}
+
+// ===== 銀行CSVパーサー =====
+
+function parseBankCsv(csvText, bank, business) {
+  const lines = csvText.trim().split("\n");
+  if (lines.length < 2) return [];
+
+  const transactions = [];
+  // ヘッダーをスキップ
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(",").map(c => c.replace(/^"|"$/g, "").trim());
+    if (cols.length < 3) continue;
+
+    let tx;
+    if (bank === "shinsei" || bank === "sbi") {
+      // 住信SBI: 日付, 内容, 出金, 入金, 残高
+      tx = {
+        id: genId(),
+        date: normalizeDate(cols[0]),
+        memo: cols[1],
+        amount: cols[3] ? parseInt(cols[3].replace(/,/g, "")) : -parseInt((cols[2] || "0").replace(/,/g, "")),
+        category: null,
+        business: business || null,
+        source: "bank_csv",
+        source_id: `${bank}_${cols[0]}_${i}`,
+        payment_method: "銀行振込",
+      };
+    } else {
+      // 汎用: 日付, 内容, 金額
+      tx = {
+        id: genId(),
+        date: normalizeDate(cols[0]),
+        memo: cols[1],
+        amount: parseInt((cols[2] || "0").replace(/,/g, "")),
+        category: null,
+        business: business || null,
+        source: "bank_csv",
+        source_id: `${bank}_${cols[0]}_${i}`,
+        payment_method: "銀行振込",
+      };
+    }
+
+    if (tx.date && !isNaN(tx.amount)) {
+      transactions.push(tx);
+    }
+  }
+
+  return transactions;
+}
+
+function normalizeDate(dateStr) {
+  if (!dateStr) return null;
+  // "2026/03/19" or "2026-03-19" or "20260319"
+  const cleaned = dateStr.replace(/\//g, "-");
+  if (/^\d{8}$/.test(cleaned)) {
+    return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 6)}-${cleaned.slice(6, 8)}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(cleaned)) {
+    return cleaned.slice(0, 10);
+  }
+  return cleaned;
+}
+
+// ===== HTTPユーティリティ =====
+
+function json(res, data, status = 200) {
+  res.writeHead(status, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+  res.end(JSON.stringify(data));
+}
+
+function notFound(res) {
+  json(res, { error: "Not found" }, 404);
+}
+
+function error(res, message) {
+  json(res, { error: message }, 500);
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", chunk => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString()));
+    req.on("error", reject);
+  });
+}
+
+module.exports = { init, canHandle, handle };
