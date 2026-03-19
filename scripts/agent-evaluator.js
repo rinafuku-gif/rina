@@ -180,13 +180,16 @@ const RULES = [
 
       if (revenue === 0 && expenses === 0) return null;
 
-      if (expenses > revenue && expenses > 0) {
-        const gap = expenses - revenue;
+      // 売上データが不完全な間は発火しない（Airbnbしか入っていない状態）
+      // 蔵サウナPM月10万 + SATOYAMA等の売上が未計上のため、
+      // 差額が10万円以上かつ経費が売上の2倍以上のときだけ警告
+      const gap = expenses - revenue;
+      if (gap > 100000 && expenses > revenue * 2 && revenue > 0) {
         return {
           type: "anomaly",
-          title: "経費が売上を上回っています",
-          detail: `売上: ¥${revenue.toLocaleString()} / 経費: ¥${expenses.toLocaleString()} (差額: -¥${gap.toLocaleString()})\n\n【対策案】\nA. 蔵サウナPMの月額報酬(¥100,000)の入金日を確認\nB. えんがわの今月残り予約を確認し、追加の売上見込みを把握\nC. 経費の中で延期可能なものがないか確認\n\nおすすめ: まず入金予定を確認して、月末の着地を予測する`,
-          urgency: "action_needed",
+          title: "経費が売上を大幅に上回っています",
+          detail: `売上: ¥${revenue.toLocaleString()} / 経費: ¥${expenses.toLocaleString()} (差額: -¥${gap.toLocaleString()})\n※蔵サウナPM報酬(¥100,000/月)等の未計上売上あり\n\n【対策案】\nA. 蔵サウナPMの月額報酬の入金日を確認\nB. えんがわの今月残り予約を確認\nC. 経費の中で延期可能なものがないか確認\n\nおすすめ: まず入金予定を確認して、月末の着地を予測する`,
+          urgency: "info",
         };
       }
       return null;
