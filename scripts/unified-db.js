@@ -151,6 +151,14 @@ async function initSchema() {
     )`,
     `CREATE INDEX IF NOT EXISTS idx_insights_status ON agent_insights(status)`,
     `CREATE INDEX IF NOT EXISTS idx_insights_urgency ON agent_insights(urgency)`,
+
+    // アクション確認済み（TodayActionsの「準備OK」「確認」等）
+    `CREATE TABLE IF NOT EXISTS dismissed_actions (
+      action_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      dismissed_at TEXT DEFAULT (datetime('now', 'localtime')),
+      PRIMARY KEY (action_id, date)
+    )`,
   ]);
 
   console.log("[unified-db] スキーマ初期化完了");
@@ -376,4 +384,26 @@ module.exports = {
   upsertMetric,
   // ダッシュボード
   getDashboardSummary,
+  // アクション確認
+  dismissAction,
+  getDismissedActions,
 };
+
+async function dismissAction(actionId) {
+  const db = getClient();
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  await db.execute({
+    sql: "INSERT OR REPLACE INTO dismissed_actions (action_id, date) VALUES (?, ?)",
+    args: [actionId, today],
+  });
+}
+
+async function getDismissedActions() {
+  const db = getClient();
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const result = await db.execute({
+    sql: "SELECT action_id FROM dismissed_actions WHERE date = ?",
+    args: [today],
+  });
+  return result.rows.map(r => r.action_id);
+}

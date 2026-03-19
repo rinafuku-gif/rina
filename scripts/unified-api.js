@@ -48,6 +48,7 @@ const ROUTES = [
   "/api/unified/tasks",
   "/api/unified/insights",
   "/api/unified/quick",
+  "/api/unified/dismiss",
 ];
 
 function canHandle(pathname) {
@@ -244,6 +245,21 @@ async function handle(req, res, pathname, searchParams) {
       }
 
       return json(res, { error: "type は expense または task を指定してください" }, 400);
+    }
+
+    // アクション確認済み: 登録
+    if (pathname === "/api/unified/dismiss" && req.method === "POST") {
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+      if (!data.actionId) return json(res, { error: "actionId required" }, 400);
+      await db.dismissAction(data.actionId);
+      return json(res, { ok: true });
+    }
+
+    // アクション確認済み: 取得（今日分）
+    if (pathname === "/api/unified/dismiss" && req.method === "GET") {
+      const ids = await db.getDismissedActions();
+      return json(res, { dismissed: ids });
     }
 
     return notFound(res);
