@@ -97,18 +97,38 @@ async function ingestExistingTasks() {
   }
 
   let count = 0;
+  let skipped = 0;
   const tasks = tasksData.tasks || tasksData;
   if (!Array.isArray(tasks)) return { tasks: 0 };
 
+  // 統合DBに既にあるタスクのステータスを取得（上書き防止用）
+  const client = db.getClient();
+  const existingTasks = await client.execute(
+    "SELECT id, status FROM tasks WHERE source IN ('tasks_json', 'chat', 'manual')"
+  );
+  const existingStatus = {};
+  for (const r of existingTasks.rows) {
+    existingStatus[r.id] = r.status;
+  }
+
   for (const t of tasks) {
     const id = t.id || genId("task_");
+    const jsonStatus = t.done || t.status === "done" || t.status === "completed" ? "done" : (t.status || "pending");
+
+    // 統合DB側でdone/dismissedにしたタスクは上書きしない
+    const dbStatus = existingStatus[id];
+    if (dbStatus === "done" || dbStatus === "dismissed") {
+      skipped++;
+      continue;
+    }
+
     await db.upsertTask({
       id,
       title: t.title || t.text || "無題",
       detail: t.detail || null,
       project: t.project || null,
       priority: t.priority || "medium",
-      status: t.done || t.status === "done" || t.status === "completed" ? "done" : (t.status || "pending"),
+      status: jsonStatus,
       due_date: t.dueDate || t.due_date || null,
       source: t.source || "tasks_json",
       source_id: t.id || null,
@@ -118,7 +138,7 @@ async function ingestExistingTasks() {
     count++;
   }
 
-  console.log(`[ingester] タスク: ${count}件`);
+  console.log(`[ingester] タスク: ${count}件取り込み, ${skipped}件スキップ（完了済み保護）`);
   return { tasks: count };
 }
 
