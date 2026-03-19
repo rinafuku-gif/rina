@@ -204,9 +204,14 @@ async function evaluate(options = {}) {
   console.log("[evaluator] ========== 自律判断エンジン開始 ==========");
   const start = Date.now();
 
-  // 既存のpending insightを確認（同じルールの重複を防ぐ）
-  const existing = await db.getPendingInsights();
-  const existingTitles = new Set(existing.map(i => i.title));
+  // 直近24時間以内の全insightを確認（status問わず重複を防ぐ）
+  const client = db.getClient();
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const recentInsights = await client.execute({
+    sql: "SELECT title FROM agent_insights WHERE created_at >= ?",
+    args: [dayAgo],
+  });
+  const existingTitles = new Set(recentInsights.rows.map(i => i.title));
 
   let generated = 0;
   let skipped = 0;
