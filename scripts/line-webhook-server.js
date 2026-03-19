@@ -6120,11 +6120,10 @@ unifiedApi.init().then(async () => {
     console.log(`[push] 気づき通知送信: ${insight.title}`);
   };
 
-  // 起動時にデータを取り込み
+  // 起動時にデータを取り込み（プッシュ通知なし — 再起動のたびに通知が飛ぶのを防ぐ）
   await dataIngester.ingestAll();
-  // 自律判断エンジン実行
-  await agentEvaluator.evaluate({ onInsight });
-  console.log("[startup] データ取り込み＋判断エンジン完了");
+  await agentEvaluator.evaluate(); // onInsightなし = プッシュ通知なし
+  console.log("[startup] データ取り込み＋判断エンジン完了（起動時は通知なし）");
 
   // 定期実行: 15分ごとにデータ取り込み＋判断
   setInterval(async () => {
