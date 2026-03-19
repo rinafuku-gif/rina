@@ -180,11 +180,16 @@ const RULES = [
 
       if (revenue === 0 && expenses === 0) return null;
 
-      // 売上データが不完全な間は発火しない（Airbnbしか入っていない状態）
-      // 蔵サウナPM月10万 + SATOYAMA等の売上が未計上のため、
-      // 差額が10万円以上かつ経費が売上の2倍以上のときだけ警告
+      // 売上データソースが3つ以上揃うまで発火しない
+      // 現状: えんがわ(Airbnb)のみ。蔵サウナPM/SATOYAMA/珈琲が未計上
+      const bizResult = await client.execute(
+        "SELECT COUNT(DISTINCT business) as cnt FROM money_transactions WHERE amount > 0"
+      );
+      const revenueSources = bizResult.rows[0]?.cnt || 0;
+      if (revenueSources < 2) return null; // 2事業以上の売上データが揃ってから判定
+
       const gap = expenses - revenue;
-      if (gap > 100000 && expenses > revenue * 2 && revenue > 0) {
+      if (gap > 100000 && expenses > revenue * 1.5) {
         return {
           type: "anomaly",
           title: "経費が売上を大幅に上回っています",
