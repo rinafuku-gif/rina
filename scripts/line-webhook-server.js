@@ -868,9 +868,9 @@ const server = http.createServer((req, res) => {
   const pathname = req.url?.split("?")[0] || req.url;
   // DEBUG: リクエストログ（問題解決後に削除）
   if (req.method === "POST") console.log(`[DEBUG] ${req.method} url=${req.url} pathname=${pathname}`);
-  // クエリパラメータからトークンを取得（POST body のフォールバック用）
+  // クエリパラメータ or Authorizationヘッダーからトークンを取得
   const _urlObj = new URL(req.url || "/", `http://localhost:${PORT}`);
-  const qToken = _urlObj.searchParams.get("token") || "";
+  const qToken = _urlObj.searchParams.get("token") || (req.headers["authorization"] || "").replace("Bearer ", "") || "";
 
   // 統合APIハンドラー（/api/unified/* をすべて処理）
   if (unifiedApi.canHandle(pathname)) {
