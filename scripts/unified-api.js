@@ -47,6 +47,7 @@ const ROUTES = [
   "/api/unified/customers",
   "/api/unified/tasks",
   "/api/unified/insights",
+  "/api/unified/quick",
 ];
 
 function canHandle(pathname) {
@@ -171,6 +172,55 @@ async function handle(req, res, pathname, searchParams) {
       const data = JSON.parse(body);
       await db.markInsight(id, data.status || "acted");
       return json(res, { ok: true });
+    }
+
+    // クイック操作: チャットからの簡易入力
+    // POST /api/unified/quick { type: "expense"|"task", text: "..." }
+    if (pathname === "/api/unified/quick" && req.method === "POST") {
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+
+      if (data.type === "expense") {
+        // "コーヒー豆 3000 現金" → 経費登録
+        const parts = (data.text || "").trim().split(/\s+/);
+        const memo = parts[0] || "不明";
+        const amount = parseInt(parts[1]) || 0;
+        const payment = parts[2] || null;
+        if (amount <= 0) return json(res, { error: "金額が不正です", parsed: { memo, amount, payment } }, 400);
+        await db.upsertTransaction({
+          id: genId(),
+          date: new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }),
+          amount: -Math.abs(amount),
+          category: null,
+          business: null,
+          source: "chat",
+          memo,
+          payment_method: payment,
+        });
+        return json(res, { ok: true, message: `経費登録: ${memo} ¥${amount.toLocaleString()}${payment ? ` (${payment})` : ""}` });
+      }
+
+      if (data.type === "task") {
+        // "SATOYAMAのLP改善" → タスク追加
+        const title = (data.text || "").trim();
+        if (!title) return json(res, { error: "タスク名が必要です" }, 400);
+        // プロジェクト名を自動検出
+        let project = null;
+        const projectMap = { satoyama: "SATOYAMA", misoca: "三十日珈琲", engawa: "えんがわ", しらたま: "しらたま", kura: "蔵サウナ", funfare: "funfare" };
+        for (const [key, val] of Object.entries(projectMap)) {
+          if (title.toLowerCase().includes(key)) { project = val; break; }
+        }
+        await db.upsertTask({
+          id: genId(),
+          title,
+          project,
+          source: "chat",
+          assigned_by: "user",
+        });
+        return json(res, { ok: true, message: `タスク追加: ${title}${project ? ` (${project})` : ""}` });
+      }
+
+      return json(res, { error: "type は expense または task を指定してください" }, 400);
     }
 
     return notFound(res);

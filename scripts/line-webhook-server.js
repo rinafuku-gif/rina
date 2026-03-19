@@ -2444,8 +2444,7 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
       // 月末予測
       const projectedTotal = Math.round(dailyAvg * daysInMonth);
 
-      res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({
+      const responseData = {
         thisMonth: { total: thisMonthTotal, key: currentMonthKey, dailyAvg, projectedTotal, daysInMonth, dayOfMonth },
         lastMonth: { total: lastMonthTotal, key: prevMonth },
         totalExpense,
@@ -2458,7 +2457,37 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         availableMonths: Array.from(availableMonths).sort().reverse(),
         availableBusinesses: Array.from(availableBusinesses).sort(),
         filters: { month: filterMonth, business: filterBusiness },
-      }));
+      };
+
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify(responseData));
+
+      // 統合DBにも経費データを流し込み（バックグラウンド）
+      try {
+        const unifiedDb = require("./unified-db");
+        for (const row of dataRows) {
+          const date = row[0] || "";
+          const account = row[1] || "";
+          const amount = parseInt(row[4]) || 0;
+          const memo = row[9] || "";
+          const tag = row[11] || "";
+          if (!date || amount === 0 || tag === "プライベート") continue;
+          const id = `mf_${date}_${(memo || account).slice(0, 30).replace(/[^a-zA-Z0-9\u3040-\u9FFF]/g, "_")}`;
+          await unifiedDb.upsertTransaction({
+            id,
+            date,
+            amount: -Math.abs(amount),
+            category: account,
+            business: tag || null,
+            source: "moneyforward",
+            memo: memo || account,
+            payment_method: row[5] || null,
+          });
+        }
+        console.log(`[finance→unified] ${dataRows.filter(r => r[0] && parseInt(r[4]) && r[11] !== "プライベート").length}件の経費を統合DBに同期`);
+      } catch (syncErr) {
+        console.error("[finance→unified] 同期エラー:", syncErr.message);
+      }
     } catch (e) {
       console.error("Finance API error:", e.message);
       res.writeHead(500, corsHeaders);
