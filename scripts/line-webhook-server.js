@@ -6,6 +6,8 @@ const fs = require("fs");
 const path = require("path");
 const webpush = require("web-push");
 const unifiedApi = require("./unified-api");
+const dataIngester = require("./data-ingester");
+const agentEvaluator = require("./agent-evaluator");
 
 // .env 読み込み
 const envPath = path.join(__dirname, "..", ".env");
@@ -6074,9 +6076,24 @@ async function sendComment() {
 </script></body></html>`;
 }
 
-// 統合DB初期化してからサーバー起動
-unifiedApi.init().then(() => {
+// 統合DB初期化 → データ取り込み → 自律判断エンジン
+unifiedApi.init().then(async () => {
   console.log("[startup] 統合DB初期化完了");
+  // 起動時にデータを取り込み
+  await dataIngester.ingestAll();
+  // 自律判断エンジン実行
+  await agentEvaluator.evaluate();
+  console.log("[startup] データ取り込み＋判断エンジン完了");
+
+  // 定期実行: 15分ごとにデータ取り込み＋判断
+  setInterval(async () => {
+    try {
+      await dataIngester.ingestAll();
+      await agentEvaluator.evaluate();
+    } catch (err) {
+      console.error("[periodic] 定期取り込みエラー:", err.message);
+    }
+  }, 15 * 60 * 1000);
 }).catch(err => {
   console.error("[startup] 統合DB初期化エラー（サーバーは起動を継続）:", err.message);
 });
