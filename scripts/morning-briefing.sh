@@ -59,7 +59,7 @@ sleep 3
 
 # --- AIスキャン（ブリーフィング + カレンダー提案 + タスク更新） ---
 echo "Running daily scan..."
-BRIEFING=$("$SCRIPT_DIR/daily-scan.sh" 2>&1)
+BRIEFING=$("$SCRIPT_DIR/daily-scan.sh" 2>>"$LOG_DIR/daily-scan-debug.log")
 SCAN_EXIT=$?
 
 if [ $SCAN_EXIT -ne 0 ] || [ -z "$BRIEFING" ]; then
