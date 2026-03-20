@@ -2372,10 +2372,11 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         if (tag && tag !== "プライベート") availableBusinesses.add(tag);
       }
 
-      // 月別・カテゴリ別に集計
+      // 月別・カテゴリ別・事業別に集計
       const monthlyTotals = {};  // { "2026-03": 12345 }
       const categoryTotals = {}; // { "食費": 5000 }
       const paymentTotals = {};  // { "JCBデビット": 8000 }
+      const businessTotals = {}; // { "えんがわ": 7860 }
       const recentItems = [];
       let totalExpense = 0;
       let grandTotal = 0; // 全期間の事業経費合計（フィルター関係なく）
@@ -2410,6 +2411,9 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 
         // カテゴリ別集計
         categoryTotals[account] = (categoryTotals[account] || 0) + amount;
+
+        // 事業別集計
+        if (tag) businessTotals[tag] = (businessTotals[tag] || 0) + amount;
 
         // 支払方法別集計（貸方科目から推定）
         let payment = "その他";
@@ -2459,6 +2463,7 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         monthlyTotals,
         categoryTotals,
         paymentTotals,
+        businessTotals,
         recent,
         recordCount: dataRows.length,
         availableMonths: Array.from(availableMonths).sort().reverse(),
