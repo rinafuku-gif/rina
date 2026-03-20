@@ -40,8 +40,11 @@ function daysFromToday(dateStr) {
   return Math.round((target - today) / 86400000);
 }
 
-function genId() {
-  return "act_" + crypto.randomBytes(4).toString("hex");
+function genId(source, title) {
+  // 確定的ID: source + title + 今日の日付からハッシュ生成
+  // 同じアイテムは何度生成しても同じIDを返す（dismiss永続化のため）
+  const seed = `${source || ""}|${title || ""}|${todayStr()}`;
+  return "act_" + crypto.createHash("sha256").update(seed).digest("hex").slice(0, 8);
 }
 
 // --- Google API ---
@@ -169,7 +172,7 @@ async function extractCalendarActions(gToken) {
         const urgency = days === 0 ? "today" : days === 1 ? "today" : "upcoming";
 
         items.push({
-          id: genId(),
+          id: genId("calendar", `${eventDate}_${title}`),
           source: "calendar",
           title: days === 0 ? `${time} ${title}` : `${eventDate} ${time} ${title}`,
           detail: `${cal.name}`,
@@ -203,7 +206,7 @@ function extractBookingActions() {
     // チェックイン今日
     if (ciDays === 0) {
       items.push({
-        id: genId(),
+        id: genId("airbnb", `ゲスト到着: ${b.guestName}（${b.guests}名・${b.room}）`),
         source: "airbnb",
         title: `ゲスト到着: ${b.guestName}（${b.guests}名・${b.room}）`,
         detail: `チェックイン今日`,
@@ -217,7 +220,7 @@ function extractBookingActions() {
     // チェックイン明日
     else if (ciDays === 1) {
       items.push({
-        id: genId(),
+        id: genId("airbnb", `明日ゲスト到着: ${b.guestName}（${b.guests}名・${b.room}）`),
         source: "airbnb",
         title: `明日ゲスト到着: ${b.guestName}（${b.guests}名・${b.room}）`,
         detail: `チェックイン ${b.checkin}`,
@@ -231,7 +234,7 @@ function extractBookingActions() {
     // チェックアウト今日
     if (coDays === 0) {
       items.push({
-        id: genId(),
+        id: genId("airbnb", `チェックアウト: ${b.guestName}（${b.room}）`),
         source: "airbnb",
         title: `チェックアウト: ${b.guestName}（${b.room}）`,
         detail: `清掃・リセット`,
@@ -260,7 +263,7 @@ function extractDeadlineActions() {
     if (days < 0) {
       // 期限超過
       items.push({
-        id: genId(),
+        id: genId("deadline", `期限超過: ${dl.title}`),
         source: "deadline",
         title: `期限超過: ${dl.title}`,
         detail: `${dl.business} — ${dl.date}`,
@@ -272,7 +275,7 @@ function extractDeadlineActions() {
       });
     } else if (days <= 7) {
       items.push({
-        id: genId(),
+        id: genId("deadline", `${dl.title}（あと${days}日）`),
         source: "deadline",
         title: `${dl.title}（あと${days}日）`,
         detail: `${dl.business} — 期限 ${dl.date}`,
@@ -317,7 +320,7 @@ function extractGitSummary() {
           { encoding: "utf-8", timeout: 5000 }
         ).trim();
         items.push({
-          id: genId(),
+          id: genId("git", `${repo.name}: 直近${n}件のコミット`),
           source: "git",
           title: `${repo.name}: 直近${n}件のコミット`,
           detail: `最新: ${latest.slice(0, 60)}`,
@@ -338,7 +341,7 @@ function extractGitSummary() {
         const daysSince = daysFromToday(lastCommitDate.split(" ")[0]);
         if (daysSince < -14 && repo.name !== "rina") {
           items.push({
-            id: genId(),
+            id: genId("git", `${repo.name}: ${Math.abs(daysSince)}日間更新なし`),
             source: "git",
             title: `${repo.name}: ${Math.abs(daysSince)}日間更新なし`,
             detail: `最終コミット: ${lastCommitDate.split(" ")[0]}`,
@@ -393,7 +396,7 @@ async function extractNotionActions() {
       }
 
       items.push({
-        id: genId(),
+        id: genId("notion", `DX案件: ${title}`),
         source: "notion",
         title: `DX案件: ${title}`,
         detail: status ? `ステータス: ${status}` : "アクティブ案件",
@@ -430,7 +433,7 @@ async function extractNotionActions() {
         }
       }
       items.push({
-        id: genId(),
+        id: genId("notion", `下書き: ${title}`),
         source: "notion",
         title: `下書き: ${title}`,
         detail: "コンテンツDB — 公開待ち",
@@ -466,7 +469,7 @@ async function extractNotionActions() {
         }
       }
       items.push({
-        id: genId(),
+        id: genId("notion", `下書き教材: ${title}`),
         source: "notion",
         title: `下書き教材: ${title}`,
         detail: "学習教材DB — 公開待ち",
@@ -514,7 +517,7 @@ async function extractGmailActions(gToken) {
         const fromName = from.replace(/<[^>]+>/, "").trim() || from;
 
         items.push({
-          id: genId(),
+          id: genId("gmail", subject),
           source: "gmail",
           title: subject,
           detail: fromName ? `From: ${fromName}` : "未読・重要メール",
