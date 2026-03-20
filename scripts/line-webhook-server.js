@@ -1018,10 +1018,10 @@ const server = http.createServer((req, res) => {
   "tax_class": "課税仕入10%/課税仕入8%/非課税仕入/対象外",
   "payment": "現金/クレジットカード/電子マネー/不明",
   "note": "特記事項",
-  "business": "えんがわ/三十日珈琲/SATOYAMA AI BASE/共通/不明"
+  "business": "えんがわ/となりにとまる/三十日珈琲/SATOYAMA AI BASE/共通/プライベート/不明"
 }
 
-読み取れない項目は "不明" としてください。金額は必ず数値のみ（カンマ・円記号なし）。`;
+読み取れない項目は "不明" としてください。金額は必ず数値のみ（カンマ・円記号なし）。プライベートは事業経費ではなく個人支出。`;
 
         const promptFile = path.join(REPO_DIR, "logs", ".receipt-prompt.txt");
         fs.writeFileSync(promptFile, ocrPrompt, "utf-8");
@@ -1057,6 +1057,13 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ error: "レシートの読み取りに失敗しました。もう一度撮影してみてね。" }));
           try { fs.unlinkSync(filePath); } catch {}
           return;
+        }
+
+        // フォームから事業区分を取得してOCR結果をオーバーライド
+        const businessPart = parts.find(p => p.name === "business");
+        const formBusiness = businessPart ? businessPart.data.toString().trim() : "";
+        if (formBusiness) {
+          ocrResult.business = formBusiness;
         }
 
         // Step 2: Upload to Google Drive (月別フォルダに整理)
@@ -3982,8 +3989,28 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
     res.end();
 
   } else if (req.method === "GET" && pathname === "/health") {
-    res.writeHead(200);
-    res.end("OK");
+    // 詳細ヘルスチェック
+    const uptime = process.uptime();
+    const memUsage = process.memoryUsage();
+    const dbOk = (() => {
+      try {
+        const dbPath = path.join(REPO_DIR, "data", "unified.db");
+        return fs.existsSync(dbPath);
+      } catch { return false; }
+    })();
+    const health = {
+      status: "ok",
+      uptime: Math.round(uptime),
+      uptimeHuman: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
+      memory: {
+        rss: Math.round(memUsage.rss / 1024 / 1024) + "MB",
+        heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + "MB",
+      },
+      db: dbOk ? "ok" : "missing",
+      timestamp: new Date().toISOString(),
+    };
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(health));
   } else {
     res.writeHead(404);
     res.end("Not Found");
