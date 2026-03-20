@@ -2379,7 +2379,9 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
       const paymentTotals = {};  // { "JCBデビット": 8000 }
       const businessTotals = {}; // { "えんがわ": 7860 }
       const recentItems = [];
+      const personalItems = []; // プライベート・不明の明細
       let totalExpense = 0;
+      let personalTotal = 0; // プライベート支出合計
       let grandTotal = 0; // 全期間の事業経費合計（フィルター関係なく）
 
       for (const row of dataRows) {
@@ -2393,11 +2395,18 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 
         if (!date || amount === 0) continue;
 
-        // プライベート・不明は事業経費から除外
-        if (tag === "プライベート" || tag === "不明") continue;
+        const monthKey = date.slice(0, 7);
+
+        // プライベート・不明は事業経費から除外（ただし個人支出として別集計）
+        if (tag === "プライベート" || tag === "不明") {
+          if (!filterMonth || monthKey === filterMonth) {
+            personalTotal += amount;
+            personalItems.push({ date, account, amount, memo: store || memo, tag, payment });
+          }
+          continue;
+        }
 
         // 全期間合計（フィルター前）
-        const monthKey = date.slice(0, 7);
         grandTotal += amount;
 
         // 事業フィルター
@@ -2462,6 +2471,7 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         paymentTotals,
         businessTotals,
         recent,
+        personal: { total: personalTotal, items: personalItems.slice(-10).reverse() },
         recordCount: dataRows.length,
         availableMonths: Array.from(availableMonths).sort().reverse(),
         availableBusinesses: Array.from(availableBusinesses).sort(),
