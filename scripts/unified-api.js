@@ -156,30 +156,15 @@ async function handle(req, res, pathname, searchParams) {
     if (pathname === "/api/unified/tasks" && req.method === "POST") {
       const body = await readBody(req);
       const data = JSON.parse(body);
-      await db.upsertTask({ id: data.id || genId(), ...data, source: data.source || "manual" });
 
-      // tasks.jsonにも書き戻し（双方向同期）
-      if (data.id && (data.status === "done" || data.status === "dismissed")) {
-        try {
-          const tasksFile = require("path").join(__dirname, "..", "data", "tasks.json");
-          const fs = require("fs");
-          const tasksData = JSON.parse(fs.readFileSync(tasksFile, "utf-8"));
-          const tasks = tasksData.tasks || tasksData;
-          if (Array.isArray(tasks)) {
-            const target = tasks.find(t => t.id === data.id);
-            if (target) {
-              target.status = data.status;
-              target.done = data.status === "done";
-              if (data.completed_at) target.completedAt = data.completed_at;
-              fs.writeFileSync(tasksFile, JSON.stringify(tasksData, null, 2));
-              console.log(`[task-sync] tasks.json書き戻し: ${data.id} → ${data.status}`);
-            }
-          }
-        } catch (syncErr) {
-          console.error("[task-sync] tasks.json書き戻しエラー:", syncErr.message);
-        }
+      // idあり + titleなし = 部分更新（ステータス変更等）
+      if (data.id && !data.title) {
+        await db.updateTaskPartial(data.id, data);
+      } else {
+        await db.upsertTask({ id: data.id || genId(), ...data, source: data.source || "manual" });
       }
 
+      // unified.dbが正（Single Source of Truth）。tasks.jsonへの書き戻しは廃止。
       return json(res, { ok: true });
     }
 

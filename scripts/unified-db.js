@@ -253,6 +253,25 @@ async function upsertTask(task) {
   });
 }
 
+async function updateTaskPartial(id, fields) {
+  const db = getClient();
+  const allowed = ["status", "completed_at", "priority", "due_date", "detail", "source"];
+  const sets = [];
+  const args = [];
+  for (const key of allowed) {
+    if (fields[key] !== undefined) {
+      sets.push(`${key} = ?`);
+      args.push(fields[key]);
+    }
+  }
+  if (sets.length === 0) return;
+  args.push(id);
+  await db.execute({
+    sql: `UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`,
+    args,
+  });
+}
+
 async function getTasks({ project, status, limit = 50 } = {}) {
   const db = getClient();
   let sql = "SELECT * FROM tasks WHERE 1=1";
@@ -375,6 +394,7 @@ module.exports = {
   getCustomers,
   // タスク
   upsertTask,
+  updateTaskPartial,
   getTasks,
   // 気づき
   addInsight,
