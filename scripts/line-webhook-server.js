@@ -2385,7 +2385,7 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
       for (const row of dataRows) {
         const date = row[0] || "";
         const store = row[1] || "";
-        const amount = parseInt(row[2]) || 0;
+        const amount = parseInt(String(row[2]).replace(/,/g, "")) || 0;
         const account = row[4] || "";
         const payment = row[6] || "不明";
         const memo = row[7] || "";
@@ -2393,8 +2393,8 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 
         if (!date || amount === 0) continue;
 
-        // プライベート経費は事業経費から除外（確定申告対象外）
-        if (tag === "プライベート") continue;
+        // プライベート・不明は事業経費から除外
+        if (tag === "プライベート" || tag === "不明") continue;
 
         // 全期間合計（フィルター前）
         const monthKey = date.slice(0, 7);
@@ -2421,7 +2421,7 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         paymentTotals[payment] = (paymentTotals[payment] || 0) + amount;
 
         // 直近の明細（最大20件、新しい順）
-        recentItems.push({ date, account, amount, memo: store || memo, tag });
+        recentItems.push({ date, account, amount, memo: store || memo, tag, payment });
       }
 
       // 直近20件（配列の末尾が新しい）
@@ -2477,7 +2477,7 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         for (const row of dataRows) {
           const date = row[0] || "";
           const store = row[1] || "";
-          const amount = parseInt(row[2]) || 0;
+          const amount = parseInt(String(row[2]).replace(/,/g, "")) || 0;
           const account = row[4] || "";
           const payment = row[6] || "";
           const tag = row[10] || "";
