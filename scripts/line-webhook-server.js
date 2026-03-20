@@ -2354,20 +2354,21 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
       const gToken = await getGoogleAccessToken();
       const sheetId = env.GOOGLE_EXPENSE_SHEET_ID;
 
-      // MF仕訳帳から全データ取得
-      const journalUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("MF仕訳帳")}!A:L`;
-      const journalData = await googleApiRequest("GET", journalUrl, null, gToken);
-      const rows = journalData.values || [];
+      // レシート原本から全データ取得（支払方法の正確なデータを使う）
+      const receiptUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("レシート原本")}!A:K`;
+      const receiptData = await googleApiRequest("GET", receiptUrl, null, gToken);
+      const rows = receiptData.values || [];
 
       // ヘッダー行をスキップ（1行目がヘッダーの場合）
       const dataRows = rows.length > 0 && rows[0][0] === "取引日" ? rows.slice(1) : rows;
+      // レシート原本の列: [0]取引日, [1]店名, [2]合計金額, [3]品目, [4]勘定科目, [5]税区分, [6]支払方法, [7]備考, [8]Drive画像, [9]登録日時, [10]事業区分
 
       // 全月のリストを作成（フィルター前）
       const availableMonths = new Set();
       const availableBusinesses = new Set();
       for (const row of dataRows) {
         const date = row[0] || "";
-        const tag = row[11] || "";
+        const tag = row[10] || "";
         if (date && date.length >= 7) availableMonths.add(date.slice(0, 7));
         if (tag && tag !== "プライベート") availableBusinesses.add(tag);
       }
@@ -2383,11 +2384,12 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 
       for (const row of dataRows) {
         const date = row[0] || "";
-        const account = row[1] || "";
-        const amount = parseInt(row[4]) || 0;
-        const creditAccount = row[5] || "";
-        const memo = row[9] || "";
-        const tag = row[11] || "";
+        const store = row[1] || "";
+        const amount = parseInt(row[2]) || 0;
+        const account = row[4] || "";
+        const payment = row[6] || "不明";
+        const memo = row[7] || "";
+        const tag = row[10] || "";
 
         if (!date || amount === 0) continue;
 
@@ -2415,16 +2417,11 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         // 事業別集計
         if (tag) businessTotals[tag] = (businessTotals[tag] || 0) + amount;
 
-        // 支払方法別集計（貸方科目から推定）
-        let payment = "その他";
-        if (creditAccount === "普通預金") payment = "デビット";
-        else if (creditAccount === "現金") payment = "現金";
-        else if (creditAccount === "事業主借") payment = "PayPay/個人";
-        else if (creditAccount === "未払金") payment = "クレジット";
+        // 支払方法別集計（レシート原本の実データを使用）
         paymentTotals[payment] = (paymentTotals[payment] || 0) + amount;
 
         // 直近の明細（最大20件、新しい順）
-        recentItems.push({ date, account, amount, memo, tag });
+        recentItems.push({ date, account, amount, memo: store || memo, tag });
       }
 
       // 直近20件（配列の末尾が新しい）
@@ -2479,24 +2476,25 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         const unifiedDb = require("./unified-db");
         for (const row of dataRows) {
           const date = row[0] || "";
-          const account = row[1] || "";
-          const amount = parseInt(row[4]) || 0;
-          const memo = row[9] || "";
-          const tag = row[11] || "";
+          const store = row[1] || "";
+          const amount = parseInt(row[2]) || 0;
+          const account = row[4] || "";
+          const payment = row[6] || "";
+          const tag = row[10] || "";
           if (!date || amount === 0 || tag === "プライベート") continue;
-          const id = `mf_${date}_${(memo || account).slice(0, 30).replace(/[^a-zA-Z0-9\u3040-\u9FFF]/g, "_")}`;
+          const id = `receipt_${date}_${(store || account).slice(0, 30).replace(/[^a-zA-Z0-9\u3040-\u9FFF]/g, "_")}`;
           await unifiedDb.upsertTransaction({
             id,
             date,
             amount: -Math.abs(amount),
             category: account,
             business: tag || null,
-            source: "moneyforward",
-            memo: memo || account,
-            payment_method: row[5] || null,
+            source: "receipt",
+            memo: store || account,
+            payment_method: payment || null,
           });
         }
-        console.log(`[finance→unified] ${dataRows.filter(r => r[0] && parseInt(r[4]) && r[11] !== "プライベート").length}件の経費を統合DBに同期`);
+        console.log(`[finance→unified] ${dataRows.filter(r => r[0] && parseInt(r[2]) && r[10] !== "プライベート").length}件の経費を統合DBに同期`);
       } catch (syncErr) {
         console.error("[finance→unified] 同期エラー:", syncErr.message);
       }
