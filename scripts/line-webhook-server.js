@@ -4110,8 +4110,34 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 }
 
 // ========== イベントリマインダー（5分ごと） ==========
-const sentReminders = new Set();
+// 送信済みリマインダーをファイルに永続化（サーバー再起動時の通知連打を防止）
+const REMINDERS_FILE = path.join(__dirname, "..", "logs", ".sent-reminders.json");
+let sentReminders = new Set();
 let lastReminderDate = new Date().toDateString();
+
+// 起動時にファイルから復元
+try {
+  if (fs.existsSync(REMINDERS_FILE)) {
+    const data = JSON.parse(fs.readFileSync(REMINDERS_FILE, "utf-8"));
+    if (data.date === lastReminderDate && Array.isArray(data.ids)) {
+      sentReminders = new Set(data.ids);
+      console.log(`[Reminder] Restored ${sentReminders.size} sent reminders from file`);
+    }
+  }
+} catch (e) {
+  console.error("[Reminder] Failed to restore sent reminders:", e.message);
+}
+
+function saveSentReminders() {
+  try {
+    fs.writeFileSync(REMINDERS_FILE, JSON.stringify({
+      date: lastReminderDate,
+      ids: [...sentReminders],
+    }));
+  } catch (e) {
+    console.error("[Reminder] Failed to save sent reminders:", e.message);
+  }
+}
 
 async function checkEventReminders() {
   try {
@@ -4120,6 +4146,7 @@ async function checkEventReminders() {
     if (now.toDateString() !== lastReminderDate) {
       sentReminders.clear();
       lastReminderDate = now.toDateString();
+      saveSentReminders();
     }
 
     const gToken = await getGoogleAccessToken();
@@ -4150,6 +4177,7 @@ async function checkEventReminders() {
             const reminderId = `${ev.id}_${ev.start.dateTime}`;
             if (!sentReminders.has(reminderId)) {
               sentReminders.add(reminderId);
+              saveSentReminders();
               const timeStr = eventStart.toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hour12: false });
               const title = ev.summary || "(予定)";
               const minLeft = Math.round(diffMin);
