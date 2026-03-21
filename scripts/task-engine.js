@@ -169,7 +169,7 @@ async function extractCalendarActions(gToken) {
           time = `${s}-${e}`;
         }
 
-        const urgency = days === 0 ? "today" : days === 1 ? "today" : "upcoming";
+        const urgency = days === 0 ? "today" : "upcoming";
 
         items.push({
           id: genId("calendar", `${eventDate}_${title}`),
@@ -217,13 +217,13 @@ function extractBookingActions() {
         sortKey: `${b.checkin}09:00`,
       });
     }
-    // チェックイン明日
+    // チェックイン明日（前日に清掃・リネン・買い出し等の物理的準備が必要）
     else if (ciDays === 1) {
       items.push({
         id: genId("airbnb", `明日ゲスト到着: ${b.guestName}（${b.guests}名・${b.room}）`),
         source: "airbnb",
         title: `明日ゲスト到着: ${b.guestName}（${b.guests}名・${b.room}）`,
-        detail: `チェックイン ${b.checkin}`,
+        detail: `チェックイン ${b.checkin} — 今日のうちに準備`,
         action: null,
         actionLabel: null,
         urgency: "today",
@@ -281,7 +281,7 @@ function extractDeadlineActions() {
         detail: `${dl.business} — 期限 ${dl.date}`,
         action: null,
         actionLabel: null,
-        urgency: days <= 2 ? "today" : "upcoming",
+        urgency: days === 0 ? "today" : "upcoming",
         date: dl.date,
         sortKey: `${dl.date}00:00`,
       });
