@@ -1,0 +1,180 @@
+name: Sync to OpenClaw Vault
+
+# rina の master に push されたら、フィルタリングした情報を openclaw-vault に同期
+on:
+  push:
+    branches: [master]
+  schedule:
+    - cron: '0 * * * *'  # 毎時実行（カレンダー同期用）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Tokyo
+
+    steps:
+      - name: Checkout rina
+        uses: actions/checkout@v4
+        with:
+          path: rina
+
+      - name: Checkout openclaw-vault
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.OPENCLAW_VAULT_REPO || 'openclaw-vault' }}
+          token: ${{ secrets.OPENCLAW_VAULT_TOKEN }}
+          path: vault
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install googleapis
+        working-directory: rina
+
+      # ==========================================
+      # タスク一覧の同期（金額を除去してフィルタリング）
+      # ==========================================
+      - name: Sync tasks (filtered)
+        run: |
+          mkdir -p vault/context
+          DATE=$(date '+%Y-%m-%d %H:%M JST')
+
+          # CLAUDE.md からタスクを抽出（未完了のみ）
+          # 金額パターン（●万円、●円、¥●、$●）を「***」に置換
+          grep '^\- \[ \]' rina/CLAUDE.md \
+            | sed -E 's/[0-9]+(\.[0-9]+)?万円/***万円/g' \
+            | sed -E 's/[0-9,]+円/**円/g' \
+            | sed -E 's/¥[0-9,]+/¥***/g' \
+            | sed -E 's/\$[0-9,.]+/$***/g' \
+            | sed -E 's/月額[0-9]+万/月額***万/g' \
+            > vault/context/tasks.md.tmp || true
+
+          cat > vault/context/tasks.md << TASKS
+          # 現在のタスク一覧
+          > 最終更新: ${DATE}
+          > rina リポから自動同期（金額情報は除去済み）
+
+          $(cat vault/context/tasks.md.tmp 2>/dev/null || echo "タスクなし")
+          TASKS
+
+          rm -f vault/context/tasks.md.tmp
+
+      # ==========================================
+      # 事業概要の同期（機密情報なし）
+      # ==========================================
+      - name: Sync projects summary
+        run: |
+          DATE=$(date '+%Y-%m-%d %H:%M JST')
+          cat > vault/context/projects.md << 'PROJECTS'
+          # 事業概要
+          > rina リポから自動同期（概要のみ、詳細・金額は除外）
+
+          ## 1. えんがわ（古民家ハウススタジオ & 民泊）
+          - 概要: 山梨県大月市の伝統的日本家屋を活用
+          - 用途: Airbnb宿泊、ロケーション撮影
+          - 重要課題: 年間180日制限への対応（簡易宿所への切替検討中）
+
+          ## 2. 三十日珈琲（コーヒー事業）
+          - 概要: コーヒー焙煎体験・スタンド運営
+          - 形態: 予約制ワークショップ、定期出店
+
+          ## 3. SATOYAMA AI BASE（AI/DX支援）
+          - 概要: ソロ起業家・中小企業向けAI活用支援
+          - 状況: 収益化に向けて設計中
+          - 注力案件: ハヤリソーセージECサイト構築（モニター）
+
+          ## 4. CoreCompass / fate-decoder（占術Webアプリ）
+          - 概要: 複数占術を統合した思考整理Webアプリ
+          - 状況: 開発中（中長期プロジェクト）
+
+          ## 5. となりにとまる（地域密着型民泊）
+          - 概要: ホスト同居型の体験滞在民泊サービス
+          - 状況: 低優先（他事業安定後に本格化）
+
+          ## 6. 蔵サウナ＆ステイ（PMプロジェクト）
+          - 概要: ADDress上野原A邸の蔵をサウナにリノベーション
+          - 役割: プロダクトマネージャー
+          - 目標: 2026年12月オープン
+          PROJECTS
+
+      # ==========================================
+      # KPIサマリー（相対値のみ、絶対値なし）
+      # ==========================================
+      - name: Generate KPI summary
+        run: |
+          DATE=$(date '+%Y-%m-%d %H:%M JST')
+          cat > vault/context/kpi.md << KPI
+          # 事業KPIサマリー
+          > 最終更新: ${DATE}
+          > 注意: 具体的な金額は含まれていません（セキュリティポリシー）
+
+          ## 全体
+          - 月間売上目標達成率: （Claude Code セッションで更新）
+          - 前月比トレンド: （Claude Code セッションで更新）
+
+          ## えんがわ
+          - 稼働率: （Claude Code セッションで更新）
+          - 180日カウント: （Claude Code セッションで更新）
+
+          ## SATOYAMA AI BASE
+          - 収益化ステータス: 設計段階
+
+          ## 蔵サウナ＆ステイ
+          - プロジェクト進捗: PM業務遂行中
+          - オープン目標: 2026年12月
+
+          > ※ KPIの数値は rina 側の Claude Code セッションで更新される。
+          > OpenClaw はこの情報を参照して事業アドバイスを行う。
+          KPI
+
+      # ==========================================
+      # Google Calendar同期（オプション）
+      # ==========================================
+      - name: Sync Google Calendar
+        if: env.GOOGLE_SERVICE_ACCOUNT_KEY != ''
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: node rina/.github/scripts/sync-calendar.js
+        working-directory: vault
+
+      - name: Copy calendar data to vault
+        run: |
+          if [ -f "vault/data/calendar-today.md" ]; then
+            mkdir -p vault/context
+            cp vault/data/calendar-today.md vault/context/calendar.md
+          fi
+
+      # ==========================================
+      # ステータス更新
+      # ==========================================
+      - name: Update sync status
+        run: |
+          DATE=$(date '+%Y-%m-%d %H:%M JST')
+          mkdir -p vault/data
+          cat > vault/data/status.md << STATUS
+          # 同期ステータス
+          - 最終同期: ${DATE}
+          - ソース: rina リポ（フィルタリング済み）
+          - 同期対象: タスク / 予定 / 事業概要 / KPI
+          - 除外: 金額 / 契約 / 個人情報 / APIキー / スクリプト
+          STATUS
+
+      # ==========================================
+      # openclaw-vault にpush
+      # ==========================================
+      - name: Push to openclaw-vault
+        working-directory: vault
+        run: |
+          git config user.name "rina-sync[bot]"
+          git config user.email "rina-sync[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "🔄 rina同期 $(date '+%Y-%m-%d %H:%M')"
+          git push

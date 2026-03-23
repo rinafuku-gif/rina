@@ -1,81 +1,100 @@
-# GitHub Actions 外部データ同期 セットアップガイド
+# GitHub Actions: rina → openclaw-vault 同期 セットアップガイド
 
 ## 概要
 
-GitHub Actionsを使って、外部サービスのデータをrinaリポジトリに自動取り込みする。
-OpenClawはgit pullするだけで最新の外部データも参照できるようになる。
+GitHub Actionsを使って、rinaリポの情報を**フィルタリングして**openclaw-vaultに自動同期する。
+金額・契約・個人情報は自動的に除外される。
 
-## ワークフロー一覧
+## ワークフロー
 
-| ワークフロー | 実行頻度 | 内容 |
+| ファイル | トリガー | 内容 |
 |---|---|---|
-| `daily-snapshot.yml` | 毎日 6:00 JST | タスク状況・更新履歴のスナップショット |
-| `sync-external-data.yml` | 毎時 | Google Calendar同期 + ステータス更新 |
+| `sync-to-openclaw-vault.yml` | master push時 + 毎時 | タスク・予定・KPI をフィルタリングして openclaw-vault にpush |
+
+## フィルタリングルール
+
+ワークフロー内で以下の自動フィルタリングが適用される：
+
+- `[0-9]万円` → `***万円` に置換
+- `[0-9,]円` → `**円` に置換
+- `¥[0-9,]` → `¥***` に置換
+- `月額[0-9]万` → `月額***万` に置換
+- 契約書（docs/contracts/）は同期対象外
+- 財務詳細（docs/finance/）は同期対象外
+- スクリプト（scripts/）は同期対象外
+- カレンダーIDは同期対象外
 
 ## セットアップ手順
 
-### 1. daily-snapshot（すぐ動く）
+### 前提条件
 
-設定不要。pushすれば即稼働する。手動実行もGitHubのActionsタブから可能。
+- openclaw-vault リポが作成済み（setup-guide.md 参照）
+- OpenClaw用GitHubアカウントでPAT（Personal Access Token）が発行済み
 
-### 2. Google Calendar同期（要Secret設定）
+### Step 1: GitHub Secrets を設定
 
-#### ステップ1: Google Cloud Console でサービスアカウント作成
+rinafuku-gif/rina リポの **Settings > Secrets and variables > Actions** で:
 
-1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
-2. プロジェクトを選択（または新規作成）
-3. **APIs & Services** > **Enabled APIs** で **Google Calendar API** を有効化
-4. **IAM & Admin** > **Service Accounts** で新しいサービスアカウントを作成
-   - 名前: `rina-github-actions`
-   - 役割: 不要（カレンダーは共有設定で制御）
-5. サービスアカウントのキー（JSON）をダウンロード
+#### 必須
 
-#### ステップ2: カレンダーの共有設定
+| Secret | 値 | 説明 |
+|---|---|---|
+| `OPENCLAW_VAULT_TOKEN` | OpenClawアカウントのPAT | openclaw-vaultへのpush権限。**Contents: Read & Write** のみ |
 
-各カレンダーで、サービスアカウントのメールアドレス（`xxx@xxx.iam.gserviceaccount.com`）を**閲覧者**として追加：
+#### 任意（Variables）
 
-- Google Calendarの設定 > 特定のカレンダー > 共有設定
-- 「特定のユーザーと共有」にサービスアカウントのメールを追加
-- 権限: **閲覧権限（すべての予定の詳細）**
+| Variable | 値 | 説明 |
+|---|---|---|
+| `OPENCLAW_VAULT_REPO` | `OpenClawアカウント名/openclaw-vault` | リポジトリのフルパス |
 
-以下のカレンダーに設定：
-- プライベート（r.inafuku@tonari2tomaru.com）
-- R&M 共有カレンダー
-- 三十日珈琲
-- えんがわ（HIBA）
-- えんがわ（UME）
-- 大広間
-- ADDress上野原
+#### 任意（Secrets）
 
-#### ステップ3: GitHub Secretsに登録
+| Secret | 値 | 説明 |
+|---|---|---|
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Service AccountのJSON | カレンダー同期用 |
 
-1. GitHubで `rinafuku-gif/rina` > Settings > Secrets and variables > Actions
-2. **New repository secret** をクリック
-3. Name: `GOOGLE_SERVICE_ACCOUNT_KEY`
-4. Value: ダウンロードしたJSONキーの内容をそのまま貼り付け
-5. **Add secret**
+### Step 2: 動作確認
 
-#### ステップ4: 動作確認
+1. GitHub の rina リポ > Actions タブ
+2. `Sync to OpenClaw Vault` ワークフローを選択
+3. **Run workflow** で手動実行
+4. 成功したら openclaw-vault に context/ と data/ が生成されていることを確認
 
-1. GitHubのActionsタブで `Sync External Data` ワークフローを選択
-2. **Run workflow** で手動実行
-3. 成功すると `data/calendar-today.md` と `data/calendar-week.md` が生成される
+### Step 3: 自動実行の確認
 
-## 生成されるファイル
+- master に push するたびに自動実行される
+- 毎時0分にもスケジュール実行される
+- Google Calendar同期は `GOOGLE_SERVICE_ACCOUNT_KEY` が設定されている場合のみ
+
+## 同期されるファイル
 
 ```
-data/
-├── status.md           # OpenClaw参照用ステータスサマリー
-├── calendar-today.md   # 本日の予定（毎時更新）
-└── calendar-week.md    # 今週の予定（毎時更新）
-
-logs/daily/
-└── YYYY-MM-DD-snapshot.md  # 日次スナップショット
+openclaw-vault/
+├── context/
+│   ├── tasks.md        ← CLAUDE.md から未完了タスクを抽出（金額マスク済み）
+│   ├── calendar.md     ← 今日の予定（Calendar API経由）
+│   ├── projects.md     ← 事業概要（静的テンプレート）
+│   └── kpi.md          ← KPIサマリー（相対値のみ）
+└── data/
+    └── status.md       ← 最終同期日時
 ```
 
-## 拡張案（今後追加可能）
+## KPIの更新について
 
-- **Airbnb予約データ**: iCalフィードをパースして予約状況を `data/airbnb/` に保存
-- **財務データ**: スプレッドシートAPIで収支サマリーを取得
-- **GitHubイシュー**: 他リポ（fate-decoder等）の進捗を集約
-- **天気予報**: 外出・ゲスト対応の判断材料
+kpi.md の具体的な数値（目標達成率、稼働率等）は自動では入らない。
+理由：生データからの自動変換で意図せず金額が推測可能になるリスクを避けるため。
+
+**更新フロー：**
+1. rina側のClaude Codeセッションで財務レビューを実施
+2. 相対値・トレンドに変換した情報を kpi.md テンプレートに反映
+3. commit & push → GitHub Actions → openclaw-vault に自動同期
+
+## トラブルシューティング
+
+### ワークフローが失敗する
+- `OPENCLAW_VAULT_TOKEN` の有効期限が切れていないか確認（90日ごとに更新）
+- Token の権限が `Contents: Read and write` になっているか確認
+
+### カレンダーが同期されない
+- `GOOGLE_SERVICE_ACCOUNT_KEY` が設定されているか確認
+- サービスアカウントに各カレンダーの閲覧権限が付与されているか確認

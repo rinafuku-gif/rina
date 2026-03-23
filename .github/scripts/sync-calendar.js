@@ -1,6 +1,6 @@
 /**
- * Google Calendar → rina リポジトリ同期スクリプト
- * GitHub Actions から実行される
+ * Google Calendar → openclaw-vault 同期スクリプト
+ * GitHub Actions から実行される（vault ディレクトリで実行すること）
  *
  * 必要な GitHub Secret:
  * - GOOGLE_SERVICE_ACCOUNT_KEY: Google Service Account の JSON キー
