@@ -1,140 +1,118 @@
-# OpenClaw セットアップガイド（Mac mini + Tailscale）
+# OpenClaw セキュリティ硬化ガイド（Mac mini + Slack）
 
 > 最終更新: 2026-03-23
-> 対象バージョン: v2026.3.x（v2026.2.26以降必須）
-> 実行環境: Mac mini（クリーンインストール済み・専用機）
+> 対象バージョン: v2026.2.26 以降必須（CVE-2026-25253 修正済み）
+> 実行環境: Mac mini（稼働中）、Slack 経由で API 通信
 
-## 構成概要
+## 現在の構成
 
 ```
-┌─────────────────────────────────────────────┐
-│  iPhone / MacBook（外出先）                    │
-│  └─ Tailscale VPN                            │
-│      └─ SSH / LINE / Telegram                │
-└──────────────┬──────────────────────────────┘
-               │ Tailscale Mesh VPN
-┌──────────────▼──────────────────────────────┐
-│  Mac mini（OpenClaw 専用機）                   │
-│  ├─ OpenClaw Gateway (localhost:18789)       │
-│  ├─ Tailscale Serve (HTTPS)                  │
-│  ├─ Cloudflare Tunnel (LINE Webhook用)       │
-│  └─ サンドボックス環境                          │
-└─────────────────────────────────────────────┘
-               │
-┌──────────────▼──────────────────────────────┐
-│  外部API                                     │
-│  ├─ Anthropic Claude API                     │
-│  ├─ LINE Messaging API                       │
-│  └─ Google Calendar / etc.                   │
-└─────────────────────────────────────────────┘
-```
-
-## セキュリティ方針
-
-| 原則 | 実装 |
-|------|------|
-| 専用マシン | Mac mini をクリーンインストールし、OpenClaw 専用で使用 |
-| 最小権限 | 専用ユーザー `openclaw` で実行（root 禁止） |
-| ネットワーク隔離 | Gateway は localhost のみ。外部アクセスは Tailscale 経由 |
-| 認証必須 | Gateway トークン + Tailscale ID 認証 |
-| LINE Webhook | Cloudflare Tunnel 経由（既存の `api.tonari2tomaru.com` を活用） |
-| サンドボックス | サンドボックスモード ON |
-| APIキー管理 | 環境変数で管理、設定ファイルに平文保存しない |
-
----
-
-## Step 1: Mac mini 初期セットアップ
-
-### 1-1. 専用ユーザーの作成
-
-```bash
-# 管理者アカウントで実行
-sudo dscl . -create /Users/openclaw
-sudo dscl . -create /Users/openclaw UserShell /bin/zsh
-sudo dscl . -create /Users/openclaw RealName "OpenClaw Agent"
-sudo dscl . -create /Users/openclaw UniqueID 550
-sudo dscl . -create /Users/openclaw PrimaryGroupID 20
-sudo dscl . -create /Users/openclaw NFSHomeDirectory /Users/openclaw
-sudo mkdir -p /Users/openclaw
-sudo chown openclaw:staff /Users/openclaw
-
-# パスワード設定
-sudo dscl . -passwd /Users/openclaw <パスワード>
-```
-
-### 1-2. Node.js 22 インストール
-
-```bash
-# openclaw ユーザーでログイン後
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
-source ~/.zshrc
-nvm install 22
-nvm use 22
-node -v  # v22.x.x を確認
-```
-
-### 1-3. Tailscale インストール
-
-```bash
-# Homebrew でインストール
-brew install tailscale
-
-# 起動・ログイン
-sudo tailscaled &
-tailscale up --ssh
+┌──────────────────────────────┐
+│  Ryo（iPhone / MacBook）      │
+│  └─ Slack App                │
+└──────────────┬───────────────┘
+               │ Slack API
+┌──────────────▼───────────────┐
+│  Mac mini（OpenClaw 稼働中）   │
+│  ├─ OpenClaw Gateway         │
+│  ├─ Slack チャネル連携         │
+│  └─ Anthropic Claude API     │
+└──────────────────────────────┘
 ```
 
 ---
 
-## Step 2: OpenClaw インストール
+## セキュリティチェックリスト
 
-### 2-1. インストール
+以下を順番に確認・適用していく。**既にできていればスキップ。**
 
-```bash
-# openclaw ユーザーで実行
-npm install -g openclaw@latest
-openclaw --version  # v2026.3.x を確認
-```
-
-### 2-2. オンボーディング
+### 1. バージョン確認（最重要）
 
 ```bash
-# Gateway デーモンも自動インストール
-openclaw onboard --install-daemon
+openclaw --version
 ```
 
-- Gateway が `http://127.0.0.1:18789/` で起動
-- macOS では launchd デーモンとして自動起動に登録される
-
-### 2-3. APIキーの設定（環境変数方式）
+v2026.2.26 未満なら即アップデート。RCE 脆弱性（CVE-2026-25253）の対象。
 
 ```bash
-# ~/.zshrc に追加（平文ファイルには保存しない）
-echo 'export ANTHROPIC_API_KEY="sk-ant-xxxxx"' >> ~/.zshrc
-source ~/.zshrc
-
-# onboard で API キーを登録
-openclaw onboard --anthropic-api-key "$ANTHROPIC_API_KEY"
+npm update -g openclaw@latest
 ```
 
----
+### 2. Gateway のバインド確認
 
-## Step 3: セキュリティ設定
+```bash
+# 現在の設定確認
+cat ~/.openclaw/openclaw.json | grep -A5 gateway
+```
 
-### 3-1. メイン設定ファイル（`~/.openclaw/openclaw.json`）
+**確認ポイント:**
+- `bind` が `"loopback"` になっているか（外部公開されていないか）
+- Gateway トークン認証が有効になっているか（2026年2月パッチで必須化）
 
 ```json
 {
   "gateway": {
     "bind": "loopback",
-    "port": 18789,
-    "auth": {
-      "allowTailscale": true
-    },
-    "tailscale": {
-      "mode": "serve"
-    }
-  },
+    "port": 18789
+  }
+}
+```
+
+もし `bind` が `"0.0.0.0"` や未設定なら、Shodan 等から見える状態になっている可能性がある。即修正。
+
+### 3. ファイルパーミッション
+
+```bash
+# 設定ディレクトリ
+chmod 700 ~/.openclaw
+chmod 600 ~/.openclaw/openclaw.json
+
+# credentials があれば
+ls ~/.openclaw/credentials/ 2>/dev/null && chmod 600 ~/.openclaw/credentials/*
+```
+
+### 4. API キーの管理
+
+**NG:** `openclaw.json` に平文でキーを書く
+**OK:** 環境変数で渡す
+
+```bash
+# 確認: openclaw.json にキーが直書きされていないか
+grep -i "apikey\|api_key\|secret\|token" ~/.openclaw/openclaw.json
+```
+
+もし平文で書かれていたら、環境変数方式に切り替え：
+
+```bash
+# ~/.zshrc に追加
+export ANTHROPIC_API_KEY="sk-ant-xxxxx"
+
+# openclaw.json では変数参照にする
+# "apiKey": "$ANTHROPIC_API_KEY"
+```
+
+### 5. サンドボックス設定
+
+```bash
+# 現在のサンドボックス設定確認
+cat ~/.openclaw/openclaw.json | grep -A10 sandbox
+```
+
+推奨設定:
+
+```json
+{
+  "sandbox": {
+    "mode": "non-main",
+    "scope": "session"
+  }
+}
+```
+
+Docker サンドボックスも使える場合（Docker がインストール済みの場合）：
+
+```json
+{
   "sandbox": {
     "mode": "non-main",
     "scope": "session",
@@ -143,18 +121,14 @@ openclaw onboard --anthropic-api-key "$ANTHROPIC_API_KEY"
       "network": "none",
       "readOnlyRoot": true
     }
-  },
-  "models": {
-    "providers": {
-      "anthropic": {
-        "apiKey": "$ANTHROPIC_API_KEY"
-      }
-    },
-    "defaults": {
-      "provider": "anthropic",
-      "model": "claude-sonnet-4-20250514"
-    }
-  },
+  }
+}
+```
+
+### 6. deny リスト（危険なコマンドのブロック）
+
+```json
+{
   "agents": {
     "tools": {
       "deny": [
@@ -173,107 +147,73 @@ openclaw onboard --anthropic-api-key "$ANTHROPIC_API_KEY"
 }
 ```
 
-### 3-2. ファイルパーミッションの設定
+### 7. 専用ユーザーでの実行（推奨）
+
+現在 root や Ryo の個人アカウントで実行している場合は、専用ユーザーに切り替えることを推奨。
 
 ```bash
-chmod 700 ~/.openclaw
-chmod 600 ~/.openclaw/openclaw.json
-chmod 600 ~/.openclaw/credentials/*
+# 専用ユーザー作成
+sudo dscl . -create /Users/openclaw
+sudo dscl . -create /Users/openclaw UserShell /bin/zsh
+sudo dscl . -create /Users/openclaw RealName "OpenClaw Agent"
+sudo dscl . -create /Users/openclaw UniqueID 550
+sudo dscl . -create /Users/openclaw PrimaryGroupID 20
+sudo dscl . -create /Users/openclaw NFSHomeDirectory /Users/openclaw
+sudo mkdir -p /Users/openclaw
+sudo chown openclaw:staff /Users/openclaw
 ```
 
-### 3-3. Tailscale Serve の有効化
+これにより OpenClaw が Ryo の個人ファイルにアクセスできなくなる。
 
-```bash
-# Gateway を Tailscale 経由でセキュアに公開（Tailnet内のみ）
-openclaw config set gateway.tailscale.mode serve
+### 8. ClawHub スキルの制限
 
-# 確認
-tailscale serve status
-```
+ClawHub（サードパーティスキルのマーケットプレイス）は汚染リスクが報告されている。
 
----
-
-## Step 4: LINE 連携（Cloudflare Tunnel 経由）
-
-### 4-1. OpenClaw の LINE プラグインを有効化
+**方針: ClawHub のスキルは使わない。自作 or 検証済みのみ使用。**
 
 ```json
 {
   "plugins": {
-    "entries": {
-      "line": {
-        "enabled": true
-      }
+    "marketplace": {
+      "enabled": false
     }
   }
 }
 ```
 
-### 4-2. LINE Developers Console の設定
+---
 
-1. [LINE Developers Console](https://developers.line.biz/) でMessaging API チャネルを作成
-   - ※既存のしらたま用とは別チャネルを作成する
-2. Channel Access Token と Channel Secret を取得
-3. 自動応答メッセージ → 無効
-4. あいさつメッセージ → 無効
+## 最終確認チェックリスト
 
-### 4-3. Cloudflare Tunnel で Webhook エンドポイント公開
-
-```bash
-# 既存の Cloudflare Tunnel を活用
-# 例: openclaw.tonari2tomaru.com → localhost:18789
-
-cloudflared tunnel route dns <tunnel-name> openclaw.tonari2tomaru.com
 ```
-
-LINE Developers Console で Webhook URL を設定：
-```
-https://openclaw.tonari2tomaru.com/webhook/line
-```
-
-### 4-4. 環境変数の追加
-
-```bash
-echo 'export LINE_CHANNEL_ACCESS_TOKEN="xxxxx"' >> ~/.zshrc
-echo 'export LINE_CHANNEL_SECRET="xxxxx"' >> ~/.zshrc
-source ~/.zshrc
+□ OpenClaw バージョンが v2026.2.26 以上
+□ Gateway が loopback にバインドされている
+□ Gateway トークン認証が有効
+□ ~/.openclaw/ のパーミッションが 700
+□ ~/.openclaw/openclaw.json のパーミッションが 600
+□ API キーが環境変数で管理されている（平文保存なし）
+□ サンドボックスモードが ON
+□ deny リストが設定されている
+□ ClawHub マーケットプレイスが無効化されている
+□ Slack 経由で正常に応答が返ってくる
 ```
 
 ---
 
-## Step 5: 動作確認チェックリスト
+## Tailscale の追加（任意）
 
-```
-□ openclaw --version で最新版を確認
-□ Gateway が localhost:18789 で起動している
-□ Tailscale SSH で Mac mini にアクセスできる
-□ Tailscale Serve で Gateway にアクセスできる
-□ サンドボックスモードが ON になっている
-□ Claude API でチャット応答が返ってくる
-□ LINE Webhook で メッセージ送受信できる
-□ deny リストのコマンドがブロックされることを確認
-□ ~/.openclaw/ のパーミッションが 700/600 になっている
+Mac mini へのリモート SSH アクセスを安全にしたい場合は Tailscale を追加。
+
+```bash
+brew install tailscale
+tailscale up --ssh
 ```
 
----
+Tailscale を入れると：
+- パブリック IP 不要で Mac mini に SSH できる
+- Gateway を Tailscale Serve で公開すれば、外出先からも安全にアクセス可能
 
-## しらたまとの棲み分け
-
-| 機能 | しらたま | OpenClaw |
-|------|---------|----------|
-| 朝ブリーフィング | ○（LINE Push） | △（設定次第） |
-| 経費記帳 | ○（チャット入力） | ○（チャット入力） |
-| カレンダー操作 | ○（MCP連携） | ○（スキル） |
-| ファイル操作 | ×（API経由のみ） | ○（直接アクセス） |
-| ブラウザ操作 | × | ○ |
-| 自律的タスク実行 | × | ○（24/7 稼働） |
-| マルチチャネル | LINE のみ | LINE + Telegram + 他 |
-
-### 推奨する棲み分け
-
-- **しらたま**: 既存の安定したワークフロー（朝ブリーフィング、経費記帳、カレンダー）を継続
-- **OpenClaw**: 新しい自律型タスク（情報収集、Web スクレイピング、自動化実験）に使用
-- 将来的にはしらたまの機能を OpenClaw に統合していく可能性あり
+**Slack 経由で十分なら Tailscale は必須ではない。** SSH アクセスが必要になったら検討。
 
 ---
 
@@ -282,37 +222,26 @@ source ~/.zshrc
 ### Gateway が起動しない
 
 ```bash
-# launchd のステータス確認
 launchctl list | grep openclaw
-
-# ログ確認
 cat ~/Library/Logs/openclaw/gateway.log
 ```
 
-### Tailscale 接続できない
+### deny リストが効かない
+
+- サンドボックスのツールポリシーとエージェントの deny リストは**独立している**
+- 両方で制限する必要がある
+
+### Slack メッセージが届かない
 
 ```bash
-tailscale status
-tailscale ping <mac-mini-hostname>
-```
-
-### LINE Webhook が届かない
-
-```bash
-# Cloudflare Tunnel のステータス確認
-cloudflared tunnel info <tunnel-name>
-
-# OpenClaw のログで Webhook 受信を確認
-openclaw logs --channel line
+openclaw logs --channel slack
 ```
 
 ---
 
 ## 参考リンク
 
-- [OpenClaw 公式ドキュメント](https://docs.openclaw.ai/)
-- [OpenClaw Docker セットアップ](https://docs.openclaw.ai/install/docker)
-- [OpenClaw セキュリティガイド](https://docs.openclaw.ai/gateway/security)
-- [OpenClaw Tailscale 連携](https://docs.openclaw.ai/gateway/tailscale)
-- [OpenClaw LINE 連携ガイド](https://medium.com/@tentenco/how-to-connect-openclaw-to-line-setup-guide-and-best-practices-for-ai-powered-customer-service-45a1f7032729)
-- [Mac mini + OpenClaw 常時稼働ガイド](https://www.mager.co/blog/2026-02-22-openclaw-mac-mini-tailscale/)
+- [OpenClaw 公式セキュリティガイド](https://docs.openclaw.ai/gateway/security)
+- [OpenClaw CVE トラッカー](https://github.com/jgamblin/OpenClawCVEs/)
+- [セキュアな OpenClaw セルフホスト（dsebastien.net）](https://www.dsebastien.net/how-to-self-host-openclaw-securely-on-a-vps-a-security-first-guide/)
+- [Microsoft: OpenClaw を安全に実行する方法](https://www.microsoft.com/en-us/security/blog/2026/02/19/running-openclaw-safely-identity-isolation-runtime-risk/)
