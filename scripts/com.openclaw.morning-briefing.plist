@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/Inaryo/rina/scripts/openclaw-morning-briefing.sh</string>
+        <string>/Users/ocmm/rina/scripts/openclaw-morning-briefing.sh</string>
     </array>
     <key>StartCalendarInterval</key>
     <dict>
@@ -17,15 +17,15 @@
         <integer>0</integer>
     </dict>
     <key>StandardOutPath</key>
-    <string>/Users/Inaryo/rina/logs/briefing-stdout.log</string>
+    <string>/Users/ocmm/rina/logs/briefing-stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/Inaryo/rina/logs/briefing-stderr.log</string>
+    <string>/Users/ocmm/rina/logs/briefing-stderr.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <string>/Users/ocmm/.local/bin:/Users/ocmm/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
         <key>HOME</key>
-        <string>/Users/Inaryo</string>
+        <string>/Users/ocmm</string>
     </dict>
 </dict>
 </plist>

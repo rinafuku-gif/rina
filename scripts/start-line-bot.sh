@@ -35,3 +35,14 @@ echo "[$(date)] Webhook URL (fixed): $WEBHOOK_URL"
 echo "[$(date)] LINE Bot is running. PIDs: webhook=$WEBHOOK_PID, tunnel=$TUNNEL_PID"
 echo "$WEBHOOK_PID" > "$LOG_DIR/webhook.pid"
 echo "$TUNNEL_PID" > "$LOG_DIR/tunnel.pid"
+
+# レシート監視（Google Drive受信箱 → Claude CLI OCR → Sheets記入）
+pkill -f "receipt-watcher.js" 2>/dev/null || true
+sleep 1
+echo "[$(date)] Starting receipt-watcher..."
+node "$SCRIPT_DIR/receipt-watcher.js" >> "$LOG_DIR/receipt-watcher-stdout.log" 2>> "$LOG_DIR/receipt-watcher-stderr.log" &
+WATCHER_PID=$!
+echo "[$(date)] Receipt watcher PID: $WATCHER_PID"
+echo "$WATCHER_PID" > "$LOG_DIR/receipt-watcher.pid"
+
+echo "[$(date)] All services running."

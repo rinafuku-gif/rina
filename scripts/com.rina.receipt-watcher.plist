@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>Label</key>
+		<string>com.rina.receipt-watcher</string>
+		<key>ProgramArguments</key>
+		<array>
+			<string>/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin/node</string>
+			<string>/Users/ocmm/rina/scripts/receipt-watcher.js</string>
+		</array>
+		<key>RunAtLoad</key>
+		<true/>
+		<key>KeepAlive</key>
+		<true/>
+		<key>StandardOutPath</key>
+		<string>/Users/ocmm/rina/logs/receipt-watcher-stdout.log</string>
+		<key>StandardErrorPath</key>
+		<string>/Users/ocmm/rina/logs/receipt-watcher-stderr.log</string>
+		<key>EnvironmentVariables</key>
+		<dict>
+			<key>HOME</key>
+			<string>/Users/ocmm</string>
+			<key>PATH</key>
+			<string>/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin:/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+		</dict>
+		<key>ThrottleInterval</key>
+		<integer>10</integer>
+	</dict>
+</plist>

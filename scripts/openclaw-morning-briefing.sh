@@ -11,7 +11,7 @@ set -uo pipefail
 
 # --- パス解決 ---
 # OPENCLAW_REPO_DIR を設定していない場合はデフォルトパスを使用
-REPO_DIR="${OPENCLAW_REPO_DIR:-/Users/Inaryo/rina}"
+REPO_DIR="${OPENCLAW_REPO_DIR:-/Users/ocmm/rina}"
 SCRIPT_DIR="$REPO_DIR/scripts"
 LOG_DIR="$REPO_DIR/logs"
 
@@ -87,31 +87,28 @@ fi
 
 echo "Briefing ready (${#BRIEFING} chars)"
 
-# --- LINE送信（5000文字制限対応） ---
+# --- Discord送信（2000文字制限対応） ---
+DISCORD_BOT_TOKEN=$(grep '^DISCORD_BOT_TOKEN=' "$HOME/.claude/channels/discord/.env" 2>/dev/null | cut -d= -f2)
+DISCORD_CHANNEL_ID="1485836971191566488"
+
 if [ "$DRY_RUN" = "1" ]; then
-  echo "[DRY_RUN] LINE送信スキップ (${#BRIEFING} chars)"
+  echo "[DRY_RUN] Discord送信スキップ (${#BRIEFING} chars)"
+elif [ -z "$DISCORD_BOT_TOKEN" ]; then
+  echo "ERROR: DISCORD_BOT_TOKEN not found"
 else
-  echo "Sending via LINE..."
-  if [ ${#BRIEFING} -le 5000 ]; then
-    curl -s -X POST https://api.line.me/v2/bot/message/push \
+  echo "Sending via Discord..."
+  # 2000文字ずつ分割送信
+  REMAINING="$BRIEFING"
+  while [ ${#REMAINING} -gt 0 ]; do
+    CHUNK="${REMAINING:0:2000}"
+    REMAINING="${REMAINING:2000}"
+    curl -s -X POST "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages" \
       -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
-      -d "$(jq -n --arg to "$LINE_USER_ID" --arg text "$BRIEFING" '{
-        to: $to,
-        messages: [{type: "text", text: $text}]
-      }')"
-  else
-    PART1="${BRIEFING:0:5000}"
-    PART2="${BRIEFING:5000}"
-    curl -s -X POST https://api.line.me/v2/bot/message/push \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
-      -d "$(jq -n --arg to "$LINE_USER_ID" --arg t1 "$PART1" --arg t2 "$PART2" '{
-        to: $to,
-        messages: [{type: "text", text: $t1}, {type: "text", text: $t2}]
-      }')"
-  fi
-  echo " -> LINE sent"
+      -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+      -d "$(jq -n --arg text "$CHUNK" '{content: $text}')"
+    [ ${#REMAINING} -gt 0 ] && sleep 1
+  done
+  echo " -> Discord sent"
 fi
 
 # --- PWA Push通知 ---

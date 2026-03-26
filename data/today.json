@@ -1,128 +1,42 @@
 {
-  "date": "2026-03-19",
-  "generatedAt": "2026-03-18T18:38:20.597Z",
+  "date": "2026-03-26",
+  "generatedAt": "2026-03-26T03:32:07.488Z",
   "acknowledged": false,
   "sections": [
-    {
-      "type": "urgent",
-      "title": "今すぐ対応",
-      "items": [
-        {
-          "id": "act_727b93f9",
-          "source": "airbnb",
-          "title": "ゲスト到着: Victor Everaard（2名・UME）",
-          "detail": "チェックイン今日",
-          "action": "acknowledge",
-          "actionLabel": "準備OK",
-          "urgency": "urgent",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1909:00",
-          "secretaryNote": "Victorさんは外国籍ゲストだから英語チェックインメッセージを事前送信しておくといいよ"
-        }
-      ]
-    },
     {
       "type": "today",
       "title": "今日やること",
       "items": [
         {
-          "id": "act_f218a116",
+          "id": "act_9bc4d7a3",
           "source": "calendar",
-          "title": "13:00-13:30 上野原警察署（旅館業申請手数料支払い）",
-          "detail": "R&M共有",
+          "title": "14:00-15:30 マナビバVol.46 センス不要！「伝わるチラシの作り方」",
+          "detail": "プライベート",
           "action": "acknowledge",
           "actionLabel": "確認",
           "urgency": "today",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1913:00-13:30",
-          "secretaryNote": "手数料の金額と支払い方法（現金か？）を事前に確認してから向かってね"
+          "date": "2026-03-26",
+          "sortKey": "2026-03-2614:00-15:30"
         },
         {
-          "id": "act_f5411c76",
-          "source": "calendar",
-          "title": "14:00-15:30 シオンさん",
-          "detail": "R&M共有",
-          "action": "acknowledge",
-          "actionLabel": "確認",
-          "urgency": "today",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1914:00-15:30",
-          "secretaryNote": null
-        },
-        {
-          "id": "act_475221a1",
+          "id": "act_e995619d",
           "source": "calendar",
           "title": "14:00-18:00 🚗(R)見晴亭作業（PC作業可能）",
           "detail": "プライベート",
           "action": "acknowledge",
           "actionLabel": "確認",
           "urgency": "today",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1914:00-18:00",
-          "secretaryNote": "シオンさんとの時間が14時からかぶってるから移動タイミング注意だよ"
-        },
-        {
-          "id": "act_426c06d1",
-          "source": "calendar",
-          "title": "17:00-18:00 あっきーさんAI相談",
-          "detail": "R&M共有",
-          "action": "acknowledge",
-          "actionLabel": "確認",
-          "urgency": "today",
-          "date": "2026-03-19",
-          "sortKey": "2026-03-1917:00-18:00",
-          "secretaryNote": "見晴亭作業中の予定だから、17時前には準備・接続テストを済ませておくといいね"
-        },
-        {
-          "id": "act_a45bc58b",
-          "source": "calendar",
-          "title": "2026-03-20 終日 鳥沢 ギア選定フィックス→オーナー承認→発注",
-          "detail": "プライベート",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "today",
-          "date": "2026-03-20",
-          "sortKey": "2026-03-2000:00",
-          "secretaryNote": "配送リードタイム確保のためGW前オープンの要でもあるから、今日中に決めきるつもりで臨んでね"
-        },
-        {
-          "id": "act_2e7d231a",
-          "source": "airbnb",
-          "title": "明日ゲスト到着: 慧 吕（2名・UME）",
-          "detail": "チェックイン 2026-03-20",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "today",
-          "date": "2026-03-20",
-          "sortKey": "2026-03-2009:00",
-          "secretaryNote": "Victorさんチェックアウト後そのまま慧さんチェックインになるから清掃・準備の時間を確保しておいてね"
-        }
-      ]
-    },
-    {
-      "type": "upcoming",
-      "title": "近日中",
-      "items": [
-        {
-          "id": "act_57eb803b",
-          "source": "calendar",
-          "title": "2026-03-21 14:00-15:30 大神田さんMTG",
-          "detail": "R&M共有",
-          "action": null,
-          "actionLabel": null,
-          "urgency": "upcoming",
-          "date": "2026-03-21",
-          "sortKey": "2026-03-2114:00-15:30",
-          "secretaryNote": "契約書の署名・大神田さんの住所確認など、持参・確認事項をリストアップしておくといいよ"
+          "date": "2026-03-26",
+          "sortKey": "2026-03-2614:00-18:00"
         }
       ]
     }
   ],
   "stats": {
-    "urgent": 1,
-    "today": 6,
-    "upcoming": 1,
-    "total": 16,
-    "badgeCount": 7
+    "urgent": 0,
+    "today": 2,
+    "upcoming": 0,
+    "total": 6,
+    "badgeCount": 2
   }
 }

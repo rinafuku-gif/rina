@@ -297,11 +297,11 @@ function extractGitSummary() {
   const { execSync } = require("child_process");
 
   const REPOS = [
-    { path: "/Users/Inaryo/hisho-shiratama", name: "しらたまPWA" },
-    { path: "/Users/Inaryo/satoyama-ai-base", name: "SATOYAMA" },
-    { path: "/Users/Inaryo/misoca-coffee", name: "三十日珈琲" },
-    { path: "/Users/Inaryo/fate-decoder", name: "CoreCompass" },
-    { path: "/Users/Inaryo/rina", name: "rina" },
+    { path: "/Users/ocmm/hisho-shiratama", name: "しらたまPWA" },
+    { path: "/Users/ocmm/satoyama-ai-base", name: "SATOYAMA" },
+    { path: "/Users/ocmm/misoca-coffee", name: "三十日珈琲" },
+    { path: "/Users/ocmm/fate-decoder", name: "CoreCompass" },
+    { path: "/Users/ocmm/rina", name: "rina" },
   ];
 
   for (const repo of REPOS) {

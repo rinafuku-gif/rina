@@ -10,7 +10,7 @@ LOG_DIR="$REPO_DIR/logs"
 DATA_DIR="$REPO_DIR/data"
 OUTPUT_FILE="$LOG_DIR/.daily-scan.json"
 
-export PATH="/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH="/Users/ocmm/.local/bin:/Users/ocmm/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 unset CLAUDECODE 2>/dev/null || true
 
 # --- task-engine.js を実行して today.json を生成 ---

@@ -13,11 +13,11 @@ const STATE_FILE = path.join(__dirname, "..", "data", ".git-scanner-state.json")
 
 // 監視対象リポジトリ
 const REPOS = [
-  { path: "/Users/Inaryo/rina", project: "rina", aliases: ["rina", "AI秘書", "ブリーフィング", "LINE"] },
-  { path: "/Users/Inaryo/hisho-shiratama", project: "しらたまPWA", aliases: ["しらたま", "PWA", "秘書"] },
-  { path: "/Users/Inaryo/satoyama-ai-base", project: "SATOYAMA AI BASE", aliases: ["SATOYAMA", "DX", "スクール"] },
-  { path: "/Users/Inaryo/misoca-coffee", project: "三十日珈琲", aliases: ["misoca", "珈琲", "コーヒー"] },
-  { path: "/Users/Inaryo/fate-decoder", project: "CoreCompass", aliases: ["fate", "占術", "CoreCompass"] },
+  { path: "/Users/ocmm/rina", project: "rina", aliases: ["rina", "AI秘書", "ブリーフィング", "LINE"] },
+  { path: "/Users/ocmm/hisho-shiratama", project: "しらたまPWA", aliases: ["しらたま", "PWA", "秘書"] },
+  { path: "/Users/ocmm/satoyama-ai-base", project: "SATOYAMA AI BASE", aliases: ["SATOYAMA", "DX", "スクール"] },
+  { path: "/Users/ocmm/misoca-coffee", project: "三十日珈琲", aliases: ["misoca", "珈琲", "コーヒー"] },
+  { path: "/Users/ocmm/fate-decoder", project: "CoreCompass", aliases: ["fate", "占術", "CoreCompass"] },
 ];
 
 // 完了を示すキーワード

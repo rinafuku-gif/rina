@@ -6,7 +6,7 @@
 set -uo pipefail
 
 # --- パス解決（常にメインリポジトリを参照。worktreeからの実行を防止） ---
-MAIN_REPO="/Users/Inaryo/rina"
+MAIN_REPO="/Users/ocmm/rina"
 SCRIPT_DIR="$MAIN_REPO/scripts"
 REPO_DIR="$MAIN_REPO"
 LOG_DIR="$REPO_DIR/logs"
@@ -23,7 +23,7 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "[DRY_RUN] LINE/Push送信はスキップされます"
 fi
 
-export PATH="/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH="/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 unset CLAUDECODE 2>/dev/null || true
 source "$REPO_DIR/.env"
 
@@ -74,32 +74,28 @@ fi
 
 echo "Briefing ready (${#BRIEFING} chars)"
 
-# --- LINE送信（5000文字制限対応。プロンプト側で2000文字制約済みなので基本1通） ---
+# --- Discord送信（2000文字制限対応） ---
+DISCORD_BOT_TOKEN=$(grep '^DISCORD_BOT_TOKEN=' "$HOME/.claude/channels/discord/.env" 2>/dev/null | cut -d= -f2)
+DISCORD_CHANNEL_ID="1485836971191566488"
+
 if [ "$DRY_RUN" = "1" ]; then
-  echo "[DRY_RUN] LINE送信スキップ (${#BRIEFING} chars)"
+  echo "[DRY_RUN] Discord送信スキップ (${#BRIEFING} chars)"
+elif [ -z "$DISCORD_BOT_TOKEN" ]; then
+  echo "ERROR: DISCORD_BOT_TOKEN not found"
 else
-  echo "Sending via LINE..."
-  if [ ${#BRIEFING} -le 5000 ]; then
-    curl -s -X POST https://api.line.me/v2/bot/message/push \
+  echo "Sending via Discord..."
+  # 2000文字ずつ分割送信
+  REMAINING="$BRIEFING"
+  while [ ${#REMAINING} -gt 0 ]; do
+    CHUNK="${REMAINING:0:2000}"
+    REMAINING="${REMAINING:2000}"
+    curl -s -X POST "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages" \
       -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
-      -d "$(jq -n --arg to "$LINE_USER_ID" --arg text "$BRIEFING" '{
-        to: $to,
-        messages: [{type: "text", text: $text}]
-      }')"
-  else
-    # 分割送信（万が一5000文字を超えた場合の保険）
-    PART1="${BRIEFING:0:5000}"
-    PART2="${BRIEFING:5000}"
-    curl -s -X POST https://api.line.me/v2/bot/message/push \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
-      -d "$(jq -n --arg to "$LINE_USER_ID" --arg t1 "$PART1" --arg t2 "$PART2" '{
-        to: $to,
-        messages: [{type: "text", text: $t1}, {type: "text", text: $t2}]
-      }')"
-  fi
-  echo " -> LINE sent"
+      -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+      -d "$(jq -n --arg text "$CHUNK" '{content: $text}')"
+    [ ${#REMAINING} -gt 0 ] && sleep 1
+  done
+  echo " -> Discord sent"
 fi
 
 # --- PWA Push通知 ---
