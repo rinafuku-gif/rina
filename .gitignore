@@ -38,3 +38,19 @@ token.json
 data/*.db
 data/*.db-journal
 data/*.db-wal
+
+# Backups (local-only, regenerated daily by backup-db.sh)
+data/backups/
+
+# Runtime state (machine-specific)
+data/.task-sync.pid
+data/unified.db-shm
+
+# Machine-specific launchd config
+config/com.rina.task-sync.plist
+
+# Task data (synced via Obsidian/iCloud, not git)
+data/tasks.json
+data/today.json
+data/.task-list-snapshot.json
+data/.git-scanner-state.json
