@@ -1,6 +1,6 @@
 {
-  "date": "2026-03-26",
-  "generatedAt": "2026-03-26T03:32:07.488Z",
+  "date": "2026-03-24",
+  "generatedAt": "2026-03-23T16:43:21.825Z",
   "acknowledged": false,
   "sections": [
     {
@@ -8,35 +8,569 @@
       "title": "今日やること",
       "items": [
         {
-          "id": "act_9bc4d7a3",
+          "id": "act_306e0142",
           "source": "calendar",
-          "title": "14:00-15:30 マナビバVol.46 センス不要！「伝わるチラシの作り方」",
+          "title": "終日 鳥沢 保健所 簡易宿所営業許可申請",
           "detail": "プライベート",
           "action": "acknowledge",
           "actionLabel": "確認",
           "urgency": "today",
-          "date": "2026-03-26",
-          "sortKey": "2026-03-2614:00-15:30"
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2400:00"
         },
         {
-          "id": "act_e995619d",
+          "id": "act_bf0a248f",
+          "source": "obsidian",
+          "title": "蔵サウナ: 業務委託契約書の確認・捺印（3/21予定だったが要確認）",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_3c2844b7",
+          "source": "obsidian",
+          "title": "蔵サウナ: コンテンツ化促進事業 事務局に電話（03-6630-7372）",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_4b061814",
+          "source": "obsidian",
+          "title": "蔵サウナ: 上野原市役所にローカル10,000相談（0554-62-3191）",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_d6b0f44d",
+          "source": "obsidian",
+          "title": "行政書士DX: 堀部さんにヒアリング日程を連絡",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_fa0cbf9d",
+          "source": "obsidian",
+          "title": "ハヤリソーセージ: 武士さんのStripeアカウント登録を催促（APIキー待ち）",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_e36fe86d",
+          "source": "obsidian",
+          "title": "三十日珈琲: 焙煎体験の予約をどうするか決める（自社フォーム or LINE/Google Forms継続）",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_f2f7fc2f",
+          "source": "obsidian",
+          "title": "星の図書館: LINE AI占いくん終了（3/27）に合わせたPR投稿作成",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_49f31e6e",
+          "source": "obsidian",
+          "title": "星の図書館: SNS展開の準備（投稿素材・告知文）",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_6d3d500d",
+          "source": "obsidian",
+          "title": "三十日珈琲: EC購入フローの本番テスト（カート→Stripe決済→完了メール）",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_66dc43cc",
+          "source": "obsidian",
+          "title": "三十日珈琲: モバイル全ページ表示チェック",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_07e3d6ca",
+          "source": "obsidian",
+          "title": "三十日珈琲: SNS・LINEでの公開告知文の準備",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_c08340df",
+          "source": "obsidian",
+          "title": "ハヤリソーセージ: フロントエンド先行構築（ダミーデータで商品表示・カートUI）",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_2aace3e5",
+          "source": "obsidian",
+          "title": "DXスキーム: GAS側のNotion同期コメントアウト → サーバー再起動 → 一気通貫テスト",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_549754e0",
+          "source": "obsidian",
+          "title": "朝ブリーフィング: rinaリポにopenclaw版ファイル作成 → Mac miniセットアップ → テスト → 自動化",
+          "detail": "今週のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:00"
+        },
+        {
+          "id": "act_bfaa0cd5",
+          "source": "calendar",
+          "title": "12:30-17:15 MIDORI.so Nagatacho　コミュニティランチ出店",
+          "detail": "R&M共有",
+          "action": "acknowledge",
+          "actionLabel": "確認",
+          "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2412:30-17:15"
+        },
+        {
+          "id": "act_aa6a026f",
           "source": "calendar",
           "title": "14:00-18:00 🚗(R)見晴亭作業（PC作業可能）",
           "detail": "プライベート",
           "action": "acknowledge",
           "actionLabel": "確認",
           "urgency": "today",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2414:00-18:00"
+        }
+      ]
+    },
+    {
+      "type": "upcoming",
+      "title": "近日中",
+      "items": [
+        {
+          "id": "act_d6054f33",
+          "source": "obsidian",
+          "title": "蔵サウナ: 戸田工務店の測量立ち会い（3月中 → 概算見積もり4/15）",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_a33dfd21",
+          "source": "obsidian",
+          "title": "蔵サウナ: 宿泊施設サステナビリティ補助金の確認（3/24公募開始、締切5/30）",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_d5585119",
+          "source": "obsidian",
+          "title": "DXテンプレートPF: えんそくさんにヒアリング（30分、計算ロジック確認）",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_8c2ba963",
+          "source": "obsidian",
+          "title": "行政書士DX: 堀部さんにGビズIDプライム取得を案内",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_7c1d4101",
+          "source": "obsidian",
+          "title": "行政書士DX: 檜原村企画財政課に補助金制度を確認（042-519-9556）",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_b17d7d93",
+          "source": "obsidian",
+          "title": "Basecamp: 4/28オープン準備",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_76eedbd4",
+          "source": "obsidian",
+          "title": "蔵サウナ: コンテンツ化促進事業の申請書類準備（締切4/2）",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_8e9ee4fb",
+          "source": "obsidian",
+          "title": "SATOYAMA: 初期コンテンツ制作（3本）→ モニター3〜5名募集",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_f73b5a72",
+          "source": "obsidian",
+          "title": "SATOYAMA: レベルアップ条件の詳細定義",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_9f45170b",
+          "source": "obsidian",
+          "title": "SATOYAMA: レベル別学習コンテンツの充実",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_142f09df",
+          "source": "obsidian",
+          "title": "SATOYAMA: ワークショップのレベル別設計",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_21bdcfd6",
+          "source": "obsidian",
+          "title": "三十日珈琲: 予約システム実装（Ryoが方式決定後）",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_89aa119b",
+          "source": "obsidian",
+          "title": "三十日珈琲: Google検索への登録・インデックス申請",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_cbc38515",
+          "source": "obsidian",
+          "title": "三十日珈琲: Googleマイビジネスとの連携",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_25574bb2",
+          "source": "obsidian",
+          "title": "三十日珈琲: SNS（Instagram）からサイトへの導線設定",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_d3b4b382",
+          "source": "obsidian",
+          "title": "三十日珈琲: サムネイル写真差し替え（8パターン）",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_541e937a",
+          "source": "obsidian",
+          "title": "ハヤリソーセージ: デザインすり合わせ → 既存HP情報移行",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_0fb2dff7",
+          "source": "obsidian",
+          "title": "ハヤリソーセージ: Stripe APIキー受領後 → 決済連携",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_ea17af06",
+          "source": "obsidian",
+          "title": "DXスキーム: 提案書ページのデザイン改善（Markdown→HTML化）",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_2bcc78e7",
+          "source": "obsidian",
+          "title": "DXテンプレートPF: えんそくさん案件の計算ロジック実装・見積書PDF出力",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_8b89bd30",
+          "source": "obsidian",
+          "title": "えんがわ: ハウススタジオ専用サイト構築",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_4c6499b8",
+          "source": "obsidian",
+          "title": "えんがわ: 持続化補助金第19回 提出",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_5eee4fef",
+          "source": "obsidian",
+          "title": "行政書士DX: IT導入補助金2026の公募要領確認（3/30〜受付開始）",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_1d57eb1a",
+          "source": "obsidian",
+          "title": "星の図書館: メモリ機能追加",
+          "detail": "今月のタスク",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-24",
+          "sortKey": "2026-03-2420:00"
+        },
+        {
+          "id": "act_f53cf587",
+          "source": "calendar",
+          "title": "2026-03-25 08:00-13:00 misoca coffee stand",
+          "detail": "R&M共有",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-25",
+          "sortKey": "2026-03-2508:00-13:00"
+        },
+        {
+          "id": "act_903f9a99",
+          "source": "calendar",
+          "title": "2026-03-25 10:00-12:00 OPENDAY企画｜ヨガと足湯とコーヒー Vol.4",
+          "detail": "プライベート",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-25",
+          "sortKey": "2026-03-2510:00-12:00"
+        },
+        {
+          "id": "act_1b7d4627",
+          "source": "calendar",
+          "title": "2026-03-25 15:30-16:30 (RM)見潮さん打ち合わせ（医療通訳）",
+          "detail": "R&M共有",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-25",
+          "sortKey": "2026-03-2515:30-16:30"
+        },
+        {
+          "id": "act_268d8260",
+          "source": "calendar",
+          "title": "2026-03-26 14:00-15:30 マナビバVol.46 センス不要！「伝わるチラシの作り方」",
+          "detail": "プライベート",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-26",
+          "sortKey": "2026-03-2614:00-15:30"
+        },
+        {
+          "id": "act_d1b5541d",
+          "source": "calendar",
+          "title": "2026-03-26 14:00-18:00 🚗(R)見晴亭作業（PC作業可能）",
+          "detail": "プライベート",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
           "date": "2026-03-26",
           "sortKey": "2026-03-2614:00-18:00"
+        },
+        {
+          "id": "act_7c574dc7",
+          "source": "deadline",
+          "title": "LINE AI占いくん終了 → 星の図書館PR（あと3日）",
+          "detail": "星の図書館 — 期限 2026-03-27",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-27",
+          "sortKey": "2026-03-2700:00"
+        },
+        {
+          "id": "act_99cd8892",
+          "source": "deadline",
+          "title": "蔵サウナ シェアハウス退去通知書 内容証明発送（あと7日）",
+          "detail": "蔵サウナ — 期限 2026-03-31",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-31",
+          "sortKey": "2026-03-3100:00"
+        },
+        {
+          "id": "act_c2712b9c",
+          "source": "deadline",
+          "title": "蔵サウナ 業務委託契約書 署名（あと7日）",
+          "detail": "蔵サウナ — 期限 2026-03-31",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-31",
+          "sortKey": "2026-03-3100:00"
+        },
+        {
+          "id": "act_fbcd4372",
+          "source": "deadline",
+          "title": "三十日珈琲 Webサイトローンチ（あと7日）",
+          "detail": "三十日珈琲 — 期限 2026-03-31",
+          "action": null,
+          "actionLabel": null,
+          "urgency": "upcoming",
+          "date": "2026-03-31",
+          "sortKey": "2026-03-3100:00"
         }
       ]
     }
   ],
   "stats": {
     "urgent": 0,
-    "today": 2,
-    "upcoming": 0,
-    "total": 6,
-    "badgeCount": 2
+    "today": 17,
+    "upcoming": 33,
+    "total": 57,
+    "badgeCount": 17
   }
 }

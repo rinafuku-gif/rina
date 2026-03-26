@@ -21,6 +21,19 @@ if [ $TASK_ENGINE_EXIT -ne 0 ]; then
   echo "daily-scan: task-engine.js failed (exit=$TASK_ENGINE_EXIT)" >&2
 fi
 
+# --- 月曜のみ: SNS週間下書きを生成 ---
+SNS_WEEKLY_SECTION=""
+DOW=$(date +%u)  # 1=月曜, 7=日曜
+if [ "$DOW" = "1" ]; then
+  echo "daily-scan: Monday detected, generating SNS weekly drafts..." >&2
+  SNS_WEEKLY_SECTION=$(node "$SCRIPT_DIR/sns-weekly-draft.js") || true
+  if [ -n "$SNS_WEEKLY_SECTION" ]; then
+    echo "daily-scan: SNS drafts generated ($(echo "$SNS_WEEKLY_SECTION" | wc -l | tr -d ' ') lines)" >&2
+  else
+    echo "daily-scan: SNS draft generation returned empty (non-blocking)" >&2
+  fi
+fi
+
 # today.json からアクション情報を読み込み
 TODAY_ACTIONS_CONTEXT=""
 if [ -f "$DATA_DIR/today.json" ]; then
@@ -327,6 +340,15 @@ cat >> "$PROMPT_FILE" << PROMPT_PROJECTS
 ## プロジェクト進捗情報（Claude Code会話ログより自動収集）
 ${PROJECT_CONTEXT}
 PROMPT_PROJECTS
+
+# 月曜のみ: SNS下書きセクションを追加
+if [ -n "$SNS_WEEKLY_SECTION" ]; then
+  cat >> "$PROMPT_FILE" << SNS_SECTION
+
+${SNS_WEEKLY_SECTION}
+SNS_SECTION
+  echo "daily-scan: Added SNS section to prompt" >&2
+fi
 
 # Claude実行
 RESULT_FILE=$(mktemp)

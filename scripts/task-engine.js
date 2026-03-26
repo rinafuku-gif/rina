@@ -18,6 +18,11 @@ const REPO_DIR = path.join(__dirname, "..");
 const TODAY_FILE = path.join(REPO_DIR, "data", "today.json");
 const BOOKINGS_FILE = path.join(REPO_DIR, "logs", ".airbnb-bookings.json");
 const DEADLINES_FILE = path.join(REPO_DIR, "data", "deadlines.json");
+const OBSIDIAN_TASKS_FILE = path.join(
+  require("os").homedir(),
+  "Library", "Mobile Documents", "iCloud~md~obsidian",
+  "Documents", "obsidian-vault", "02_プロジェクト", "タスク一覧.md"
+);
 
 // .env
 const envContent = fs.readFileSync(path.join(REPO_DIR, ".env"), "utf-8");
@@ -538,6 +543,81 @@ async function extractGmailActions(gToken) {
   return items;
 }
 
+// --- Source: Obsidian タスク一覧 ---
+function loadObsidianTasks() {
+  const items = [];
+
+  if (!fs.existsSync(OBSIDIAN_TASKS_FILE)) {
+    console.log("[task-engine] Obsidian tasks file not found, skipping");
+    return items;
+  }
+
+  let content;
+  try {
+    content = fs.readFileSync(OBSIDIAN_TASKS_FILE, "utf-8");
+  } catch (e) {
+    console.error("[task-engine] Obsidian tasks read error:", e.message);
+    return items;
+  }
+
+  try {
+    const lines = content.split("\n");
+    let currentSection = null; // "thisweek" | "thismonth" | null
+
+    for (const line of lines) {
+      // セクション判定（## 見出し）
+      if (line.startsWith("## 今週やること")) {
+        currentSection = "thisweek";
+        continue;
+      }
+      if (line.startsWith("## 今月やること")) {
+        currentSection = "thismonth";
+        continue;
+      }
+      if (line.startsWith("## それ以降") || line.startsWith("## 三十日珈琲")) {
+        currentSection = null;
+        continue;
+      }
+      // ### サブ見出し（Ryoがやること / AIチームがやること）はスキップ
+      if (line.startsWith("###") || line.startsWith("---")) continue;
+
+      if (!currentSection) continue;
+
+      // 未完了タスクのみ抽出（- [ ] 形式）
+      const taskMatch = line.match(/^- \[ \] (.+)/);
+      if (!taskMatch) continue;
+
+      // 完了済みはスキップ
+      if (line.match(/^- \[x\]/i)) continue;
+
+      const rawTitle = taskMatch[1]
+        .replace(/\[\[.*?\]\]/g, "") // Obsidianリンクを除去
+        .replace(/\*\*([^*]+)\*\*/g, "$1") // 太字を除去
+        .trim();
+
+      if (!rawTitle) continue;
+
+      const urgency = currentSection === "thisweek" ? "today" : "upcoming";
+
+      items.push({
+        id: genId("obsidian", rawTitle),
+        source: "obsidian",
+        title: rawTitle,
+        detail: currentSection === "thisweek" ? "今週のタスク" : "今月のタスク",
+        action: null,
+        actionLabel: null,
+        urgency,
+        date: todayStr(),
+        sortKey: `${todayStr()}${currentSection === "thisweek" ? "12:00" : "20:00"}`,
+      });
+    }
+  } catch (e) {
+    console.error("[task-engine] Obsidian tasks parse error:", e.message);
+  }
+
+  return items;
+}
+
 // --- Main Engine ---
 async function generateToday() {
   console.log("[task-engine] Generating today.json...");
@@ -591,6 +671,19 @@ async function generateToday() {
       console.error("[task-engine] Gmail failed:", e.message);
     }
   }
+
+  // Obsidian タスク一覧
+  const obsidianItems = loadObsidianTasks();
+  // 重複排除: 既存アイテムのタイトルと部分一致するものはスキップ
+  const existingTitles = allItems.map(i => i.title.toLowerCase());
+  const dedupedObsidian = obsidianItems.filter(oi => {
+    const oiLower = oi.title.toLowerCase();
+    return !existingTitles.some(et =>
+      et.includes(oiLower.slice(0, 15)) || oiLower.includes(et.slice(0, 15))
+    );
+  });
+  allItems.push(...dedupedObsidian);
+  console.log(`[task-engine] Obsidian: ${obsidianItems.length} items (${dedupedObsidian.length} after dedup)`);
 
   // セクションに分類
   const sections = [

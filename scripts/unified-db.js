@@ -27,6 +27,10 @@ function getClient() {
 async function initSchema() {
   const db = getClient();
 
+  // WALモードで同時アクセスの安全性を確保
+  await db.execute("PRAGMA journal_mode=WAL");
+  await db.execute("PRAGMA busy_timeout=5000");
+
   await db.batch([
     // お金（売上・経費・口座残高）
     `CREATE TABLE IF NOT EXISTS money_transactions (

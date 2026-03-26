@@ -1,0 +1,163 @@
+{
+  "deadlines": [
+    {
+      "id": "subsidy-jizokuka-yoshiki4",
+      "title": "持続化補助金 様式4発行期限",
+      "date": "2026-04-16",
+      "category": "補助金",
+      "business": "三十日珈琲",
+      "status": "未着手",
+      "checklist": [
+        "売上高の実数を記入",
+        "SNSフォロワー数を確認",
+        "商工会に様式4発行を依頼"
+      ],
+      "notes": "商工会の大濱さんに連絡"
+    },
+    {
+      "id": "subsidy-jizokuka-application",
+      "title": "持続化補助金 申請期限",
+      "date": "2026-04-30",
+      "category": "補助金",
+      "business": "三十日珈琲",
+      "status": "ドラフト済み",
+      "checklist": [
+        "経営計画書の売上高記入",
+        "確定申告書の写し準備",
+        "開業届の写し準備",
+        "商工会に方向性確認"
+      ],
+      "notes": "経営計画書ドラフトはGoogle Driveにあり"
+    },
+    {
+      "id": "kura-taiko-notice",
+      "title": "蔵サウナ シェアハウス退去通知書 内容証明発送",
+      "date": "2026-03-31",
+      "category": "契約",
+      "business": "蔵サウナ",
+      "status": "準備済み",
+      "checklist": [
+        "内容証明を郵便局で発送（101号室 望月さん）",
+        "内容証明を郵便局で発送（103号室 アーロンさん）"
+      ],
+      "notes": "大神田名義で発送。書類はDriveの05_契約関連に格納済み"
+    },
+    {
+      "id": "kura-contract-sign",
+      "title": "蔵サウナ 業務委託契約書 署名",
+      "date": "2026-03-31",
+      "category": "契約",
+      "business": "蔵サウナ",
+      "status": "書類作成済み",
+      "checklist": [
+        "Ryo分の契約書に署名",
+        "後藤さん分の契約書に署名",
+        "大神田さんに渡す"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "cooperator-end",
+      "title": "地域おこし協力隊 任期終了",
+      "date": "2026-09-30",
+      "category": "行政",
+      "business": "個人",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "起業支援金は使用済み。任期終了後の活動計画を整理"
+    },
+    {
+      "id": "tax-return-2026",
+      "title": "確定申告（2025年分）",
+      "date": "2026-03-17",
+      "category": "税務",
+      "business": "個人",
+      "status": "完了",
+      "checklist": [
+        "確定申告書の提出",
+        "納税"
+      ],
+      "notes": "2026-03-15 完了"
+    },
+    {
+      "id": "line-ai-uranai-end",
+      "title": "LINE AI占いくん終了 → 星の図書館PR",
+      "date": "2026-03-27",
+      "category": "マーケティング",
+      "business": "星の図書館",
+      "status": "未着手",
+      "checklist": [
+        "PR投稿素材作成",
+        "SNS告知文作成"
+      ],
+      "notes": "終了に合わせて星の図書館を告知"
+    },
+    {
+      "id": "misoca-web-launch",
+      "title": "三十日珈琲 Webサイトローンチ",
+      "date": "2026-03-31",
+      "category": "ローンチ",
+      "business": "三十日珈琲",
+      "status": "進行中",
+      "checklist": [
+        "EC本番テスト",
+        "モバイル全ページチェック",
+        "公開告知準備"
+      ],
+      "notes": "Phase 1完了済み。予約はGoogle Forms継続でローンチ"
+    },
+    {
+      "id": "contents-ka-sokushin",
+      "title": "コンテンツ化促進事業 申請",
+      "date": "2026-04-02",
+      "category": "補助金",
+      "business": "蔵サウナ＆ステイ",
+      "status": "未着手",
+      "checklist": [
+        "事務局に電話確認 03-6630-7372",
+        "申請書類準備"
+      ],
+      "notes": "事務局に電話確認が先"
+    },
+    {
+      "id": "basecamp-soft-open",
+      "title": "鳥沢物件 ソフトオープン",
+      "date": "2026-04-25",
+      "category": "ローンチ",
+      "business": "Basecamp Torisawa",
+      "status": "準備中",
+      "checklist": ["保健所申請", "DIY・セットアップ", "Airbnbリスティング作成", "写真撮影"],
+      "notes": "GW前目標。保健所立会検査の日程次第"
+    },
+    {
+      "id": "basecamp-open",
+      "title": "Basecamp Torisawa 正式オープン",
+      "date": "2026-04-28",
+      "category": "ローンチ",
+      "business": "Basecamp Torisawa",
+      "status": "準備中",
+      "checklist": [],
+      "notes": "4/25ソフトオープン後、GW本番"
+    },
+    {
+      "id": "sunday-picnic",
+      "title": "SUNDAY PICNIC 出店",
+      "date": "2026-05-24",
+      "category": "イベント",
+      "business": "三十日珈琲",
+      "status": "提出物完了",
+      "checklist": ["出店準備", "メニュー決定", "機材搬入"],
+      "notes": "出店用提出物は3/8完了済み"
+    },
+    {
+      "id": "sustainability-subsidy",
+      "title": "宿泊施設サステナビリティ補助金 締切",
+      "date": "2026-05-30",
+      "category": "補助金",
+      "business": "蔵サウナ＆ステイ",
+      "status": "未着手",
+      "checklist": [],
+      "notes": "3/24公募開始予定"
+    }
+  ]
+}

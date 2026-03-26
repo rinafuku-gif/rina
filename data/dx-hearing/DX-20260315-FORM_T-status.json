@@ -1,8 +1,8 @@
 {
-  "status": "デプロイ済み",
+  "status": "納品",
   "revisionHistory": [],
   "implError": "Claude CLI exited with code null: ",
-  "updatedAt": "2026-03-15T15:09:09.643Z",
+  "updatedAt": "2026-03-20T07:18:08.208Z",
   "caseType": "automation",
   "projectDir": "/Users/Inaryo/dx-projects/DX-20260315-FORM_T",
   "sharePassword": "test1234"
