@@ -244,7 +244,8 @@ const DISCORD_BOT_TOKEN = (() => {
     return m ? m[1].trim() : "";
   } catch { return ""; }
 })();
-const DISCORD_CHANNEL_ID = "1485836971191566488";
+// const DISCORD_CHANNEL_ID = "1485836971191566488"; // 旧チャンネル（ロールバック用）
+const DISCORD_CHANNEL_ID = "1486651097157472307"; // #notifications チャンネル
 
 function sendDiscordMessage(text) {
   if (!DISCORD_BOT_TOKEN) { log("Discord token not found, skipping notification"); return; }

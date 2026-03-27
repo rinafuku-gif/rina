@@ -186,8 +186,10 @@ function scanAllRepos() {
   state.lastScan = new Date().toISOString();
   saveState(state);
 
-  // 古い完了タスクのアーカイブ
-  taskStore.archiveOldCompleted(30);
+  // 古い完了タスクのアーカイブ（未実装の場合はスキップ）
+  if (typeof taskStore.archiveOldCompleted === "function") {
+    taskStore.archiveOldCompleted(30);
+  }
 
   if (totalCommits > 0) {
     console.log(`[git-scanner] Scanned ${totalCommits} new commits across ${REPOS.length} repos, updated ${updatedTasks} tasks`);

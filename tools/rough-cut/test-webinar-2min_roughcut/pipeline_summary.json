@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "source": "/Users/ocmm/rina/tools/rough-cut/test-webinar-2min.mp4",
+    "width": 1920,
+    "height": 1200,
+    "fps": 25.0,
+    "duration": 120.0,
+    "orientation": "horizontal",
+    "audio_path": "/Users/ocmm/rina/tools/rough-cut/test-webinar-2min_roughcut/audio.wav"
+  },
+  "stt": {
+    "segments": 19,
+    "words": 353
+  },
+  "vad": {
+    "silences": 56,
+    "speech_segments": 55,
+    "silence_total": 45.527
+  },
+  "fillers": {
+    "count": 14,
+    "total_duration": 3.7,
+    "top": [
+      [
+        "で",
+        6
+      ],
+      [
+        "ま",
+        4
+      ],
+      [
+        "さ",
+        3
+      ],
+      [
+        "ね",
+        1
+      ]
+    ]
+  },
+  "filler_review": {
+    "cut": 11,
+    "keep": 2
+  },
+  "retakes": {
+    "count": 2,
+    "cut_duration": 6.7
+  },
+  "cut_proposal": {
+    "cuts": 19,
+    "keeps": 20,
+    "compression": 76.1
+  },
+  "telops": {
+    "count": 18
+  },
+  "review": {
+    "corrections": 7
+  },
+  "render": {
+    "output": "/Users/ocmm/rina/tools/rough-cut/test-webinar-2min_roughcut/output.mp4"
+  },
+  "pipeline_duration": 163.8
+}

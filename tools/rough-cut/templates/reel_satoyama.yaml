@@ -1,0 +1,182 @@
+# SATOYAMA AI BASE「AI活用Tips型」リールテンプレート
+# Based on Creative設計書 v1 テンプレート3
+
+metadata:
+  name: "AI活用Tips型"
+  brand: "SATOYAMA AI BASE"
+  account: "@satoyama_ai_base"
+  duration: 30
+  resolution: [1080, 1920]
+  fps: 30
+  bitrate: "10M"
+
+color_grading:
+  brightness: 15    # 明るさ+15%
+  saturation: -5    # 彩度-5%
+  contrast: 10      # コントラスト+10%
+  ffmpeg_filter: "eq=brightness=0.05:saturation=0.95:contrast=1.1"
+
+accent_color: "#E8734A"  # 里山オレンジ
+cta_color: "rgba(232,115,74,0.85)"
+text_shadow: "rgba(50,30,15,0.5)"
+
+font:
+  family: "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
+  hook_size: 72
+  step_number_size: 96
+  step_title_size: 54
+  description_size: 42
+  comparison_size: 84
+  cta_size: 54
+  brand_size: 32
+
+# ナレーション設定
+narration:
+  voicevox_speaker: 3  # ずんだもん（ノーマル）
+  speed_scale: 1.2
+
+safe_zone:
+  top: 250
+  bottom: 400
+  left: 60
+  right: 120
+
+# テンプレート内のカット定義（写真なしでも動作する）
+# 実際のコンテンツはnotion_to_reel.pyで流し込む
+cuts:
+  - id: 1
+    name: "フック"
+    time: [0.0, 3.0]
+    ken_burns:
+      type: "zoom_in"
+      scale: [100, 106]
+    narration_slot: "hook"
+    text:
+      - content: "{hook_text}"
+        position: [540, 400]
+        size: 72
+        weight: "black"
+
+  - id: 2
+    name: "問題提起"
+    time: [3.0, 6.0]
+    ken_burns:
+      type: "zoom_in"
+      scale: [100, 104]
+    narration_slot: "problem"
+    text:
+      - content: "{problem_text}"
+        position: [540, 400]
+        size: 48
+        weight: "bold"
+      - content: "{problem_number}"
+        position: [540, 750]
+        size: 84
+        weight: "black"
+        color: "#E8734A"
+
+  - id: 3
+    name: "解決策"
+    time: [6.0, 10.0]
+    ken_burns:
+      type: "zoom_out"
+      scale: [106, 100]
+    narration_slot: "solution"
+    text:
+      - content: "{solution_text}"
+        position: [540, 350]
+        size: 54
+        weight: "bold"
+        style: "bg_shape"
+
+  - id: 4
+    name: "ステップ1"
+    time: [10.0, 15.0]
+    ken_burns:
+      type: "zoom_in"
+      scale: [100, 103]
+    narration_slot: "step1"
+    text:
+      - content: "1"
+        position: [120, 350]
+        size: 96
+        weight: "black"
+        color: "#E8734A"
+      - content: "{step1_text}"
+        position: [540, 350]
+        size: 54
+        weight: "bold"
+        style: "bg_shape"
+
+  - id: 5
+    name: "ステップ2"
+    time: [15.0, 19.0]
+    ken_burns:
+      type: "pan_lr"
+      position_x: [-3, 3]
+    narration_slot: "step2"
+    text:
+      - content: "2"
+        position: [120, 350]
+        size: 96
+        weight: "black"
+        color: "#E8734A"
+      - content: "{step2_text}"
+        position: [540, 350]
+        size: 54
+        weight: "bold"
+        style: "bg_shape"
+
+  - id: 6
+    name: "結果"
+    time: [19.0, 23.0]
+    ken_burns:
+      type: "zoom_in"
+      scale: [100, 106]
+    narration_slot: "result"
+    text:
+      - content: "{result_text}"
+        position: [540, 350]
+        size: 54
+        weight: "bold"
+      - content: "{comparison}"
+        position: [540, 800]
+        size: 84
+        weight: "black"
+        color: "#E8734A"
+
+  - id: 7
+    name: "まとめ"
+    time: [23.0, 26.0]
+    ken_burns:
+      type: "zoom_out"
+      scale: [108, 100]
+    narration_slot: "summary"
+    text:
+      - content: "{summary_text}"
+        position: [540, 750]
+        size: 54
+        weight: "bold"
+
+  - id: 8
+    name: "CTA"
+    time: [26.0, 30.0]
+    ken_burns:
+      type: "zoom_in"
+      scale: [100, 103]
+    narration_slot: "cta"
+    text:
+      - content: "保存して明日やってみて"
+        position: [540, 650]
+        size: 54
+        weight: "bold"
+        style: "cta_shape"
+      - content: "他のAI活用術 → フォロー"
+        position: [540, 770]
+        size: 42
+        weight: "bold"
+      - content: "@satoyama_ai_base"
+        position: [540, 870]
+        size: 32
+        weight: "medium"
+        opacity: 0.7

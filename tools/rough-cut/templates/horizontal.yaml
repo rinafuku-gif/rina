@@ -1,0 +1,18 @@
+# 横型動画設定（YouTube, Vimeo）
+resolution:
+  width: 1920
+  height: 1080
+
+telop:
+  max_chars_per_line: 16
+  max_lines: 2
+  font_size: 48
+  font_family: "Noto Sans JP"
+  font_weight: bold
+  color: "#FFFFFF"
+  stroke_color: "#000000"
+  stroke_width: 3
+  position: bottom
+  margin_bottom: 80
+  bg_color: "rgba(0,0,0,0.5)"
+  bg_padding: 10

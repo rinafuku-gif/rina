@@ -1,0 +1,9 @@
+{
+  "source": "/Users/ocmm/rina/tools/rough-cut/test-video.mov",
+  "width": 480,
+  "height": 854,
+  "fps": 29.0,
+  "duration": 8.04,
+  "orientation": "vertical",
+  "audio_path": "/Users/ocmm/rina/tools/rough-cut/test-output/audio.wav"
+}

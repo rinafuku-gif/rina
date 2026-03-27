@@ -23,6 +23,20 @@ const CHANNEL_SECRET = env.LINE_CHANNEL_SECRET;
 const USER_ID = env.LINE_USER_ID;
 const PORT = 3100;
 
+// Discord通知設定（DXワークフロー用）
+const DISCORD_NOTIFICATIONS_CHANNEL_ID = "1486651097157472307";
+const DISCORD_BOT_TOKEN = (() => {
+  try {
+    const discordEnvPath = "/Users/ocmm/.claude/channels/discord/.env";
+    const discordEnv = fs.readFileSync(discordEnvPath, "utf-8");
+    const match = discordEnv.match(/^DISCORD_BOT_TOKEN=(.*)$/m);
+    return match ? match[1].trim() : "";
+  } catch {
+    console.error("[Discord] Bot token not found at /Users/ocmm/.claude/channels/discord/.env");
+    return "";
+  }
+})();
+
 const REPO_DIR = path.join(__dirname, "..");
 const PROMPT_FILE = path.join(REPO_DIR, "logs", ".current-prompt.txt");
 const CLAUDE_PATH = "/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin/claude";
@@ -797,6 +811,43 @@ function pushLineMessage(text) {
   req.end();
 }
 
+// Discord #notifications チャンネルへメッセージ送信（DXワークフロー通知用）
+function pushDiscordMessage(text) {
+  if (!DISCORD_BOT_TOKEN) {
+    console.error("[Discord] Bot token not configured, falling back to LINE");
+    pushLineMessage(text);
+    return;
+  }
+  const maxLen = 2000; // Discord message limit
+  const chunks = [];
+  for (let i = 0; i < text.length; i += maxLen) {
+    chunks.push(text.slice(i, i + maxLen));
+  }
+  for (const chunk of chunks) {
+    const data = JSON.stringify({ content: chunk });
+    const options = {
+      hostname: "discord.com",
+      path: `/api/v10/channels/${DISCORD_NOTIFICATIONS_CHANNEL_ID}/messages`,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+        "Content-Length": Buffer.byteLength(data),
+      },
+    };
+    const req = https.request(options, (res) => {
+      if (res.statusCode >= 400) {
+        let body = "";
+        res.on("data", (d) => (body += d));
+        res.on("end", () => console.error(`[Discord] Send failed (${res.statusCode}): ${body}`));
+      }
+    });
+    req.on("error", (e) => console.error("[Discord] Request error:", e.message));
+    req.write(data);
+    req.end();
+  }
+}
+
 function buildPrompt(userMessage) {
   const now = Date.now();
 
@@ -1445,6 +1496,84 @@ const server = http.createServer((req, res) => {
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ error: "Transcription failed" }));
         try { fs.unlinkSync(audioPath); } catch {}
+      }
+    });
+
+  } else if (req.method === "POST" && pathname === "/api/siri-input") {
+    // Siri/iOSショートカットからのテキスト入力 → Discord #general に投稿
+    // voice-chat-bot が拾ってClaude応答 + TTS再生する
+    const corsH = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
+    let bodyChunks = [];
+    req.on("data", (chunk) => bodyChunks.push(chunk));
+    req.on("end", () => {
+      try {
+        const rawBody = Buffer.concat(bodyChunks).toString();
+        console.log(`[Siri] Raw body (${req.headers["content-type"]}): ${rawBody.slice(0, 200)}`);
+        let body;
+        try {
+          body = JSON.parse(rawBody);
+        } catch (jsonErr) {
+          // iOSショートカットがform-urlencoded等で送る場合のフォールバック
+          const params = new URLSearchParams(rawBody);
+          body = Object.fromEntries(params.entries());
+          console.log(`[Siri] Parsed as form-urlencoded:`, body);
+        }
+        const token = body.token || qToken;
+        if (token !== env.SHIRATAMA_API_TOKEN) {
+          console.log(`[Siri] Auth failed. Got: "${token}", Expected: "${env.SHIRATAMA_API_TOKEN}"`);
+          res.writeHead(401, corsH);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+        const text = (body.text || "").trim();
+        if (!text) {
+          res.writeHead(400, corsH);
+          res.end(JSON.stringify({ error: "No text provided" }));
+          return;
+        }
+        console.log(`[${new Date().toISOString()}] Siri input: ${text.slice(0, 100)}`);
+
+        // Discord #general にWebhookで投稿（Bot以外の名前で投稿し、voice-chat-botが拾えるようにする）
+        // Webhookが未設定の場合はBot APIで投稿（特別フォーマット）
+        const GENERAL_CHANNEL_ID = "1486651095580282942";
+        const discordMsg = `🎙️ **Ryo (Siri)**: ${text}\n\nしらたま、これに答えて。`;
+        const msgData = JSON.stringify({ content: discordMsg });
+        const discordReq = https.request({
+          hostname: "discord.com",
+          path: `/api/v10/channels/${GENERAL_CHANNEL_ID}/messages`,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+            "Content-Length": Buffer.byteLength(msgData),
+          },
+        }, (discordRes) => {
+          let dBody = "";
+          discordRes.on("data", (d) => (dBody += d));
+          discordRes.on("end", () => {
+            if (discordRes.statusCode >= 200 && discordRes.statusCode < 300) {
+              console.log(`[Siri] Discord message sent to #general`);
+              res.writeHead(200, corsH);
+              res.end(JSON.stringify({ success: true, text }));
+            } else {
+              console.error(`[Siri] Discord API error: ${discordRes.statusCode} ${dBody.slice(0, 200)}`);
+              res.writeHead(502, corsH);
+              res.end(JSON.stringify({ error: "Discord send failed" }));
+            }
+          });
+        });
+        discordReq.on("error", (e) => {
+          console.error(`[Siri] Discord request error: ${e.message}`);
+          res.writeHead(502, corsH);
+          res.end(JSON.stringify({ error: e.message }));
+        });
+        discordReq.write(msgData);
+        discordReq.end();
+
+      } catch (e) {
+        console.error("Siri input error:", e.message);
+        res.writeHead(500, corsH);
+        res.end(JSON.stringify({ error: e.message }));
       }
     });
 
@@ -3684,7 +3813,8 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 
         // GOサインの場合 → 自動実装パイプライン起動
         if (body.status === "GO済み") {
-          pushLineMessage(`🚀 DX案件GOサイン\n\n案件ID: ${caseId}\n→ 自動実装を開始します`);
+          // pushLineMessage(`🚀 DX案件GOサイン\n\n案件ID: ${caseId}\n→ 自動実装を開始します`); // LINE通知（ロールバック用）
+          pushDiscordMessage(`🚀 DX案件GOサイン\n\n案件ID: ${caseId}\n→ 自動実装を開始します`);
           // 非同期で実装パイプラインを起動（レスポンスはすぐ返す）
           runDxImplementation(caseId).catch(err => {
             console.error(`[DX Impl] Pipeline error: ${err.message}`);
@@ -3693,7 +3823,8 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 
         // 修正依頼の場合 → 修正パイプライン起動
         if (body.status === "修正中" && body.revisionNote) {
-          pushLineMessage(`🔧 DX案件修正依頼\n\n案件ID: ${caseId}\n修正内容: ${body.revisionNote.substring(0, 100)}`);
+          // pushLineMessage(`🔧 DX案件修正依頼\n\n案件ID: ${caseId}\n修正内容: ${body.revisionNote.substring(0, 100)}`); // LINE通知（ロールバック用）
+          pushDiscordMessage(`🔧 DX案件修正依頼\n\n案件ID: ${caseId}\n修正内容: ${body.revisionNote.substring(0, 100)}`);
           runDxRevision(caseId, body.revisionNote).catch(err => {
             console.error(`[DX Revision] Pipeline error: ${err.message}`);
           });
@@ -3844,7 +3975,8 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
           proposalShareUrl,
         ].filter(Boolean).join("\n");
 
-        pushLineMessage(lineMsg);
+        // pushLineMessage(lineMsg); // LINE通知（Discord移行前・ロールバック用）
+        pushDiscordMessage(lineMsg);
 
         // 8. Notion同期は無効化（GAS側でも同期していたため二重登録になる。しらたまのDXパネルで管理する）
         // createNotionDXHearing(body, caseId, estimatedAmount, proposalFile).catch(err => {
@@ -3856,9 +3988,10 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 
       } catch (e) {
         console.error("DX Hearing v2 error:", e.message);
-        // エラー時もLINE通知
+        // エラー時もDiscord通知
         try {
-          pushLineMessage(`⚠️ DXヒアリング処理エラー\n${e.message}\n\nデータは保存済みの可能性あり。ターミナルで確認してください。`);
+          // pushLineMessage(`⚠️ DXヒアリング処理エラー\n${e.message}\n\nデータは保存済みの可能性あり。ターミナルで確認してください。`); // LINE通知（ロールバック用）
+          pushDiscordMessage(`⚠️ DXヒアリング処理エラー\n${e.message}\n\nデータは保存済みの可能性あり。ターミナルで確認してください。`);
         } catch {}
         res.writeHead(500, dxCorsHeaders);
         res.end(JSON.stringify({ error: e.message }));
@@ -3981,8 +4114,8 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
         comments.push(newComment);
         fs.writeFileSync(commentsFile, JSON.stringify(comments, null, 2), "utf-8");
 
-        // LINE通知
-        pushLineMessage(`💬 DX案件コメント\n\n案件: ${caseId}\n送信者: ${newComment.name}\n\n${newComment.message.substring(0, 200)}`);
+        // pushLineMessage(`💬 DX案件コメント\n\n案件: ${caseId}\n送信者: ${newComment.name}\n\n${newComment.message.substring(0, 200)}`); // LINE通知（ロールバック用）
+        pushDiscordMessage(`💬 DX案件コメント\n\n案件: ${caseId}\n送信者: ${newComment.name}\n\n${newComment.message.substring(0, 200)}`);
 
         res.writeHead(200, corsH);
         res.end(JSON.stringify({ success: true, comment: newComment }));
@@ -5115,17 +5248,20 @@ async function runDxImplementation(caseId) {
       deployUrl = await deployToVercel(projectDir, caseId);
       updateDxStatus(caseId, { status: "デプロイ済み", deployUrl, caseType, sharePassword });
       const previewShareUrl = `${SHARE_BASE}/preview/${encodeURIComponent(caseId)}?pass=${sharePassword}`;
-      pushLineMessage(`🎉 ${caseId}: デプロイ完了！\n\nプレビュー: ${deployUrl}\n\n🔗 お客様共有用:\n${previewShareUrl}\n\nしらたまのDXタブで確認・修正指示ができます`);
+      // pushLineMessage(`🎉 ${caseId}: デプロイ完了！\n\nプレビュー: ${deployUrl}\n\n🔗 お客様共有用:\n${previewShareUrl}\n\nしらたまのDXタブで確認・修正指示ができます`); // LINE通知（ロールバック用）
+      pushDiscordMessage(`🎉 ${caseId}: デプロイ完了！\n\nプレビュー: ${deployUrl}\n\n🔗 お客様共有用:\n${previewShareUrl}\n\nしらたまのDXタブで確認・修正指示ができます`);
     } else {
       // 業務改善/SNS → デプロイなし、納品物一式で完了
       updateDxStatus(caseId, { status: "デプロイ済み", caseType, projectDir, sharePassword });
-      pushLineMessage(`✅ ${caseId}: ${caseTypeLabel}の成果物が完成しました\n\n📁 ${projectDir}\n\nしらたまのDXタブで確認・修正指示ができます`);
+      // pushLineMessage(`✅ ${caseId}: ${caseTypeLabel}の成果物が完成しました\n\n📁 ${projectDir}\n\nしらたまのDXタブで確認・修正指示ができます`); // LINE通知（ロールバック用）
+      pushDiscordMessage(`✅ ${caseId}: ${caseTypeLabel}の成果物が完成しました\n\n📁 ${projectDir}\n\nしらたまのDXタブで確認・修正指示ができます`);
     }
 
   } catch (error) {
     console.error(`[DX Impl] ${caseId}: エラー:`, error.message);
     updateDxStatus(caseId, { status: "GO済み", implError: error.message });
-    pushLineMessage(`❌ ${caseId}: 自動実装でエラーが発生しました\n\n${error.message.substring(0, 200)}\n\nターミナルで確認してください`);
+    // pushLineMessage(`❌ ${caseId}: 自動実装でエラーが発生しました\n\n${error.message.substring(0, 200)}\n\nターミナルで確認してください`); // LINE通知（ロールバック用）
+    pushDiscordMessage(`❌ ${caseId}: 自動実装でエラーが発生しました\n\n${error.message.substring(0, 200)}\n\nターミナルで確認してください`);
   }
 }
 
@@ -5239,7 +5375,8 @@ async function runDxRevision(caseId, revisionNote) {
     }
 
     updateDxStatus(caseId, { status: "実装中" });
-    pushLineMessage(`🔧 ${caseId}: 修正を開始しました\n\n${revisionNote.substring(0, 100)}`);
+    // pushLineMessage(`🔧 ${caseId}: 修正を開始しました\n\n${revisionNote.substring(0, 100)}`); // LINE通知（ロールバック用）
+    pushDiscordMessage(`🔧 ${caseId}: 修正を開始しました\n\n${revisionNote.substring(0, 100)}`);
 
     // Claude Code CLIで修正
     const revisionPrompt = `以下の修正を行ってください。修正後にnpm run buildでビルドが通ることを確認してください。
@@ -5267,12 +5404,14 @@ ${revisionNote}
     const deployUrl = await deployToVercel(projectDir, caseId);
 
     updateDxStatus(caseId, { status: "デプロイ済み", deployUrl });
-    pushLineMessage(`✅ ${caseId}: 修正＆再デプロイ完了！\n\nプレビュー: ${deployUrl}`);
+    // pushLineMessage(`✅ ${caseId}: 修正＆再デプロイ完了！\n\nプレビュー: ${deployUrl}`); // LINE通知（ロールバック用）
+    pushDiscordMessage(`✅ ${caseId}: 修正＆再デプロイ完了！\n\nプレビュー: ${deployUrl}`);
 
   } catch (error) {
     console.error(`[DX Revision] ${caseId}: エラー:`, error.message);
     updateDxStatus(caseId, { status: "デプロイ済み", implError: error.message });
-    pushLineMessage(`❌ ${caseId}: 修正でエラーが発生しました\n\n${error.message.substring(0, 200)}`);
+    // pushLineMessage(`❌ ${caseId}: 修正でエラーが発生しました\n\n${error.message.substring(0, 200)}`); // LINE通知（ロールバック用）
+    pushDiscordMessage(`❌ ${caseId}: 修正でエラーが発生しました\n\n${error.message.substring(0, 200)}`);
   }
 }
 

@@ -54,3 +54,5 @@ data/tasks.json
 data/today.json
 data/.task-list-snapshot.json
 data/.git-scanner-state.json
+vendor/voicevox/
+tools/rough-cut/python/__pycache__/

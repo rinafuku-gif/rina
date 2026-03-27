@@ -1,0 +1,372 @@
+{
+  "telops": [
+    {
+      "id": 0,
+      "start": 9.06,
+      "end": 13.56,
+      "duration": 4.5,
+      "original_text": "これは出席者ゼロのなんて 大丈夫かな 大丈夫そうですね",
+      "display_text": "これは出席者ゼロのなんて\n 大丈夫かな 大丈夫そうですね",
+      "lines": [
+        "これは出席者ゼロのなんて",
+        " 大丈夫かな 大丈夫そうですね"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 1,
+      "start": 16.220000000000002,
+      "end": 23.54,
+      "duration": 7.32,
+      "original_text": "はじめまして 株式会社&1の 二郎集兵と申します 本日はセミナー",
+      "display_text": "はじめまして 株式会社&1の\n 二郎集兵と申します 本日は\nセミナー",
+      "lines": [
+        "はじめまして 株式会社&1の",
+        " 二郎集兵と申します 本日は",
+        "セミナー"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 2,
+      "start": 23.54,
+      "end": 27.080000000000002,
+      "duration": 3.54,
+      "original_text": "の方にメビラーの方に参加いただき まして ありがとうございます 本",
+      "display_text": "の方にメビラーの方に\n参加いただき まして ありが\nとうございます 本",
+      "lines": [
+        "の方にメビラーの方に",
+        "参加いただき まして ありが",
+        "とうございます 本"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 3,
+      "start": 27.08,
+      "end": 32.2,
+      "duration": 5.12,
+      "original_text": "本日はイナハクさんをお呼びして ベビナーを実施します",
+      "display_text": "本日はイナハクさんをお呼びして\n ベビナーを実施します",
+      "lines": [
+        "本日はイナハクさんをお呼びして",
+        " ベビナーを実施します"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 4,
+      "start": 32.2,
+      "end": 35.08,
+      "duration": 2.88,
+      "original_text": "時間としては約1時間半の時間です",
+      "display_text": "時間としては約1時間半の時間です",
+      "lines": [
+        "時間としては約1時間半の時間です"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 5,
+      "start": 35.08,
+      "end": 36.96,
+      "duration": 1.88,
+      "original_text": "イナハクさん改めてよろしくお願いします",
+      "display_text": "イナハクさん改めて\nよろしくお願いします",
+      "lines": [
+        "イナハクさん改めて",
+        "よろしくお願いします"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 6,
+      "start": 38.12,
+      "end": 38.76,
+      "duration": 0.64,
+      "original_text": "よろしくお願いします",
+      "display_text": "よろしくお願いします",
+      "lines": [
+        "よろしくお願いします"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 7,
+      "start": 39.7,
+      "end": 46.44,
+      "duration": 6.74,
+      "original_text": "この後イナハクさんの自己紹介も含めて 画面共有しながらお話ししていきますので",
+      "display_text": "この後イナハクさんの\n自己紹介も含めて 画面共有しなが\nらお話ししていきますので",
+      "lines": [
+        "この後イナハクさんの",
+        "自己紹介も含めて 画面共有しなが",
+        "らお話ししていきますので"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 8,
+      "start": 46.44,
+      "end": 50.8,
+      "duration": 4.36,
+      "original_text": "さっそくベビナーの方をスタートして いければなと思います",
+      "display_text": "さっそくベビナーの方を\nスタートして いければなと\n思います",
+      "lines": [
+        "さっそくベビナーの方を",
+        "スタートして いければなと",
+        "思います"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 9,
+      "start": 51.28,
+      "end": 56.38,
+      "duration": 5.1,
+      "original_text": "で オンラインでやっているので ところどころ聞きづらかったり",
+      "display_text": "で オンラインでやっているので\n ところどころ聞きづらかったり",
+      "lines": [
+        "で オンラインでやっているので",
+        " ところどころ聞きづらかったり"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 10,
+      "start": 56.38,
+      "end": 61.22,
+      "duration": 4.84,
+      "original_text": "だとか もう少しここ聞きたかった なというのがあれば チャット",
+      "display_text": "だとか もう少しここ聞きたかった\n なというのがあれば チャット",
+      "lines": [
+        "だとか もう少しここ聞きたかった",
+        " なというのがあれば チャット"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 11,
+      "start": 61.22,
+      "end": 69.1,
+      "duration": 7.88,
+      "original_text": "等で随時質問は受けております ので こちらの方にどんどん投げて",
+      "display_text": "等で随時質問は受けております の\nで こちらの方にどんどん投げて",
+      "lines": [
+        "等で随時質問は受けております の",
+        "で こちらの方にどんどん投げて"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 12,
+      "start": 69.1,
+      "end": 75.64,
+      "duration": 6.54,
+      "original_text": "いただければなと思います それでは 早速 画面の共有をしながら",
+      "display_text": "いただければなと思います それで\nは 早速 画面の共有をしながら",
+      "lines": [
+        "いただければなと思います それで",
+        "は 早速 画面の共有をしながら"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 13,
+      "start": 75.64,
+      "end": 78.38,
+      "duration": 2.74,
+      "original_text": "進めていければなぁと思っておりまーす",
+      "display_text": "進めていければなぁと\n思っておりまーす",
+      "lines": [
+        "進めていければなぁと",
+        "思っておりまーす"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 14,
+      "start": 88.53999999999999,
+      "end": 90.3,
+      "duration": 1.76,
+      "original_text": "大丈夫そうですかね",
+      "display_text": "大丈夫そうですかね",
+      "lines": [
+        "大丈夫そうですかね"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 15,
+      "start": 92.96000000000001,
+      "end": 99.8,
+      "duration": 6.84,
+      "original_text": "はいありがとうございます 以上で描くキャリア地域での働き方と働き機会ということで今回は",
+      "display_text": "はいありがとうございます 以上で\n描くキャリア地域での働き方と\n働き機会ということで今回は",
+      "lines": [
+        "はいありがとうございます 以上で",
+        "描くキャリア地域での働き方と",
+        "働き機会ということで今回は"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 16,
+      "start": 100.24,
+      "end": 109.2,
+      "duration": 8.96,
+      "original_text": "イナフクさんをお呼びしてベビナーを始めていきます ベビナー参加者さまへのお願いということで",
+      "display_text": "イナフクさんをお呼びしてベビナー\nを始めていきます ベビナー参加者\nさまへのお願いということで",
+      "lines": [
+        "イナフクさんをお呼びしてベビナー",
+        "を始めていきます ベビナー参加者",
+        "さまへのお願いということで"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    },
+    {
+      "id": 17,
+      "start": 109.6,
+      "end": 118.74,
+      "duration": 9.14,
+      "original_text": "4つ事前にお伝えをしておきます 1つ目 先ほどもお伝えしましたが通信が不安定な場合が",
+      "display_text": "4つ事前にお伝えをしておきます \n1つ目 先ほどもお伝えしましたが\n通信が不安定な場合が",
+      "lines": [
+        "4つ事前にお伝えをしておきます ",
+        "1つ目 先ほどもお伝えしましたが",
+        "通信が不安定な場合が"
+      ],
+      "style": {
+        "font_size": 48,
+        "font_family": "Noto Sans JP",
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "bottom"
+      }
+    }
+  ],
+  "telop_count": 18,
+  "template": "/Users/ocmm/rina/tools/rough-cut/templates/horizontal.yaml",
+  "max_chars_per_line": 16,
+  "max_lines": 2
+}

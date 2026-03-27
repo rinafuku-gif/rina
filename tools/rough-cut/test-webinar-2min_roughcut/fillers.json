@@ -1,0 +1,242 @@
+{
+  "fillers": [
+    {
+      "word": "ま",
+      "start": 17.0,
+      "end": 17.1,
+      "duration": 0.1,
+      "probability": 0.9971899390220642
+    },
+    {
+      "word": "ま",
+      "start": 25.08,
+      "end": 25.18,
+      "duration": 0.1,
+      "probability": 0.04355822503566742
+    },
+    {
+      "word": "さ",
+      "start": 46.44,
+      "end": 46.98,
+      "duration": 0.54,
+      "probability": 0.30061236023902893
+    },
+    {
+      "word": "で",
+      "start": 51.28,
+      "end": 51.64,
+      "duration": 0.36,
+      "probability": 0.5767157077789307
+    },
+    {
+      "word": "で",
+      "start": 52.38,
+      "end": 52.54,
+      "duration": 0.16,
+      "probability": 0.9558174014091492
+    },
+    {
+      "word": "で",
+      "start": 61.74,
+      "end": 61.94,
+      "duration": 0.2,
+      "probability": 0.9857256412506104
+    },
+    {
+      "word": "で",
+      "start": 65.6,
+      "end": 65.96,
+      "duration": 0.36,
+      "probability": 0.9993777275085449
+    },
+    {
+      "word": "ま",
+      "start": 77.82,
+      "end": 78.0,
+      "duration": 0.18,
+      "probability": 0.9093908071517944
+    },
+    {
+      "word": "さ",
+      "start": 85.48,
+      "end": 85.76,
+      "duration": 0.28,
+      "probability": 0.9956133365631104
+    },
+    {
+      "word": "ね",
+      "start": 89.6,
+      "end": 90.3,
+      "duration": 0.7,
+      "probability": 0.9586830735206604
+    },
+    {
+      "word": "で",
+      "start": 95.4,
+      "end": 95.72,
+      "duration": 0.32,
+      "probability": 0.9851077198982239
+    },
+    {
+      "word": "で",
+      "start": 96.84,
+      "end": 96.96,
+      "duration": 0.12,
+      "probability": 0.6917308568954468
+    },
+    {
+      "word": "さ",
+      "start": 107.78,
+      "end": 107.9,
+      "duration": 0.12,
+      "probability": 0.30734649300575256
+    },
+    {
+      "word": "ま",
+      "start": 107.9,
+      "end": 108.06,
+      "duration": 0.16,
+      "probability": 0.9776797890663147
+    }
+  ],
+  "merged_fillers": [
+    {
+      "start": 17.0,
+      "end": 17.1,
+      "duration": 0.1,
+      "words": [
+        "ま"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 25.08,
+      "end": 25.18,
+      "duration": 0.1,
+      "words": [
+        "ま"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 46.44,
+      "end": 46.98,
+      "duration": 0.54,
+      "words": [
+        "さ"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 51.28,
+      "end": 51.64,
+      "duration": 0.36,
+      "words": [
+        "で"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 52.38,
+      "end": 52.54,
+      "duration": 0.16,
+      "words": [
+        "で"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 61.74,
+      "end": 61.94,
+      "duration": 0.2,
+      "words": [
+        "で"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 65.6,
+      "end": 65.96,
+      "duration": 0.36,
+      "words": [
+        "で"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 77.82,
+      "end": 78.0,
+      "duration": 0.18,
+      "words": [
+        "ま"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 85.48,
+      "end": 85.76,
+      "duration": 0.28,
+      "words": [
+        "さ"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 89.6,
+      "end": 90.3,
+      "duration": 0.7,
+      "words": [
+        "ね"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 95.4,
+      "end": 95.72,
+      "duration": 0.32,
+      "words": [
+        "で"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 96.84,
+      "end": 96.96,
+      "duration": 0.12,
+      "words": [
+        "で"
+      ],
+      "action": "cut"
+    },
+    {
+      "start": 107.78,
+      "end": 108.06,
+      "duration": 0.28,
+      "words": [
+        "さ",
+        "ま"
+      ],
+      "action": "cut"
+    }
+  ],
+  "filler_count": 14,
+  "filler_total_duration": 3.7,
+  "top_fillers": [
+    [
+      "で",
+      6
+    ],
+    [
+      "ま",
+      4
+    ],
+    [
+      "さ",
+      3
+    ],
+    [
+      "ね",
+      1
+    ]
+  ]
+}

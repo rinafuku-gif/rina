@@ -1,0 +1,14 @@
+{
+  "total_duration": 8.04,
+  "silences": [],
+  "speech_segments": [
+    {
+      "start": 0.0,
+      "end": 8.04,
+      "duration": 8.04,
+      "type": "speech"
+    }
+  ],
+  "silence_total": 0,
+  "speech_total": 8.04
+}

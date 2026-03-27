@@ -1,0 +1,125 @@
+# 三十日珈琲「焙煎プロセス魅せ型」リールテンプレート
+# Based on Creative設計書 v1 テンプレート2
+
+metadata:
+  name: "焙煎プロセス魅せ型"
+  brand: "三十日珈琲"
+  account: "@misoca_coffee"
+  duration: 15
+  resolution: [1080, 1920]
+  fps: 30
+  bitrate: "10M"
+
+color_grading:
+  warmth: 15        # 暖色+15
+  saturation: -10   # 彩度-10%
+  contrast: 15      # コントラスト+15%
+  # FFmpeg eq filter: eq=brightness=0.02:saturation=0.9:contrast=1.15
+  ffmpeg_filter: "eq=brightness=0.02:saturation=0.9:contrast=1.15,colorbalance=rs=0.08:gs=0.02:bs=-0.03"
+
+accent_color: "#8B6914"  # 焙煎ゴールド
+cta_color: "rgba(139,105,20,0.85)"
+text_shadow: "rgba(30,20,5,0.6)"
+
+font:
+  family: "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
+  hook_size: 72
+  description_size: 48
+  supplement_size: 36
+  cta_size: 54
+  brand_size: 32
+
+safe_zone:
+  top: 250      # アカウント名UI回避
+  bottom: 400   # キャプション/UIボタン回避
+  left: 60
+  right: 120
+
+cuts:
+  - id: 1
+    name: "フック"
+    time: [0.0, 2.0]
+    ken_burns:
+      type: "zoom_in"
+      scale: [100, 110]
+    text:
+      - content: "この豆が、化ける"
+        position: [540, 750]
+        size: 72
+        weight: "black"
+        animation: "fade_in"
+        animation_duration: 0.3
+
+  - id: 2
+    name: "焙煎開始"
+    time: [2.0, 4.0]
+    ken_burns:
+      type: "pan_lr"
+      position_x: [-4, 4]
+    text: []
+
+  - id: 3
+    name: "ファーストクラック"
+    time: [4.0, 6.0]
+    ken_burns:
+      type: "zoom_in"
+      scale: [100, 108]
+    text:
+      - content: "1ハゼ"
+        position: [750, 650]
+        size: 36
+        weight: "medium"
+        animation: "fade_in_out"
+        animation_duration: 0.5
+    transition_after:
+      type: "white"
+      duration: 0.3
+
+  - id: 4
+    name: "冷却"
+    time: [6.0, 8.0]
+    ken_burns:
+      type: "zoom_out"
+      scale: [115, 100]
+    text: []
+
+  - id: 5
+    name: "ドリップ準備"
+    time: [8.0, 10.0]
+    ken_burns:
+      type: "zoom_in"
+      scale: [100, 105]
+    text: []
+
+  - id: 6
+    name: "抽出クライマックス"
+    time: [10.0, 12.5]
+    ken_burns:
+      type: "zoom_in"
+      scale: [100, 108]
+    text: []
+    transition_after:
+      type: "black"
+      duration: 0.3
+
+  - id: 7
+    name: "完成 + CTA"
+    time: [12.5, 15.0]
+    ken_burns:
+      type: "zoom_out"
+      scale: [105, 100]
+    text:
+      - content: "焙煎したて、飲みに来て"
+        position: [540, 680]
+        size: 54
+        weight: "bold"
+        style: "cta_shape"
+        animation: "fade_in"
+        animation_duration: 0.4
+      - content: "@misoca_coffee"
+        position: [540, 800]
+        size: 32
+        weight: "medium"
+        opacity: 0.7
+        animation: "fade_in"
+        animation_duration: 0.6

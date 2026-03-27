@@ -89,7 +89,8 @@ echo "Briefing ready (${#BRIEFING} chars)"
 
 # --- Discord送信（2000文字制限対応） ---
 DISCORD_BOT_TOKEN=$(grep '^DISCORD_BOT_TOKEN=' "$HOME/.claude/channels/discord/.env" 2>/dev/null | cut -d= -f2)
-DISCORD_CHANNEL_ID="1485836971191566488"
+# DISCORD_CHANNEL_ID="1485836971191566488"  # 旧チャンネル（ロールバック用）
+DISCORD_CHANNEL_ID="1486651097157472307"  # #notifications チャンネル
 
 if [ "$DRY_RUN" = "1" ]; then
   echo "[DRY_RUN] Discord送信スキップ (${#BRIEFING} chars)"
@@ -111,21 +112,21 @@ else
   echo " -> Discord sent"
 fi
 
-# --- PWA Push通知 ---
-if [ "$DRY_RUN" = "1" ]; then
-  echo "[DRY_RUN] PWA Push送信スキップ"
-else
-  echo "Sending PWA push..."
-  SHORT_BODY=$(echo "$BRIEFING" | head -5 | cut -c1-200)
-  curl -s -X POST http://localhost:3100/api/push-briefing \
-    -H "Content-Type: application/json" \
-    -d "$(jq -n --arg text "$SHORT_BODY" --arg token "$SHIRATAMA_API_TOKEN" '{
-      token: $token,
-      title: "おはようブリーフィング",
-      body: $text
-    }')" \
-    && echo " -> push OK" \
-    || echo " -> push failed"
-fi
+# --- PWA Push通知（Discord移行につき無効化・ロールバック用） ---
+# if [ "$DRY_RUN" = "1" ]; then
+#   echo "[DRY_RUN] PWA Push送信スキップ"
+# else
+#   echo "Sending PWA push..."
+#   SHORT_BODY=$(echo "$BRIEFING" | head -5 | cut -c1-200)
+#   curl -s -X POST http://localhost:3100/api/push-briefing \
+#     -H "Content-Type: application/json" \
+#     -d "$(jq -n --arg text "$SHORT_BODY" --arg token "$SHIRATAMA_API_TOKEN" '{
+#       token: $token,
+#       title: "おはようブリーフィング",
+#       body: $text
+#     }')" \
+#     && echo " -> push OK" \
+#     || echo " -> push failed"
+# fi
 
 echo "=== [openclaw] Briefing completed at $(date '+%Y-%m-%d %H:%M:%S') ==="

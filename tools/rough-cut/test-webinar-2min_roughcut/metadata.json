@@ -1,0 +1,9 @@
+{
+  "source": "/Users/ocmm/rina/tools/rough-cut/test-webinar-2min.mp4",
+  "width": 1920,
+  "height": 1200,
+  "fps": 25.0,
+  "duration": 120.0,
+  "orientation": "horizontal",
+  "audio_path": "/Users/ocmm/rina/tools/rough-cut/test-webinar-2min_roughcut/audio.wav"
+}

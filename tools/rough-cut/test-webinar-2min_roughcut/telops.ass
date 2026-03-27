@@ -1,0 +1,28 @@
+[Script Info]
+Title: Rough Cut Telops
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Noto Sans JP,48,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,0,2,10,10,50,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.98,0:00:02.20,Default,,0,0,0,,これは出席者ゼロのなんて\N 大丈夫かな 大丈夫そうですね
+Dialogue: 0,0:00:03.37,0:00:10.59,Default,,0,0,0,,はじめまして 株式会社&1の\N 二郎集兵と申します 本日は\Nセミナー
+Dialogue: 0,0:00:10.59,0:00:14.03,Default,,0,0,0,,の方にウェビナーの方に\N参加いただきまして ありが\Nとうございます 本
+Dialogue: 0,0:00:14.03,0:00:19.15,Default,,0,0,0,,本日はイナフクさんをお呼びして\Nウェビナーを実施します
+Dialogue: 0,0:00:19.15,0:00:22.03,Default,,0,0,0,,時間としては約1時間半の時間です
+Dialogue: 0,0:00:22.03,0:00:23.91,Default,,0,0,0,,イナフクさん改めて\Nよろしくお願いします
+Dialogue: 0,0:00:25.07,0:00:25.71,Default,,0,0,0,,よろしくお願いします
+Dialogue: 0,0:00:26.65,0:00:33.39,Default,,0,0,0,,この後イナフクさんの\N自己紹介も含めて 画面共有しなが\Nらお話ししていきますので
+Dialogue: 0,0:00:33.39,0:00:37.21,Default,,0,0,0,,さっそくウェビナーの方を\Nスタートしていければなと思います
+Dialogue: 0,0:00:37.69,0:00:42.27,Default,,0,0,0,,で オンラインでやっているので\N ところどころ聞きづらかったり
+Dialogue: 0,0:00:42.27,0:00:47.11,Default,,0,0,0,,だとか もう少しここ聞きたかった\N なというのがあれば チャット
+Dialogue: 0,0:00:47.11,0:00:53.95,Default,,0,0,0,,等で随時質問は受けております の\Nで こちらの方にどんどん投げて
+Dialogue: 0,0:00:53.95,0:01:00.49,Default,,0,0,0,,いただければなと思います それで\Nは 早速 画面の共有をしながら
+Dialogue: 0,0:01:05.88,0:01:11.89,Default,,0,0,0,,はいありがとうございます 以上で\N地域でのキャリア、働き方と\N働く機会ということで今回は
+Dialogue: 0,0:01:12.33,0:01:21.01,Default,,0,0,0,,イナフクさんをお呼びしてウェビナ\Nーを始めていきます ウェビナー参\N加者さまへのお願いということで
+Dialogue: 0,0:01:21.41,0:01:30.02,Default,,0,0,0,,4つ事前にお伝えをしておきます \N1つ目 先ほどもお伝えしましたが\N通信が不安定な場合が

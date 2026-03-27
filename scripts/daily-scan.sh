@@ -12,11 +12,25 @@ OUTPUT_FILE="$LOG_DIR/.daily-scan.json"
 
 export PATH="/Users/ocmm/.local/bin:/Users/ocmm/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 unset CLAUDECODE 2>/dev/null || true
+unset ANTHROPIC_API_KEY 2>/dev/null || true
 
-# --- task-engine.js を実行して today.json を生成 ---
+# --- task-engine.js を実行して today.json を生成（60秒タイムアウト） ---
 echo "daily-scan: Running task-engine.js..." >&2
-node "$SCRIPT_DIR/task-engine.js" >&2 2>&1
-TASK_ENGINE_EXIT=$?
+node "$SCRIPT_DIR/task-engine.js" >&2 2>&1 &
+TE_PID=$!
+TE_WAIT=60
+while [ $TE_WAIT -gt 0 ]; do
+  if ! kill -0 $TE_PID 2>/dev/null; then break; fi
+  sleep 2; TE_WAIT=$((TE_WAIT - 2))
+done
+if kill -0 $TE_PID 2>/dev/null; then
+  echo "daily-scan: task-engine.js timeout (60s), killing..." >&2
+  kill $TE_PID 2>/dev/null; sleep 1; kill -9 $TE_PID 2>/dev/null
+  TASK_ENGINE_EXIT=124
+else
+  wait $TE_PID 2>/dev/null
+  TASK_ENGINE_EXIT=$?
+fi
 if [ $TASK_ENGINE_EXIT -ne 0 ]; then
   echo "daily-scan: task-engine.js failed (exit=$TASK_ENGINE_EXIT)" >&2
 fi

@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "source": "/Users/ocmm/rina/tools/rough-cut/test-video.mov",
+    "width": 480,
+    "height": 854,
+    "fps": 29.0,
+    "duration": 8.04,
+    "orientation": "vertical",
+    "audio_path": "/Users/ocmm/rina/tools/rough-cut/test-output/audio.wav"
+  },
+  "stt": {
+    "segments": 0,
+    "words": 0
+  },
+  "vad": {
+    "silences": 0,
+    "speech_segments": 1,
+    "silence_total": 0
+  },
+  "fillers": {
+    "count": 0,
+    "total_duration": 0,
+    "top": []
+  },
+  "filler_review": {
+    "cut": 0,
+    "keep": 0
+  },
+  "retakes": {
+    "count": 0,
+    "cut_duration": 0
+  },
+  "cut_proposal": {
+    "cuts": 0,
+    "keeps": 1,
+    "compression": 100.0
+  },
+  "telops": {
+    "count": 0
+  },
+  "review": {
+    "corrections": 0
+  },
+  "render": {
+    "output": "/Users/ocmm/rina/tools/rough-cut/test-output/output.mp4"
+  },
+  "pipeline_duration": 15.7
+}

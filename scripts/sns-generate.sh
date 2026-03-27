@@ -336,41 +336,59 @@ for account in $(get_accounts); do
   fi
 done
 
-# --- LINE送信 ---
-if [ "$SEND_LINE" = true ] && [ -n "$ALL_LINE_MSG" ]; then
-  echo "Sending summary to LINE..." >&2
+# --- LINE送信（Discord移行前・ロールバック用） ---
+# if [ "$SEND_LINE" = true ] && [ -n "$ALL_LINE_MSG" ]; then
+#   echo "Sending summary to LINE..." >&2
+#   FINAL_MSG="📝 SNS投稿案が届きました！\n\n$(echo -e "$ALL_LINE_MSG")"
+#   MSG_LEN=$(echo -e "$FINAL_MSG" | wc -c | tr -d ' ')
+#   if [ "$MSG_LEN" -le 4500 ]; then
+#     curl -s -X POST https://api.line.me/v2/bot/message/push \
+#       -H "Content-Type: application/json" \
+#       -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
+#       -d "$(jq -n --arg to "$LINE_USER_ID" --arg text "$(echo -e "$FINAL_MSG")" '{
+#         to: $to, messages: [{type: "text", text: $text}]
+#       }')" && echo "  -> LINE sent" >&2
+#   else
+#     for account in $(get_accounts); do
+#       local_file="$OUTPUT_DIR/${account}-${TODAY}.json"
+#       if [ -f "$local_file" ]; then
+#         local_msg=$(format_for_line "$(cat "$local_file")")
+#         curl -s -X POST https://api.line.me/v2/bot/message/push \
+#           -H "Content-Type: application/json" \
+#           -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
+#           -d "$(jq -n --arg to "$LINE_USER_ID" --arg text "$local_msg" '{
+#             to: $to, messages: [{type: "text", text: $text}]
+#           }')"
+#         sleep 1
+#       fi
+#     done
+#     echo "  -> LINE sent (split)" >&2
+#   fi
+# fi
+
+# --- Discord #sns-drafts 送信 ---
+DISCORD_BOT_TOKEN=$(grep '^DISCORD_BOT_TOKEN=' "$HOME/.claude/channels/discord/.env" 2>/dev/null | cut -d= -f2)
+DISCORD_SNS_CHANNEL_ID="1486662866026364928"  # #sns-drafts
+
+if [ "$SEND_LINE" = true ] && [ -n "$ALL_LINE_MSG" ] && [ -n "$DISCORD_BOT_TOKEN" ]; then
+  echo "Sending summary to Discord #sns-drafts..." >&2
 
   FINAL_MSG="📝 SNS投稿案が届きました！\n\n$(echo -e "$ALL_LINE_MSG")"
 
-  # 5000文字制限対応
-  MSG_LEN=$(echo -e "$FINAL_MSG" | wc -c | tr -d ' ')
-
-  if [ "$MSG_LEN" -le 4500 ]; then
-    curl -s -X POST https://api.line.me/v2/bot/message/push \
+  # Discord 2000文字制限対応: チャンク分割送信
+  REMAINING="$(echo -e "$FINAL_MSG")"
+  while [ ${#REMAINING} -gt 0 ]; do
+    CHUNK="${REMAINING:0:2000}"
+    REMAINING="${REMAINING:2000}"
+    curl -s -X POST "https://discord.com/api/v10/channels/$DISCORD_SNS_CHANNEL_ID/messages" \
       -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
-      -d "$(jq -n --arg to "$LINE_USER_ID" --arg text "$(echo -e "$FINAL_MSG")" '{
-        to: $to,
-        messages: [{type: "text", text: $text}]
-      }')" && echo "  -> LINE sent" >&2
-  else
-    # 長い場合はアカウントごとに分割送信
-    for account in $(get_accounts); do
-      local_file="$OUTPUT_DIR/${account}-${TODAY}.json"
-      if [ -f "$local_file" ]; then
-        local_msg=$(format_for_line "$(cat "$local_file")")
-        curl -s -X POST https://api.line.me/v2/bot/message/push \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
-          -d "$(jq -n --arg to "$LINE_USER_ID" --arg text "$local_msg" '{
-            to: $to,
-            messages: [{type: "text", text: $text}]
-          }')"
-        sleep 1
-      fi
-    done
-    echo "  -> LINE sent (split)" >&2
-  fi
+      -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+      -d "$(jq -n --arg text "$CHUNK" '{content: $text}')"
+    [ ${#REMAINING} -gt 0 ] && sleep 1
+  done
+  echo "  -> Discord #sns-drafts sent" >&2
+elif [ "$SEND_LINE" = true ] && [ -z "$DISCORD_BOT_TOKEN" ]; then
+  echo "ERROR: DISCORD_BOT_TOKEN not found, skipping send" >&2
 fi
 
 # --- 全結果のサマリーをファイルに ---

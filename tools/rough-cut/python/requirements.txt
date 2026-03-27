@@ -1,0 +1,4 @@
+# rough-cut video auto-editor dependencies
+# Versions pinned for supply chain security (2026-03-27)
+budoux==0.8.0
+pyyaml==6.0.3

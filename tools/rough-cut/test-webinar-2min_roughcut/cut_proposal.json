@@ -1,0 +1,249 @@
+{
+  "total_duration": 120.0,
+  "cut_regions": [
+    {
+      "start": 0.439,
+      "end": 4.967,
+      "reasons": [
+        "silence"
+      ]
+    },
+    {
+      "start": 5.297,
+      "end": 8.846,
+      "reasons": [
+        "silence"
+      ]
+    },
+    {
+      "start": 9.1,
+      "end": 11.5,
+      "reasons": [
+        "retake: 同じ内容の言い直し（大丈夫かな→大丈夫そうですね）"
+      ]
+    },
+    {
+      "start": 11.623,
+      "end": 12.51,
+      "reasons": [
+        "silence"
+      ]
+    },
+    {
+      "start": 13.995,
+      "end": 15.481,
+      "reasons": [
+        "silence"
+      ]
+    },
+    {
+      "start": 17.0,
+      "end": 17.1,
+      "reasons": [
+        "filler: ま"
+      ]
+    },
+    {
+      "start": 25.08,
+      "end": 25.18,
+      "reasons": [
+        "filler: ま"
+      ]
+    },
+    {
+      "start": 46.44,
+      "end": 46.98,
+      "reasons": [
+        "filler: さ"
+      ]
+    },
+    {
+      "start": 51.28,
+      "end": 51.64,
+      "reasons": [
+        "filler: で"
+      ]
+    },
+    {
+      "start": 52.38,
+      "end": 52.54,
+      "reasons": [
+        "filler: で"
+      ]
+    },
+    {
+      "start": 65.6,
+      "end": 66.639,
+      "reasons": [
+        "filler: で",
+        "silence"
+      ]
+    },
+    {
+      "start": 77.82,
+      "end": 78.0,
+      "reasons": [
+        "filler: ま"
+      ]
+    },
+    {
+      "start": 78.361,
+      "end": 81.946,
+      "reasons": [
+        "silence"
+      ]
+    },
+    {
+      "start": 83.1,
+      "end": 88.568,
+      "reasons": [
+        "retake: 同じ内容の言い直し",
+        "filler: さ",
+        "silence"
+      ]
+    },
+    {
+      "start": 89.6,
+      "end": 92.299,
+      "reasons": [
+        "filler: ね",
+        "silence"
+      ]
+    },
+    {
+      "start": 94.393,
+      "end": 95.098,
+      "reasons": [
+        "silence"
+      ]
+    },
+    {
+      "start": 96.84,
+      "end": 96.96,
+      "reasons": [
+        "filler: で"
+      ]
+    },
+    {
+      "start": 107.78,
+      "end": 108.06,
+      "reasons": [
+        "filler: さ,ま"
+      ]
+    },
+    {
+      "start": 118.116,
+      "end": 118.652,
+      "reasons": [
+        "silence"
+      ]
+    }
+  ],
+  "keep_regions": [
+    {
+      "start": 0.0,
+      "end": 0.439,
+      "duration": 0.439
+    },
+    {
+      "start": 4.967,
+      "end": 5.297,
+      "duration": 0.33
+    },
+    {
+      "start": 8.846,
+      "end": 9.1,
+      "duration": 0.254
+    },
+    {
+      "start": 11.5,
+      "end": 11.623,
+      "duration": 0.123
+    },
+    {
+      "start": 12.51,
+      "end": 13.995,
+      "duration": 1.485
+    },
+    {
+      "start": 15.481,
+      "end": 17.0,
+      "duration": 1.519
+    },
+    {
+      "start": 17.1,
+      "end": 25.08,
+      "duration": 7.98
+    },
+    {
+      "start": 25.18,
+      "end": 46.44,
+      "duration": 21.26
+    },
+    {
+      "start": 46.98,
+      "end": 51.28,
+      "duration": 4.3
+    },
+    {
+      "start": 51.64,
+      "end": 52.38,
+      "duration": 0.74
+    },
+    {
+      "start": 52.54,
+      "end": 65.6,
+      "duration": 13.06
+    },
+    {
+      "start": 66.639,
+      "end": 77.82,
+      "duration": 11.181
+    },
+    {
+      "start": 78.0,
+      "end": 78.361,
+      "duration": 0.361
+    },
+    {
+      "start": 81.946,
+      "end": 83.1,
+      "duration": 1.154
+    },
+    {
+      "start": 88.568,
+      "end": 89.6,
+      "duration": 1.032
+    },
+    {
+      "start": 92.299,
+      "end": 94.393,
+      "duration": 2.094
+    },
+    {
+      "start": 95.098,
+      "end": 96.84,
+      "duration": 1.742
+    },
+    {
+      "start": 96.96,
+      "end": 107.78,
+      "duration": 10.82
+    },
+    {
+      "start": 108.06,
+      "end": 118.116,
+      "duration": 10.056
+    },
+    {
+      "start": 118.652,
+      "end": 120.0,
+      "duration": 1.348
+    }
+  ],
+  "cut_count": 19,
+  "keep_count": 20,
+  "cut_total_duration": 28.722,
+  "keep_total_duration": 91.278,
+  "compression_ratio": 76.1
+}
