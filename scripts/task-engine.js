@@ -618,6 +618,84 @@ function loadObsidianTasks() {
   return items;
 }
 
+// --- Source: Notion Task DB (GTDタスク管理) ---
+async function extractNotionTaskActions() {
+  const items = [];
+  if (!env.NOTION_API_KEY) return items;
+
+  const TASK_DB = "500a3ff0900d4933ba83b511102f6779";
+  const today = todayStr();
+
+  try {
+    const result = await notionApiPost(`databases/${TASK_DB}/query`, {
+      filter: {
+        and: [
+          {
+            or: [
+              { property: "GTD", status: { equals: "次にやること" } },
+              { property: "GTD", status: { equals: "進行中" } },
+              { property: "GTD", status: { equals: "日付指定" } },
+            ],
+          },
+          {
+            property: "行動予定日",
+            date: { on_or_after: today },
+          },
+        ],
+      },
+      sorts: [{ property: "行動予定日", direction: "ascending" }],
+    });
+
+    for (const page of (result.results || [])) {
+      const props = page.properties || {};
+
+      let title = "タスク";
+      for (const key of Object.keys(props)) {
+        const prop = props[key];
+        if (prop.type === "title" && prop.title && prop.title.length > 0) {
+          title = prop.title.map(t => t.plain_text).join("");
+          break;
+        }
+      }
+
+      let gtd = "";
+      if (props["GTD"] && props["GTD"].status) {
+        gtd = props["GTD"].status.name || "";
+      }
+
+      let actionDate = today;
+      if (props["行動予定日"] && props["行動予定日"].date && props["行動予定日"].date.start) {
+        actionDate = props["行動予定日"].date.start;
+      }
+
+      let tags = [];
+      if (props["タグ"] && props["タグ"].multi_select) {
+        tags = props["タグ"].multi_select.map(t => t.name);
+      }
+
+      const days = daysFromToday(actionDate);
+      const urgency = gtd === "次にやること" ? "today" : days === 0 ? "today" : "upcoming";
+      const tagStr = tags.length > 0 ? `[${tags.join("/")}] ` : "";
+
+      items.push({
+        id: genId("notion-task", title),
+        source: "notion-task",
+        title: `${tagStr}${title}`,
+        detail: `${gtd} — ${actionDate}`,
+        action: gtd === "次にやること" ? "acknowledge" : null,
+        actionLabel: gtd === "次にやること" ? "着手" : null,
+        urgency,
+        date: actionDate,
+        sortKey: `${actionDate}${urgency === "today" ? "10:00" : "18:00"}`,
+      });
+    }
+  } catch (e) {
+    console.error("[task-engine] Notion Task DB error:", e.message);
+  }
+
+  return items;
+}
+
 // --- Main Engine ---
 async function generateToday() {
   console.log("[task-engine] Generating today.json...");
@@ -652,13 +730,22 @@ async function generateToday() {
   allItems.push(...gitItems);
   console.log(`[task-engine] Git: ${gitItems.length} items`);
 
-  // Notion
+  // Notion (DX/Content/Learning DBs)
   try {
     const notionItems = await extractNotionActions();
     allItems.push(...notionItems);
     console.log(`[task-engine] Notion: ${notionItems.length} items`);
   } catch (e) {
     console.error("[task-engine] Notion failed:", e.message);
+  }
+
+  // Notion Task DB (GTDタスク管理)
+  try {
+    const taskDbItems = await extractNotionTaskActions();
+    allItems.push(...taskDbItems);
+    console.log(`[task-engine] Notion Tasks: ${taskDbItems.length} items`);
+  } catch (e) {
+    console.error("[task-engine] Notion Tasks failed:", e.message);
   }
 
   // Gmail
