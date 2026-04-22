@@ -19,11 +19,6 @@ const OBSIDIAN_TASKS = path.join(
   "Library", "Mobile Documents", "iCloud~md~obsidian",
   "Documents", "obsidian-vault", "02_プロジェクト", "タスク一覧.md"
 );
-const OBSIDIAN_DASHBOARD = path.join(
-  os.homedir(),
-  "Library", "Mobile Documents", "iCloud~md~obsidian",
-  "Documents", "obsidian-vault", "ダッシュボード.md"
-);
 const DEADLINES_FILE = path.join(__dirname, "..", "data", "deadlines.json");
 
 // --- Safe file write (temp + rename) ---
@@ -85,36 +80,7 @@ function cmdComplete(taskName) {
 
   let changed = false;
 
-  // 1. Update Obsidian tasks
-  const tasksContent = safeRead(OBSIDIAN_TASKS);
-  if (tasksContent) {
-    const lines = tasksContent.split("\n");
-    let updated = false;
-
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].match(/^- \[ \] /) && lines[i].includes(taskName)) {
-        lines[i] = lines[i].replace("- [ ] ", "- [x] ");
-        console.log(`[task-updater] Completed in タスク一覧: ${lines[i].trim()}`);
-        updated = true;
-        break; // 最初の一致のみ
-      }
-    }
-
-    if (updated) {
-      // 最終更新日を今日に
-      const today = new Date().toISOString().split("T")[0];
-      const updatedContent = lines.join("\n").replace(
-        /最終更新: \d{4}-\d{2}-\d{2}/,
-        `最終更新: ${today}`
-      );
-      safeWrite(OBSIDIAN_TASKS, updatedContent);
-      changed = true;
-    } else {
-      console.log(`[task-updater] Task not found in タスク一覧: "${taskName}"`);
-    }
-  }
-
-  // 2. Update deadlines.json (title partial match → status: 完了)
+  // Update deadlines.json (title partial match → status: 完了)
   const dlContent = safeRead(DEADLINES_FILE);
   if (dlContent) {
     try {
@@ -137,11 +103,6 @@ function cmdComplete(taskName) {
     } catch (e) {
       console.error(`[task-updater] deadlines.json parse error: ${e.message}`);
     }
-  }
-
-  // 3. Sync dashboard if task was in 今週
-  if (changed) {
-    syncDashboard();
   }
 
   if (!changed) {
@@ -219,10 +180,6 @@ function cmdAdd(taskName, flags) {
   );
   safeWrite(OBSIDIAN_TASKS, updatedContent);
   console.log(`[task-updater] Added to ${sectionKey}/${ownerKey}: ${newTask}`);
-
-  if (sectionKey === "今週") {
-    syncDashboard();
-  }
 }
 
 // --- Command: deadline ---
@@ -350,88 +307,6 @@ function cmdMove(taskName, flags) {
   );
   safeWrite(OBSIDIAN_TASKS, updatedContent);
   console.log(`[task-updater] Moved to ${toSection}: ${removedLine.trim()}`);
-
-  // 今週セクションが変わったらダッシュボード更新
-  if (toSection === "今週") {
-    syncDashboard();
-  }
-}
-
-// --- Dashboard sync ---
-function syncDashboard() {
-  const tasksContent = safeRead(OBSIDIAN_TASKS);
-  const dashContent = safeRead(OBSIDIAN_DASHBOARD);
-  if (!tasksContent || !dashContent) return;
-
-  try {
-    // タスク一覧の「今週やること」セクションから未完了タスクを抽出
-    const lines = tasksContent.split("\n");
-    let inThisWeek = false;
-    const weekTasks = [];
-
-    for (const line of lines) {
-      if (line.startsWith("## 今週やること")) {
-        inThisWeek = true;
-        continue;
-      }
-      if (inThisWeek && line.startsWith("## ")) {
-        break;
-      }
-      if (inThisWeek && line.match(/^- \[ \] /)) {
-        weekTasks.push(line);
-      }
-      // 完了済みも含める（ダッシュボードでチェック済みとして見せる）
-      if (inThisWeek && line.match(/^- \[x\] /i)) {
-        weekTasks.push(line);
-      }
-    }
-
-    // ダッシュボードの「直近のタスク」セクションを更新
-    const dashLines = dashContent.split("\n");
-    let sectionStart = -1;
-    let sectionEnd = -1;
-
-    for (let i = 0; i < dashLines.length; i++) {
-      if (dashLines[i].startsWith("## 直近のタスク")) {
-        sectionStart = i;
-        continue;
-      }
-      if (sectionStart !== -1 && dashLines[i].startsWith("## ")) {
-        sectionEnd = i;
-        break;
-      }
-    }
-
-    if (sectionStart === -1) {
-      console.log("[task-updater] Dashboard: '直近のタスク' section not found, skipping");
-      return;
-    }
-    if (sectionEnd === -1) sectionEnd = dashLines.length;
-
-    // 新しいセクションを構築（最大8件）
-    const displayTasks = weekTasks.slice(0, 8);
-    const newSection = [
-      "## 直近のタスク（今週）",
-      "",
-      ...displayTasks,
-      "",
-      "→ 全タスク: [[タスク一覧]]",
-      "",
-    ];
-
-    dashLines.splice(sectionStart, sectionEnd - sectionStart, ...newSection);
-
-    // 最終更新日
-    const today = new Date().toISOString().split("T")[0];
-    const updatedDash = dashLines.join("\n").replace(
-      /最終更新: \d{4}-\d{2}-\d{2}/,
-      `最終更新: ${today}`
-    );
-    safeWrite(OBSIDIAN_DASHBOARD, updatedDash);
-    console.log(`[task-updater] Dashboard synced (${displayTasks.length} tasks)`);
-  } catch (e) {
-    console.error(`[task-updater] Dashboard sync error: ${e.message}`);
-  }
 }
 
 // --- Main ---
