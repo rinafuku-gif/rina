@@ -86,7 +86,7 @@ ${TASKS}
 ## 完了タスク
 ${COMPLETED}
 
-以下のフォーマットで出力してください（LINE用なのでMarkdownは使わない、絵文字OK）:
+以下のフォーマットで出力してください（Discord投稿用。Markdown OK、絵文字OK）:
 
 📊 週次レビュー（${WEEK_AGO}〜${TODAY}）
 
@@ -103,7 +103,7 @@ ${COMPLETED}
 💡 来週のアドバイス
 - （タスクの状況やスケジュールを踏まえた一言）
 
-簡潔に、LINEで読みやすい長さでお願いします。
+簡潔に、Discordで読みやすい長さでお願いします。
 重要: 出力はレビュー本文のみ。余計な説明は不要。
 PROMPT_EOF
 
@@ -115,14 +115,28 @@ if [ -z "$REVIEW" ]; then
   exit 1
 fi
 
-# LINE Push で送信（jq でJSON安全にエスケープ）
-curl -s -X POST https://api.line.me/v2/bot/message/push \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN" \
-  -d "$(jq -n --arg to "$LINE_USER_ID" --arg text "${REVIEW:0:4999}" '{
-    to: $to,
-    messages: [{type: "text", text: $text}]
-  }')"
+# Discord Bot で送信（LINE から移行 2026-04-08）
+DISCORD_BOT_TOKEN=$(grep '^DISCORD_BOT_TOKEN=' "$HOME/.claude/channels/discord/.env" 2>/dev/null | cut -d= -f2)
+DISCORD_CHANNEL_ID="1486651097157472307"  # #notifications
+
+if [ -n "$DISCORD_BOT_TOKEN" ]; then
+  # Discord は2000文字制限があるので分割送信
+  REVIEW_LEN=${#REVIEW}
+  OFFSET=0
+  while [ $OFFSET -lt $REVIEW_LEN ]; do
+    CHUNK="${REVIEW:$OFFSET:1900}"
+    curl -s -X POST "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+      -d "$(jq -n --arg text "$CHUNK" '{content: $text}')" \
+      > /dev/null 2>&1
+    OFFSET=$((OFFSET + 1900))
+    [ $OFFSET -lt $REVIEW_LEN ] && sleep 1
+  done
+  echo "Discord送信完了"
+else
+  echo "[$(date)] ERROR: DISCORD_BOT_TOKEN not found" >> "$LOG_DIR/weekly-review-stderr.log"
+fi
 
 # ログ保存
 echo "$REVIEW" > "$LOG_DIR/weekly-review-${TODAY}.md"
