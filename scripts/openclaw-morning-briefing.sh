@@ -1,4 +1,7 @@
 #!/bin/bash
+# @critical: launchd com.openclaw.morning-briefing から毎朝7:00実行
+# @stops-if-deleted: 朝のブリーフィング（予定・期限超過・天気・Basecamp進捗）がDiscord #notifications に届かなくなる
+# @depends: daily-scan.sh, sync-notion-to-unified.js, update-obsidian-tasks.js
 # 自律型朝ブリーフィング実行スクリプト（openclaw版）
 # Mac mini の launchd から毎朝7:00に実行
 # Claude Code が自律的にブリーフィングを生成 → LINE + PWA Push で配信
@@ -70,6 +73,12 @@ curl -s -X POST http://localhost:3100/api/sync-airbnb-bookings \
   || echo " -> sync failed (server may be down)"
 sleep 3
 
+# --- Notion Task DB → unified.db 同期 ---
+echo "Syncing Notion tasks to unified.db..."
+node "$SCRIPT_DIR/sync-notion-to-unified.js" \
+  && echo " -> Notion sync OK" \
+  || echo " -> Notion sync failed (briefing continues)"
+
 # --- AIスキャン（ブリーフィング + カレンダー提案 + タスク更新） ---
 echo "Running daily scan..."
 BRIEFING=$("$SCRIPT_DIR/daily-scan.sh" 2>>"$LOG_DIR/daily-scan-debug.log")
@@ -128,5 +137,11 @@ fi
 #     && echo " -> push OK" \
 #     || echo " -> push failed"
 # fi
+
+# --- Obsidianダッシュボード・タスク一覧の自動更新 ---
+echo "Updating Obsidian dashboard and task list..."
+node "$SCRIPT_DIR/update-obsidian-tasks.js" \
+  && echo " -> Obsidian updated" \
+  || echo " -> Obsidian update failed (briefing continues)"
 
 echo "=== [openclaw] Briefing completed at $(date '+%Y-%m-%d %H:%M:%S') ==="

@@ -227,10 +227,19 @@ Ryo が `ss` または `sss` とだけ入力したら、以下を実行するこ
 ### AI秘書セッションのスコープ
 
 - このセッションのワーキングディレクトリは `rina/` リポジトリ
-- **hisho-shiratama リポジトリはファイル編集・Git操作（commit & push）を許可**（しらたまPWAのフロントエンド変更もこのセッションで完結させる）
-- 他のリポジトリ（fate-decoder, misoca-coffee, satoyama-ai-base 等）は**参照（Read）のみ許可**
+- 他のリポジトリ（misoca-coffee, satoyama-ai-base 等）は**参照（Read）のみ許可**
 - 他リポジトリのファイル編集・Git操作は絶対にしない
 - 他リポジトリの作業が必要な場合は、別タブでの作業を提案すること
+
+### rina/リポジトリの編集ルール（MBP↔Mac mini）
+
+- **MBPが正（マスター）**。rina/の編集は原則MBPで行う
+- **Mac miniはpull only**。auto-syncでpullのみ実行し、pushはしない
+- **例外**: Mac miniのCEO（しらたま）がDiscord経由で以下を更新する場合はOK:
+  - `docs/` 配下の事業ドキュメント更新
+  - `logs/daily/` への日次ブリーフィング記録
+  - `data/` 配下のランタイムデータ（task-syncによる自動更新）
+- 競合が発生した場合は**MBP側を正とする**（`git pull --rebase`でMBP優先）
 
 ## Google Calendar 運用ルール
 

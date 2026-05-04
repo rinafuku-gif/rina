@@ -4,9 +4,8 @@
  * 複数の情報ソースから「今日のアクション」を自動収集し、today.json を生成する。
  * 実行タイミング: 朝7時（ブリーフィング前）+ 手動トリガー
  *
- * Phase 1: Calendar + Airbnb Bookings + deadlines.json
- * Phase 2: Git repos + Notion + Gmail
- * Phase 3: Drive
+ * Sources: Calendar + Airbnb Bookings + Notion Task DB + Git + Gmail
+ * Notion Task DB が期限・タスクの唯一の正本（deadlines.json は廃止済み）
  */
 
 const fs = require("fs");
@@ -17,7 +16,6 @@ const crypto = require("crypto");
 const REPO_DIR = path.join(__dirname, "..");
 const TODAY_FILE = path.join(REPO_DIR, "data", "today.json");
 const BOOKINGS_FILE = path.join(REPO_DIR, "logs", ".airbnb-bookings.json");
-const DEADLINES_FILE = path.join(REPO_DIR, "data", "deadlines.json");
 // .env
 const envContent = fs.readFileSync(path.join(REPO_DIR, ".env"), "utf-8");
 const env = {};
@@ -242,47 +240,6 @@ function extractBookingActions() {
         urgency: "today",
         date: b.checkout,
         sortKey: `${b.checkout}11:00`,
-      });
-    }
-  }
-
-  return items;
-}
-
-// --- Source: Deadlines ---
-function extractDeadlineActions() {
-  const items = [];
-
-  let deadlines = [];
-  try { deadlines = JSON.parse(fs.readFileSync(DEADLINES_FILE, "utf-8")).deadlines || []; } catch { return items; }
-
-  for (const dl of deadlines) {
-    if (dl.status === "完了") continue;
-    const days = daysFromToday(dl.date);
-    if (days < 0) {
-      // 期限超過
-      items.push({
-        id: genId("deadline", `期限超過: ${dl.title}`),
-        source: "deadline",
-        title: `期限超過: ${dl.title}`,
-        detail: `${dl.business} — ${dl.date}`,
-        action: "acknowledge",
-        actionLabel: "対応する",
-        urgency: "urgent",
-        date: dl.date,
-        sortKey: `${dl.date}00:00`,
-      });
-    } else if (days <= 7) {
-      items.push({
-        id: genId("deadline", `${dl.title}（あと${days}日）`),
-        source: "deadline",
-        title: `${dl.title}（あと${days}日）`,
-        detail: `${dl.business} — 期限 ${dl.date}`,
-        action: null,
-        actionLabel: null,
-        urgency: days === 0 ? "today" : "upcoming",
-        date: dl.date,
-        sortKey: `${dl.date}00:00`,
       });
     }
   }
@@ -537,7 +494,7 @@ async function extractGmailActions(gToken) {
   return items;
 }
 
-// --- Source: Notion Task DB (GTDタスク管理) ---
+// --- Source: Notion Task DB (GTDタスク管理 — 唯一の正本) ---
 async function extractNotionTaskActions() {
   const items = [];
   if (!env.NOTION_API_KEY) return items;
@@ -545,54 +502,105 @@ async function extractNotionTaskActions() {
   const TASK_DB = "500a3ff0900d4933ba83b511102f6779";
   const today = todayStr();
 
+  // アクティブなGTDステータスのフィルタ（完了系を除外）
+  const activeGtdFilter = {
+    or: [
+      { property: "GTD", status: { equals: "次にやること" } },
+      { property: "GTD", status: { equals: "進行中" } },
+      { property: "GTD", status: { equals: "日付指定" } },
+      { property: "GTD", status: { equals: "Inbox" } },
+    ],
+  };
+
+  // Notionページからタスク情報を抽出する共通関数
+  function parseTaskPage(page) {
+    const props = page.properties || {};
+
+    let title = "タスク";
+    for (const key of Object.keys(props)) {
+      const prop = props[key];
+      if (prop.type === "title" && prop.title && prop.title.length > 0) {
+        title = prop.title.map(t => t.plain_text).join("");
+        break;
+      }
+    }
+
+    let gtd = "";
+    if (props["GTD"] && props["GTD"].status) {
+      gtd = props["GTD"].status.name || "";
+    }
+
+    let actionDate = null;
+    if (props["行動予定日"] && props["行動予定日"].date && props["行動予定日"].date.start) {
+      actionDate = props["行動予定日"].date.start;
+    }
+
+    let tags = [];
+    if (props["タグ"] && props["タグ"].multi_select) {
+      tags = props["タグ"].multi_select.map(t => t.name);
+    }
+
+    let category = "";
+    if (props["カテゴリ"] && props["カテゴリ"].select) {
+      category = props["カテゴリ"].select.name || "";
+    }
+
+    return { title, gtd, actionDate, tags, category };
+  }
+
+  // Query 1: 期限超過タスク（行動予定日が今日より前 + アクティブ）
+  try {
+    const overdueResult = await notionApiPost(`databases/${TASK_DB}/query`, {
+      filter: {
+        and: [
+          activeGtdFilter,
+          { property: "行動予定日", date: { before: today } },
+        ],
+      },
+      sorts: [{ property: "行動予定日", direction: "ascending" }],
+    });
+
+    for (const page of (overdueResult.results || [])) {
+      const { title, gtd, actionDate, tags } = parseTaskPage(page);
+      if (!actionDate) continue;
+
+      const days = daysFromToday(actionDate);
+      const tagStr = tags.length > 0 ? `[${tags.join("/")}] ` : "";
+
+      items.push({
+        id: genId("notion-task", title),
+        source: "notion-task",
+        title: `${tagStr}${title}`,
+        detail: `${gtd} — 期限超過（D${days}） ${actionDate}`,
+        action: "acknowledge",
+        actionLabel: "対応する",
+        urgency: "urgent",
+        date: actionDate,
+        sortKey: `${actionDate}00:00`,
+      });
+    }
+    console.log(`[task-engine] Notion Tasks (overdue): ${overdueResult.results?.length || 0} items`);
+  } catch (e) {
+    console.error("[task-engine] Notion Task DB (overdue) error:", e.message);
+  }
+
+  // Query 2: 今日以降のタスク（既存ロジック）
   try {
     const result = await notionApiPost(`databases/${TASK_DB}/query`, {
       filter: {
         and: [
-          {
-            or: [
-              { property: "GTD", status: { equals: "次にやること" } },
-              { property: "GTD", status: { equals: "進行中" } },
-              { property: "GTD", status: { equals: "日付指定" } },
-            ],
-          },
-          {
-            property: "行動予定日",
-            date: { on_or_after: today },
-          },
+          activeGtdFilter,
+          { property: "行動予定日", date: { on_or_after: today } },
         ],
       },
       sorts: [{ property: "行動予定日", direction: "ascending" }],
     });
 
     for (const page of (result.results || [])) {
-      const props = page.properties || {};
+      const { title, gtd, actionDate, tags } = parseTaskPage(page);
+      const date = actionDate || today;
 
-      let title = "タスク";
-      for (const key of Object.keys(props)) {
-        const prop = props[key];
-        if (prop.type === "title" && prop.title && prop.title.length > 0) {
-          title = prop.title.map(t => t.plain_text).join("");
-          break;
-        }
-      }
-
-      let gtd = "";
-      if (props["GTD"] && props["GTD"].status) {
-        gtd = props["GTD"].status.name || "";
-      }
-
-      let actionDate = today;
-      if (props["行動予定日"] && props["行動予定日"].date && props["行動予定日"].date.start) {
-        actionDate = props["行動予定日"].date.start;
-      }
-
-      let tags = [];
-      if (props["タグ"] && props["タグ"].multi_select) {
-        tags = props["タグ"].multi_select.map(t => t.name);
-      }
-
-      const days = daysFromToday(actionDate);
+      const days = daysFromToday(date);
       const urgency = gtd === "次にやること" ? "today" : days === 0 ? "today" : "upcoming";
       const tagStr = tags.length > 0 ? `[${tags.join("/")}] ` : "";
 
@@ -600,14 +608,15 @@ async function extractNotionTaskActions() {
         id: genId("notion-task", title),
         source: "notion-task",
         title: `${tagStr}${title}`,
-        detail: `${gtd} — ${actionDate}`,
+        detail: `${gtd} — ${date}`,
         action: gtd === "次にやること" ? "acknowledge" : null,
         actionLabel: gtd === "次にやること" ? "着手" : null,
         urgency,
-        date: actionDate,
-        sortKey: `${actionDate}${urgency === "today" ? "10:00" : "18:00"}`,
+        date,
+        sortKey: `${date}${urgency === "today" ? "10:00" : "18:00"}`,
       });
     }
+    console.log(`[task-engine] Notion Tasks (current): ${result.results?.length || 0} items`);
   } catch (e) {
     console.error("[task-engine] Notion Task DB error:", e.message);
   }
@@ -640,10 +649,6 @@ async function generateToday() {
   const bookingItems = extractBookingActions();
   allItems.push(...bookingItems);
   console.log(`[task-engine] Bookings: ${bookingItems.length} items`);
-
-  const deadlineItems = extractDeadlineActions();
-  allItems.push(...deadlineItems);
-  console.log(`[task-engine] Deadlines: ${deadlineItems.length} items`);
 
   const gitItems = extractGitSummary();
   allItems.push(...gitItems);

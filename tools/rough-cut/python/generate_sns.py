@@ -19,6 +19,7 @@ import argparse
 import json
 import math
 import os
+import platform
 import random
 import subprocess
 import sys
@@ -27,12 +28,54 @@ from pathlib import Path
 
 FFMPEG = "ffmpeg"
 MAGICK = "magick"
-TELOP_FONT = "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
+
+# フォントパス: macOS → ヒラギノ、Linux → Noto Sans JP
+def _resolve_font() -> str:
+    if platform.system() == "Darwin":
+        candidates = [
+            "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+            "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        ]
+        for p in candidates:
+            if Path(p).exists():
+                return p
+    # Linux / フォールバック
+    linux_candidates = [
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJKjp-Regular.otf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+    ]
+    for p in linux_candidates:
+        if Path(p).exists():
+            return p
+    return "NotoSansCJK-Regular"  # PATH上に存在することを期待
+
+TELOP_FONT = _resolve_font()
 
 # 出力解像度
 OUTPUT_W = 1080
 OUTPUT_H = 1920
 FPS = 30
+
+# パン方向の定義（左上・右上・左下・右下）
+PAN_DIRECTIONS = {
+    "ul": ("x+'1'", "y+'0.5'"),    # 左上
+    "ur": ("x-'1'", "y+'0.5'"),    # 右上
+    "ll": ("x+'1'", "y-'0.5'"),    # 左下
+    "lr": ("x-'1'", "y-'0.5'"),    # 右下
+}
+PAN_DIRECTIONS_FAST = {
+    "ul": ("x+'2'", "y+'1'"),
+    "ur": ("x-'2'", "y+'1'"),
+    "ll": ("x+'2'", "y-'1'"),
+    "lr": ("x-'2'", "y-'1'"),
+}
+PAN_DIRECTIONS_MINIMAL = {
+    "ul": ("x+'0.3'", "y+'0.2'"),
+    "ur": ("x-'0.3'", "y+'0.2'"),
+    "ll": ("x+'0.3'", "y-'0.2'"),
+    "lr": ("x-'0.3'", "y-'0.2'"),
+}
 
 # スタイル定義
 STYLES = {
@@ -110,23 +153,39 @@ def generate_ken_burns_clip(photo_path: str, output_path: str, duration: float,
         z_expr = f"max(zoom-{zoom_speed},{zoom_min})"
         start_zoom = zoom_max
 
-    # パン方向（ランダムに少し動かす）
-    pan_options = {
-        "slow": ("x+'1'", "y+'0.5'"),
-        "fast": ("x+'2'", "y+'1'"),
-        "minimal": ("x+'0.3'", "y+'0.2'"),
-    }
-    px, py = pan_options.get(style["pan_speed"], ("x+'1'", "y+'0.5'"))
+    # パン方向: 写真ごとにランダムに4方向から選ぶ
+    pan_speed = style["pan_speed"]
+    direction_key = random.choice(list(PAN_DIRECTIONS.keys()))
+    if pan_speed == "fast":
+        px, py = PAN_DIRECTIONS_FAST[direction_key]
+    elif pan_speed == "minimal":
+        px, py = PAN_DIRECTIONS_MINIMAL[direction_key]
+    else:
+        px, py = PAN_DIRECTIONS[direction_key]
 
-    # 中央からスタート
-    # zoompanの座標はズーム後の画像サイズに対する左上角
+    # パン量を絶対値に変換してFFmpeg式を組み立てる
+    def pan_expr_to_delta(expr: str) -> tuple[str, float]:
+        """x+'1.5' → ('+', 1.5) or x-'1.5' → ('-', 1.5)"""
+        if "+'" in expr:
+            val = float(expr.split("+'")[1].rstrip("'"))
+            return ('+', val)
+        else:
+            val = float(expr.split("-'")[1].rstrip("'"))
+            return ('-', val)
+
+    px_sign, px_val = pan_expr_to_delta(px)
+    py_sign, py_val = pan_expr_to_delta(py)
+
+    x_delta = f"(on-1)*{px_val}" if px_sign == '+' else f"-(on-1)*{px_val}"
+    y_delta = f"(on-1)*{py_val}" if py_sign == '+' else f"-(on-1)*{py_val}"
+
     cmd = [
         FFMPEG, "-y",
         "-loop", "1", "-i", photo_path,
         "-vf", (
             f"zoompan=z='{z_expr}':"
-            f"x='iw/2-(iw/zoom/2)+({px.split('+')[1].strip(chr(39))}*(on-1))':"
-            f"y='ih/2-(ih/zoom/2)+({py.split('+')[1].strip(chr(39))}*(on-1))':"
+            f"x='iw/2-(iw/zoom/2)+({x_delta})':"
+            f"y='ih/2-(ih/zoom/2)+({y_delta})':"
             f"d={total_frames}:s={OUTPUT_W}x{OUTPUT_H}:fps={FPS},"
             f"format=yuv420p"
         ),
@@ -142,12 +201,26 @@ def generate_ken_burns_clip(photo_path: str, output_path: str, duration: float,
     return output_path
 
 
+def _auto_font_size(text: str, base_size: int, max_chars: int = 12, min_size: int = 24) -> int:
+    """文字数に応じてフォントサイズを自動縮小する"""
+    if len(text) <= max_chars:
+        return base_size
+    # 文字数に反比例して縮小
+    ratio = max_chars / len(text)
+    shrunk = int(base_size * ratio)
+    return max(shrunk, min_size)
+
+
 def generate_title_overlay(title: str, subtitle: str, style: dict,
                            output_path: str) -> str:
     """タイトル+サブタイトルの透過PNG生成"""
-    title_size = style["title_font_size"]
-    sub_size = style["subtitle_font_size"]
+    base_title_size = style["title_font_size"]
+    base_sub_size = style["subtitle_font_size"]
     bg_opacity = style["text_bg_opacity"]
+
+    # 文字数に応じてフォントサイズ自動縮小
+    title_size = _auto_font_size(title, base_title_size, max_chars=10) if title else base_title_size
+    sub_size = _auto_font_size(subtitle, base_sub_size, max_chars=20) if subtitle else base_sub_size
 
     # テキスト高さ計算
     title_h = int(title_size * 1.5) if title else 0

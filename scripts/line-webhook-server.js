@@ -1,3 +1,5 @@
+// @critical: start-line-bot.sh から常駐起動（Airbnb予約通知・LINE Webhook）
+// @stops-if-deleted: Airbnb予約通知の自動取り込み・HIBA/UME室判定・airbnb-sync.shの同期APIが止まる
 const http = require("http");
 const https = require("https");
 const crypto = require("crypto");
@@ -182,9 +184,13 @@ function saveBookingsLog(bookings) {
 
 function parseAirbnbConfirmationEmail(body) {
   // リスティング名からHIBA/UME判定
+  // 実際のリスティング名: "COFFEE WITH A MOUNTAIN VIEW | TRADITIONAL HOUSE H" or "...HOUSE U"
   let room = "UNKNOWN";
-  if (/MOUNTAIN VIEW\s*H/i.test(body)) room = "HIBA";
-  else if (/MOUNTAIN VIEW\s*U/i.test(body)) room = "UME";
+  if (/TRADITIONAL\s+HOUSE\s+H\b/i.test(body) || /HOUSE\s+H\b/i.test(body)) room = "HIBA";
+  else if (/TRADITIONAL\s+HOUSE\s+U\b/i.test(body) || /HOUSE\s+U\b/i.test(body)) room = "UME";
+  // フォールバック: 旧パターン（互換性のため残す）
+  else if (/MOUNTAIN VIEW\s*\|\s*.*H\b/i.test(body)) room = "HIBA";
+  else if (/MOUNTAIN VIEW\s*\|\s*.*U\b/i.test(body)) room = "UME";
 
   // チェックイン・チェックアウト日
   // メール形式: 「チェックイン    チェックアウト\n\n4月5日(日)   4月6日(月)」
@@ -494,7 +500,129 @@ async function syncAirbnbBookings(gToken) {
     console.error("Cancellation check error:", cancelErr.message);
   }
 
-  return { synced, skipped, cancelled };
+  // 予約変更メールもチェック
+  let modified = 0;
+  try {
+    const modQuery = encodeURIComponent(`from:automated@airbnb.com (subject:予約変更 OR subject:変更に同意 OR subject:変更が承認) after:${after}`);
+    const modUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${modQuery}&maxResults=20`;
+    const modResult = await googleApiRequest("GET", modUrl, null, gToken);
+
+    if (modResult.messages && modResult.messages.length > 0) {
+      const currentBookings = loadBookingsLog();
+
+      for (const msg of modResult.messages) {
+        const msgUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`;
+        const msgData = await googleApiRequest("GET", msgUrl, null, gToken);
+
+        // メール本文を取得
+        let body = "";
+        function extractModText(part) {
+          if (!part) return;
+          if (part.mimeType === "text/plain" && part.body?.data) {
+            body += Buffer.from(part.body.data, "base64url").toString("utf-8");
+          }
+          if (part.mimeType === "text/html" && part.body?.data) {
+            const html = Buffer.from(part.body.data, "base64url").toString("utf-8");
+            body += html.replace(/<[^>]+>/g, " ");
+          }
+          if (part.parts) part.parts.forEach(extractModText);
+        }
+        if (msgData.payload) extractModText(msgData.payload);
+
+        // 確認コード抽出
+        let confirmCode = null;
+        const subjectH = msgData.payload?.headers?.find(h => h.name === "Subject");
+        const subj = subjectH?.value || "";
+        const subjMatch = subj.match(/[（(]([A-Z0-9]{8,})[）)]/);
+        if (subjMatch) confirmCode = subjMatch[1];
+        if (!confirmCode) {
+          const bodyMatch = body.match(/[（(]?(HM[A-Z0-9]{6,10})[）)]?/);
+          if (bodyMatch) confirmCode = bodyMatch[1];
+        }
+
+        if (!confirmCode) continue;
+
+        const existing = currentBookings.find(b => b.confirmationCode === confirmCode);
+        if (!existing) continue;
+
+        // 新しい日程をメール本文からパース
+        const checkinMatch = body.match(/チェックイン[:\s]*(\d{4})[年/](\d{1,2})[月/](\d{1,2})/);
+        const checkoutMatch = body.match(/チェックアウト[:\s]*(\d{4})[年/](\d{1,2})[月/](\d{1,2})/);
+        // 英語パターンも対応
+        const checkinMatchEn = body.match(/Check-?in[:\s]*(\w+)\s+(\d{1,2}),?\s*(\d{4})/i);
+        const checkoutMatchEn = body.match(/Check-?out[:\s]*(\w+)\s+(\d{1,2}),?\s*(\d{4})/i);
+
+        let newCheckin = null, newCheckout = null;
+
+        if (checkinMatch) {
+          newCheckin = `${checkinMatch[1]}-${String(checkinMatch[2]).padStart(2, "0")}-${String(checkinMatch[3]).padStart(2, "0")}`;
+        }
+        if (checkoutMatch) {
+          newCheckout = `${checkoutMatch[1]}-${String(checkoutMatch[2]).padStart(2, "0")}-${String(checkoutMatch[3]).padStart(2, "0")}`;
+        }
+
+        // ゲスト数の変更
+        const guestMatch = body.match(/ゲスト[:\s]*(\d+)/);
+        let newGuestCount = guestMatch ? parseInt(guestMatch[1]) : null;
+
+        if (!newCheckin && !newCheckout && !newGuestCount) continue;
+
+        console.log(`[modify] Found modified booking: ${confirmCode} (${existing.guestName})`);
+        if (newCheckin) console.log(`[modify]   Check-in: ${existing.checkin} → ${newCheckin}`);
+        if (newCheckout) console.log(`[modify]   Check-out: ${existing.checkout} → ${newCheckout}`);
+
+        // カレンダーイベントを更新
+        const calId = existing.room === "HIBA" ? ENGAWA_HIBA_CAL : ENGAWA_UME_CAL;
+        const timeMin = existing.checkin + "T00:00:00Z";
+        const coD = new Date(existing.checkout + "T00:00:00Z");
+        coD.setUTCDate(coD.getUTCDate() + 2);
+        const timeMax = coD.toISOString();
+
+        try {
+          const evUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&maxResults=50`;
+          const evResult = await googleApiRequest("GET", evUrl, null, gToken);
+          if (evResult.items) {
+            for (const ev of evResult.items) {
+              const desc = ev.description || "";
+              const summary = ev.summary || "";
+              if (desc.includes(confirmCode) || summary.includes(existing.guestName)) {
+                // イベント更新
+                const updatedEvent = { ...ev };
+                if (newCheckin) updatedEvent.start = { date: newCheckin };
+                if (newCheckout) updatedEvent.end = { date: newCheckout };
+                // descriptionに変更履歴を追記
+                updatedEvent.description = (ev.description || "") + `\n[変更] ${new Date().toISOString().split("T")[0]}`;
+                if (newGuestCount) {
+                  updatedEvent.description = updatedEvent.description.replace(/ゲスト:\s*\d+/, `ゲスト: ${newGuestCount}`);
+                }
+
+                const updateUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${ev.id}`;
+                await googleApiRequest("PUT", updateUrl, JSON.stringify(updatedEvent), gToken, "application/json");
+                console.log(`[modify] Calendar event updated: ${existing.guestName} (${confirmCode})`);
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`[modify] Calendar update error (${confirmCode}):`, e.message);
+        }
+
+        // ローカルログ更新
+        if (newCheckin) existing.checkin = newCheckin;
+        if (newCheckout) existing.checkout = newCheckout;
+        if (newGuestCount) existing.guestCount = newGuestCount;
+        modified++;
+      }
+
+      if (modified > 0) {
+        saveBookingsLog(currentBookings);
+        console.log(`[modify] Updated ${modified} modified bookings`);
+      }
+    }
+  } catch (modErr) {
+    console.error("Modification check error:", modErr.message);
+  }
+
+  return { synced, skipped, cancelled, modified };
 }
 
 // Google Calendar 空き時間チェック
