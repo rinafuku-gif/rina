@@ -54,7 +54,7 @@
     },
     {
       "id": "3390f0fdafad8185b741d4e40089deb7",
-      "title": "SUNDAY PICNIC 出店",
+      "title": "SUNDAY PICNIC 出��",
       "date": "2026-05-24",
       "category": "",
       "business": "三十日珈琲",
@@ -90,19 +90,6 @@
       "_gtd": "保留",
       "_priority": null,
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
-    },
-    {
-      "id": "3390f0fdafad819b9fb5dfb667725765",
-      "title": "Phase 4: セットアップ",
-      "date": "2026-04-18",
-      "category": "",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "完��",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/Phase-4-3390f0fdafad819b9fb5dfb667725765"
     },
     {
       "id": "3390f0fdafad819caedcc91eb369624a",
@@ -550,7 +537,7 @@
       "id": "3480f0fdafad814a929cc84db1e93be3",
       "title": "【えんがわ】上野原商工会に電話（個人事業主扱いで様式4発行依頼）",
       "date": "2026-04-21",
-      "category": "補助金・資金",
+      "category": "補助金・���金",
       "business": "えんがわ",
       "status": "進行中",
       "checklist": [],
@@ -963,5 +950,5 @@
       "_notion_url": "https://www.notion.so/SaunaLab-Iki-Sauna-34e0f0fdafad81efb4aacfb12bbb40d6"
     }
   ],
-  "generated_at": "2026-05-04T22:22:02.940Z"
+  "generated_at": "2026-05-04T22:27:03.282Z"
 }
