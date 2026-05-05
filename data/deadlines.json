@@ -537,7 +537,7 @@
       "id": "3480f0fdafad814a929cc84db1e93be3",
       "title": "【えんがわ】上野原商工会に電話（個人事業主扱いで様式4発行依頼）",
       "date": "2026-04-21",
-      "category": "補助金・資金",
+      "category": "補助金・���金",
       "business": "えんがわ",
       "status": "進行中",
       "checklist": [],
@@ -704,7 +704,7 @@
     },
     {
       "id": "3480f0fdafad81bfafceea2c6681f5e0",
-      "title": "【Basecamp】キッチン��連ギア追加購入",
+      "title": "【Basecamp】キッチン関連ギア追加購入",
       "date": "2026-04-23",
       "category": "その他",
       "business": "Basecamp Torisawa",
@@ -950,5 +950,5 @@
       "_notion_url": "https://www.notion.so/SaunaLab-Iki-Sauna-34e0f0fdafad81efb4aacfb12bbb40d6"
     }
   ],
-  "generated_at": "2026-05-05T15:42:03.716Z"
+  "generated_at": "2026-05-05T15:47:02.765Z"
 }
