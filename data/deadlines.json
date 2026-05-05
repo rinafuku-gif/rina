@@ -633,7 +633,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "次にやること",
+      "_gtd": "次に��ること",
       "_priority": null,
       "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad817f9567e54901037dbe"
     },
@@ -691,7 +691,7 @@
     },
     {
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
-      "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
+      "title": "【SATOYAMA】専���家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
       "date": "2026-04-21",
       "category": "その他",
       "business": "SATOYAMA AI BASE",
@@ -950,5 +950,5 @@
       "_notion_url": "https://www.notion.so/SaunaLab-Iki-Sauna-34e0f0fdafad81efb4aacfb12bbb40d6"
     }
   ],
-  "generated_at": "2026-05-05T10:27:06.038Z"
+  "generated_at": "2026-05-05T10:32:03.495Z"
 }
