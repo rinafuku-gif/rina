@@ -101,7 +101,7 @@
       "checklist": [],
       "notes": "",
       "_gtd": "進行中",
-      "_priority": null,
+      "_priority": "高",
       "_notion_url": "https://www.notion.so/3390f0fdafad819caedcc91eb369624a"
     },
     {
@@ -756,7 +756,7 @@
     },
     {
       "id": "3480f0fdafad81d892f7cd809c606ab8",
-      "title": "【SATOYAMA】上野原商工会に専門家派遣 登録申請書を送付（なる早）",
+      "title": "【SATOYAMA】上野原商工会に専門家派遣 登録申請書を送付（��る早）",
       "date": "2026-04-21",
       "category": "その他",
       "business": "SATOYAMA AI BASE",
@@ -950,5 +950,5 @@
       "_notion_url": "https://www.notion.so/SaunaLab-Iki-Sauna-34e0f0fdafad81efb4aacfb12bbb40d6"
     }
   ],
-  "generated_at": "2026-05-05T17:42:03.168Z"
+  "generated_at": "2026-05-05T17:47:02.631Z"
 }
