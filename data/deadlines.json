@@ -1,6 +1,19 @@
 {
   "deadlines": [
     {
+      "id": "3390f0fdafad8185b741d4e40089deb7",
+      "title": "SUNDAY PICNIC 出店",
+      "date": "2026-05-24",
+      "category": "",
+      "business": "三十日珈琲",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": null,
+      "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
+    },
+    {
       "id": "3390f0fdafad819a8ab4f7d9cb5b8144",
       "title": "Basecamp Torisawa 正式オープン",
       "date": "2026-05-12",
@@ -417,5 +430,5 @@
       "_notion_url": "https://www.notion.so/SaunaLab-Iki-Sauna-34e0f0fdafad81efb4aacfb12bbb40d6"
     }
   ],
-  "generated_at": "2026-05-06T13:52:06.914Z"
+  "generated_at": "2026-05-06T13:57:03.189Z"
 }
