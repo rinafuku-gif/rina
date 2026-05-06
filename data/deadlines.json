@@ -1,19 +1,6 @@
 {
   "deadlines": [
     {
-      "id": "3390f0fdafad8126b984eccca9d0df64",
-      "title": "周辺情報ガイド作成（遠隔可）",
-      "date": "2026-04-22",
-      "category": "",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/3390f0fdafad8126b984eccca9d0df64"
-    },
-    {
       "id": "3390f0fdafad8185b741d4e40089deb7",
       "title": "SUNDAY PICNIC 出店",
       "date": "2026-05-24",
@@ -25,19 +12,6 @@
       "_gtd": "日付指定",
       "_priority": null,
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
-    },
-    {
-      "id": "3390f0fdafad8198b65ae8fb75965638",
-      "title": "ギアレンタル規約作成（遠隔可）",
-      "date": "2026-04-23",
-      "category": "",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/3390f0fdafad8198b65ae8fb75965638"
     },
     {
       "id": "3390f0fdafad819a8ab4f7d9cb5b8144",
@@ -54,7 +28,7 @@
     },
     {
       "id": "3390f0fdafad819caedcc91eb369624a",
-      "title": "テスト宿泊（関係者）",
+      "title": "",
       "date": "2026-05-06",
       "category": "",
       "business": "Basecamp Torisawa",
@@ -68,7 +42,7 @@
     {
       "id": "3390f0fdafad81c086e0c84e272e6c63",
       "title": "Phase 6: 集客・掲載",
-      "date": "2026-04-27",
+      "date": "2026-05-09",
       "category": "",
       "business": "Basecamp Torisawa",
       "status": "進行中",
@@ -81,7 +55,7 @@
     {
       "id": "3390f0fdafad81c8920ded56196bfac9",
       "title": "Airbnb公開・予約受付開始",
-      "date": "2026-04-28",
+      "date": "2026-05-16",
       "category": "",
       "business": "Basecamp Torisawa",
       "status": "進行中",
@@ -90,32 +64,6 @@
       "_gtd": "次にやること",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/Airbnb-3390f0fdafad81c8920ded56196bfac9"
-    },
-    {
-      "id": "3390f0fdafad81fa8f30d335985d2044",
-      "title": "正規料金設定・本格運営",
-      "date": "2026-05-10",
-      "category": "",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "Inbox",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/3390f0fdafad81fa8f30d335985d2044"
-    },
-    {
-      "id": "3390f0fdafad81fe9e89e8e312a9ffe1",
-      "title": "清掃オペレーション確立",
-      "date": "2026-04-22",
-      "category": "",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/3390f0fdafad81fe9e89e8e312a9ffe1"
     },
     {
       "id": "33c0f0fdafad8132af5fcda8a5fe693c",
@@ -172,7 +120,7 @@
     {
       "id": "33c0f0fdafad819ea527f18382dc96a7",
       "title": "【蔵サウナ】見積もり反映→事業計画書を最終化",
-      "date": "2026-04-23",
+      "date": "2026-05-08",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -185,7 +133,7 @@
     {
       "id": "33c0f0fdafad819f8cbae4d531fe49bf",
       "title": "【SAB】5月1日 SATOYAMA AI BASE 正式ローンチ",
-      "date": "2026-05-01",
+      "date": "2026-06-01",
       "category": "マーケティング",
       "business": "SATOYAMA AI BASE",
       "status": "進行中",
@@ -250,7 +198,7 @@
     {
       "id": "3480f0fdafad8101984ef71ad5597840",
       "title": "【Basecamp】宿泊者名簿フォーマット準備（検査前必須）",
-      "date": "2026-04-23",
+      "date": "2026-05-08",
       "category": "契約・法務",
       "business": "Basecamp Torisawa",
       "status": "進行中",
@@ -263,7 +211,7 @@
     {
       "id": "3480f0fdafad810b98c9f1ea9be23878",
       "title": "【Basecamp】ギアレンタル規約作成",
-      "date": "2026-04-23",
+      "date": "2026-05-09",
       "category": "契約・法務",
       "business": "Basecamp Torisawa",
       "status": "進行中",
@@ -276,7 +224,7 @@
     {
       "id": "3480f0fdafad8112aec1dae321087ab6",
       "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
-      "date": "2026-04-21",
+      "date": "2026-05-08",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -302,7 +250,7 @@
     {
       "id": "3480f0fdafad814bbfced74a0e8ecece",
       "title": "【Basecamp】周辺情報ガイド作成",
-      "date": "2026-04-22",
+      "date": "2026-05-08",
       "category": "マーケティング",
       "business": "Basecamp Torisawa",
       "status": "進行中",
@@ -311,45 +259,6 @@
       "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad814bbfced74a0e8ecece"
-    },
-    {
-      "id": "3480f0fdafad815188ddd8b2f720b47b",
-      "title": "【Basecamp】アメニティ・設備の説明書き作成",
-      "date": "2026-04-24",
-      "category": "ブランディング",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad815188ddd8b2f720b47b"
-    },
-    {
-      "id": "3480f0fdafad8159981ff600491ba989",
-      "title": "【Basecamp】Airbnb登録・料金設定",
-      "date": "2026-04-24",
-      "category": "マーケティング",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/Basecamp-Airbnb-3480f0fdafad8159981ff600491ba989"
-    },
-    {
-      "id": "3480f0fdafad817c9e94fe5532c65ed5",
-      "title": "【Basecamp】センサーライト購入（階段・玄関ほか）",
-      "date": "2026-04-23",
-      "category": "その他",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad817c9e94fe5532c65ed5"
     },
     {
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
@@ -367,7 +276,7 @@
     {
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
       "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
-      "date": "2026-04-21",
+      "date": "2026-05-08",
       "category": "その他",
       "business": "SATOYAMA AI BASE",
       "status": "進行中",
@@ -380,7 +289,7 @@
     {
       "id": "3480f0fdafad81d0b195c3ca298ceeaa",
       "title": "【Basecamp】ギアの使用マニュアル作成",
-      "date": "2026-04-24",
+      "date": "2026-05-08",
       "category": "ブランディング",
       "business": "Basecamp Torisawa",
       "status": "進行中",
@@ -393,7 +302,7 @@
     {
       "id": "3480f0fdafad81d892f7cd809c606ab8",
       "title": "【SATOYAMA】上野原商工会に専門家派遣 登録申請書を送付（なる早）",
-      "date": "2026-04-21",
+      "date": "2026-05-08",
       "category": "その他",
       "business": "SATOYAMA AI BASE",
       "status": "進行中",
@@ -470,7 +379,7 @@
     },
     {
       "id": "34e0f0fdafad81b4a4b3c8e073421f91",
-      "title": "【蔵���ウナ】上野原市政策秘書課 山田さんに資料持参で再訪問",
+      "title": "【蔵サウナ】上野原市政策秘書課 山田さんに資料持参で再訪問",
       "date": "2026-05-23",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -521,5 +430,5 @@
       "_notion_url": "https://www.notion.so/SaunaLab-Iki-Sauna-34e0f0fdafad81efb4aacfb12bbb40d6"
     }
   ],
-  "generated_at": "2026-05-05T23:52:02.138Z"
+  "generated_at": "2026-05-05T23:57:02.477Z"
 }
