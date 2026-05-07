@@ -3,7 +3,7 @@
 voice-chat-bot.py — Discord音声やりとりBot
 
 音声入力: テキストチャンネルのボイスメッセージ(.ogg) → whisper文字起こし
-応答生成: Claude CLI（しらたま人格）
+応答生成: Claude CLI stream-json（サブスクリプション認証・API課金なし）
 音声出力: VOICEVOX TTS → ボイスチャンネル再生 + テキスト投稿
 
 ※ DAVE E2EEによりボイスチャンネルからの音声受信は不可のため、
@@ -23,11 +23,6 @@ import urllib.request
 import wave
 from collections import deque
 from pathlib import Path
-
-# Anthropic SDK + dotenv（高速化: Claude CLI → SDK直接呼び出し）
-from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent.parent / ".env")
-import anthropic as _anthropic
 
 # Voice debug logging
 logging.basicConfig(level=logging.WARNING, stream=sys.stderr, format='%(name)s:%(levelname)s: %(message)s')
@@ -50,8 +45,8 @@ WHISPER_PATH = "/opt/homebrew/bin/whisper-cli"
 WHISPER_MODEL_PATH = str(Path(__file__).parent.parent / "vendor" / "whisper-cpp" / "models" / "ggml-large-v3-turbo-q5_0.bin")
 WHISPER_LANGUAGE = "ja"
 
-# ── B. Anthropic SDK（旧: Claude CLI呼び出し）──
-CLAUDE_PATH = "/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin/claude"  # フォールバック用に保持
+# ── B. Claude CLI（stream-json ストリーミング / サブスクリプション認証）──
+CLAUDE_PATH = "/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin/claude"
 ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
 REPO_DIR = Path(__file__).parent.parent
@@ -219,54 +214,16 @@ def build_claude_prompt(user_text: str) -> str:
     return "\n".join(parts)
 
 
+# Claude CLI 用環境変数（ANTHROPIC_API_KEY を除去してサブスクリプション認証を強制）
 CLAUDE_ENV = {
-    **os.environ,
-    "HOME": "/Users/ocmm",
-    "PATH": f"/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin:/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+    k: v for k, v in os.environ.items()
+    if k not in ("ANTHROPIC_API_KEY", "CLAUDECODE")
 }
-CLAUDE_ENV.pop("CLAUDECODE", None)
-CLAUDE_ENV.pop("ANTHROPIC_API_KEY", None)
-
-# B. Anthropic SDK クライアント（シングルトン）
-_anthropic_client: "_anthropic.Anthropic | None" = None
-
-
-def _get_anthropic_client() -> "_anthropic.Anthropic":
-    global _anthropic_client
-    if _anthropic_client is None:
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY が未設定です")
-        _anthropic_client = _anthropic.Anthropic(api_key=api_key)
-    return _anthropic_client
-
-
-def _build_sdk_messages(user_text: str) -> tuple[str, list[dict]]:
-    """SDK用のシステムプロンプトとメッセージリストを構築する"""
-    # システムプロンプト（コンテキスト込み）
-    system_parts = [SHIRATAMA_SYSTEM_PROMPT]
-
-    ceo_ctx = load_ceo_context()
-    if ceo_ctx:
-        system_parts.append(f"\n{ceo_ctx}")
-
-    discord_hist = fetch_discord_history_sync()
-    if discord_hist:
-        system_parts.append("\n## Discord #general 直近の会話")
-        system_parts.append(discord_hist)
-
-    system_prompt = "\n".join(system_parts)
-
-    # メッセージリスト（会話履歴 + 今回の入力）
-    messages: list[dict] = []
-    for msg in conversation_history:
-        messages.append({"role": msg["role"], "content": msg["content"]})
-
-    # ボイスチャット専用指示を user メッセージに付加
-    voice_instruction = "上のボイスチャットルールに従って2〜3文で簡潔に応答してください。応答テキストのみを出力し、「しらたま:」などのプレフィックスは付けないでください。"
-    messages.append({"role": "user", "content": f"{user_text}\n\n{voice_instruction}"})
-
-    return system_prompt, messages
+CLAUDE_ENV["HOME"] = "/Users/ocmm"
+CLAUDE_ENV["PATH"] = (
+    "/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin"
+    ":/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+)
 
 
 def claude_generate_response(user_text: str) -> str:
@@ -276,28 +233,73 @@ def claude_generate_response(user_text: str) -> str:
     return full
 
 
-def _claude_stream_via_sdk(user_text: str):
-    """Anthropic SDK streaming（ANTHROPIC_API_KEY が有効な場合のみ機能）"""
+def _claude_stream_via_cli(user_text: str):
+    """Claude CLI stream-json ストリーミング（サブスクリプション認証・API課金なし）
+
+    claude -p --output-format stream-json --verbose --include-partial-messages
+    で起動し、JSONL の text_delta イベントを行単位でパースして yield する。
+    thinking_delta は音声出力不要なので無視する。
+    """
+    prompt = build_claude_prompt(user_text)
+
     sentence_delimiters = {"。", "！", "？", "!", "?"}
     buf = ""
     full_response = ""
+    first_text_token = True
     t_start = time.monotonic()
 
-    client = _get_anthropic_client()
-    system_prompt, messages = _build_sdk_messages(user_text)
+    proc = None
+    try:
+        proc = subprocess.Popen(
+            [
+                CLAUDE_PATH,
+                "-p",
+                "--model", ANTHROPIC_MODEL,
+                "--output-format", "stream-json",
+                "--verbose",
+                "--include-partial-messages",
+                "--no-session-persistence",
+                prompt,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=CLAUDE_ENV,
+            cwd=str(REPO_DIR),
+        )
 
-    with client.messages.stream(
-        model=ANTHROPIC_MODEL,
-        max_tokens=256,
-        system=system_prompt,
-        messages=messages,
-    ) as stream:
-        for text_chunk in stream.text_stream:
-            if not full_response:
+        for raw_line in proc.stdout:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                ev = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            if ev.get("type") != "stream_event":
+                continue
+            inner = ev.get("event", {})
+            if inner.get("type") != "content_block_delta":
+                continue
+            delta = inner.get("delta", {})
+            if delta.get("type") != "text_delta":
+                # thinking_delta などは捨てる
+                continue
+
+            chunk = delta.get("text", "")
+            if not chunk:
+                continue
+
+            if first_text_token:
                 t_first = time.monotonic()
-                print(f"[Latency] SDK first_token: {t_first - t_start:.2f}s", flush=True)
+                print(
+                    f"[Latency] first_text_token: {t_first - t_start:.2f}s",
+                    flush=True,
+                )
+                first_text_token = False
 
-            for ch in text_chunk:
+            for ch in chunk:
                 buf += ch
                 if ch in sentence_delimiters and len(buf.strip()) > 1:
                     sentence = buf.strip()
@@ -306,68 +308,19 @@ def _claude_stream_via_sdk(user_text: str):
                         yield sentence
                     buf = ""
 
-    remainder = buf.strip()
-    if remainder:
-        full_response += remainder
-        yield remainder
-
-    if full_response:
-        conversation_history.append({"role": "user", "content": user_text})
-        conversation_history.append({"role": "assistant", "content": full_response})
-
-
-def _claude_stream_via_cli(user_text: str):
-    """Claude CLI subprocess streaming（OAuth認証。フォールバックとして使用）"""
-    prompt = build_claude_prompt(user_text)
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
-        f.write(prompt)
-        prompt_file = f.name
-
-    proc = None
-    try:
-        proc = subprocess.Popen(
-            ["sh", "-c", f'cat "{prompt_file}" | "{CLAUDE_PATH}" -p --model {ANTHROPIC_MODEL} --max-turns 3 --tools ""'],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, env=CLAUDE_ENV, cwd=str(REPO_DIR),
-        )
-
-        buf = ""
-        full_response = ""
-        sentence_delimiters = {"。", "！", "？", "!", "?", "\n"}
-        first_chunk = True
-
-        while True:
-            ch = proc.stdout.read(1)
-            if not ch:
-                break
-            if first_chunk:
-                print(f"[Latency] CLI first_char received", flush=True)
-                first_chunk = False
-            buf += ch
-
-            if ch in sentence_delimiters and len(buf.strip()) > 1:
-                sentence = buf.strip()
-                if sentence:
-                    full_response += sentence
-                    yield sentence
-                buf = ""
+        # プロセス終了待ち
+        proc.wait(timeout=15)
 
         remainder = buf.strip()
         if remainder:
             full_response += remainder
             yield remainder
 
-        proc.wait(timeout=10)
-
         if full_response:
             conversation_history.append({"role": "user", "content": user_text})
             conversation_history.append({"role": "assistant", "content": full_response})
 
     finally:
-        try:
-            os.unlink(prompt_file)
-        except OSError:
-            pass
         if proc:
             try:
                 proc.kill()
@@ -376,19 +329,7 @@ def _claude_stream_via_cli(user_text: str):
 
 
 def claude_stream_sentences(user_text: str):
-    """B+C. SDK優先 → 失敗時は CLI フォールバック。句点ごとに文を yield する"""
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    use_sdk = bool(api_key and api_key.startswith("sk-ant-api"))
-
-    if use_sdk:
-        try:
-            yield from _claude_stream_via_sdk(user_text)
-            return
-        except Exception as e:
-            print(f"[Claude SDK] Error ({type(e).__name__}), falling back to CLI: {e}", file=sys.stderr, flush=True)
-
-    # CLI フォールバック（OAuth認証）
-    print(f"[Claude] Using CLI fallback", flush=True)
+    """Claude CLI stream-json で句点ごとに文を yield する"""
     yield from _claude_stream_via_cli(user_text)
 
 
@@ -1103,9 +1044,9 @@ async def reset(ctx):
 
 if __name__ == "__main__":
     token = load_token()
-    print("[Bot] Starting voice chat bot (低レイテンシ版: whisper-cpp Metal + Anthropic SDK stream)...", flush=True)
+    print("[Bot] Starting voice chat bot (低レイテンシ版: whisper-cpp Metal + Claude CLI stream-json)...", flush=True)
     print(f"[Bot] VOICEVOX: {VOICEVOX_URL}", flush=True)
     print(f"[Bot] Whisper-cpp: {WHISPER_PATH}", flush=True)
     print(f"[Bot] Whisper model: {WHISPER_MODEL_PATH}", flush=True)
-    print(f"[Bot] LLM: Anthropic SDK ({ANTHROPIC_MODEL})", flush=True)
+    print(f"[Bot] LLM: Claude CLI stream-json ({ANTHROPIC_MODEL})", flush=True)
     bot.run(token)
