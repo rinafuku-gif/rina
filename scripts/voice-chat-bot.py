@@ -18,6 +18,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
 import wave
@@ -227,6 +228,223 @@ CLAUDE_ENV["PATH"] = (
 )
 
 
+class ClaudePersistentClient:
+    """Claude CLI を1プロセス常駐させて毎ターン起動コストを排除する。
+
+    初回起動時のみ Node.js cold start（4〜5秒）が発生し、
+    2回目以降は stdin に user message JSONL を書き込むだけで
+    応答 stream を受け取れる（目標: first_text_token 1〜3秒）。
+
+    排他制御: asyncio.Lock で同時発話を防ぐ。
+    死活監視: _watchdog_thread でプロセス終了を検知し自動再起動。
+    """
+
+    SENTENCE_DELIMITERS = {"。", "！", "？", "!", "?"}
+
+    def __init__(self):
+        self._proc: subprocess.Popen | None = None
+        # stream_sentences 全体を排他する（stdout read 中もロック保持）
+        self._lock = threading.Lock()
+        self._turn_count = 0
+        self._watchdog: threading.Thread | None = None
+        self._shutdown = False
+
+    # ── プロセス管理 ────────────────────────────────
+
+    def _build_args(self) -> list[str]:
+        return [
+            CLAUDE_PATH,
+            "-p",
+            "--model", ANTHROPIC_MODEL,
+            "--input-format", "stream-json",
+            "--output-format", "stream-json",
+            "--verbose",
+            "--include-partial-messages",
+            "--no-session-persistence",
+            "--tools", "",  # MCP/ツール呼び出しを無効化してオーバーヘッドを排除
+            "--system-prompt", SHIRATAMA_SYSTEM_PROMPT,
+        ]
+
+    def start(self):
+        """プロセスを起動する（bot 起動時に1回呼ぶ）。"""
+        with self._lock:
+            self._spawn()
+        self._shutdown = False
+        self._watchdog = threading.Thread(target=self._watchdog_loop, daemon=True)
+        self._watchdog.start()
+        print(
+            f"[Claude] Persistent process started (PID: {self._proc.pid})",
+            flush=True,
+        )
+
+    def stop(self):
+        """プロセスを終了する（bot 終了時）。"""
+        self._shutdown = True
+        with self._lock:
+            self._kill()
+
+    def _spawn(self):
+        """プロセスを生成する（_lock 保持中に呼ぶこと）。"""
+        self._kill()
+        self._proc = subprocess.Popen(
+            self._build_args(),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=CLAUDE_ENV,
+            cwd=str(REPO_DIR),
+            bufsize=1,  # line-buffered
+        )
+
+    def _kill(self):
+        """現在のプロセスを強制終了する（_lock 保持中に呼ぶこと）。"""
+        if self._proc is not None:
+            try:
+                self._proc.stdin.close()
+            except Exception:
+                pass
+            try:
+                self._proc.kill()
+                self._proc.wait(timeout=3)
+            except Exception:
+                pass
+            self._proc = None
+
+    def _watchdog_loop(self):
+        """プロセスの死活を監視し、終了していたら再起動する。
+
+        _lock の non-blocking 取得を試み、stream_sentences が実行中なら
+        スキップして次の2秒後に再確認する。
+        """
+        while not self._shutdown:
+            time.sleep(2)
+            # stream_sentences がロック中なら watchdog はスキップ（次回の2秒後に再確認）
+            if self._lock.acquire(blocking=False):
+                try:
+                    if self._proc is not None and self._proc.poll() is not None:
+                        print(
+                            f"[Claude] Process died (rc={self._proc.returncode}), restarting...",
+                            flush=True,
+                        )
+                        self._spawn()
+                        self._turn_count = 0
+                        print(
+                            f"[Claude] Restarted (PID: {self._proc.pid})",
+                            flush=True,
+                        )
+                finally:
+                    self._lock.release()
+
+    # ── ストリーミング ───────────────────────────────
+
+    def stream_sentences(self, user_text: str):
+        """user_text を送信し、句点単位で応答文を yield する（同期ジェネレータ）。
+
+        呼び出し元は run_in_executor 経由で asyncio から使う。
+        排他ロック（threading.Lock）により同時発話は順番待ちになる。
+        """
+        with self._lock:
+            self._turn_count += 1
+            turn = self._turn_count
+            is_first_turn = (turn == 1)
+
+            if self._proc is None or self._proc.poll() is not None:
+                print("[Claude] Process not running, spawning...", flush=True)
+                self._spawn()
+
+            prompt = build_claude_prompt(user_text)
+            msg = json.dumps({
+                "type": "user",
+                "message": {
+                    "role": "user",
+                    "content": [{"type": "text", "text": prompt}],
+                },
+            })
+
+            buf = ""
+            full_response = ""
+            first_text_token = True
+            t_start = time.monotonic()
+            label = "初回" if is_first_turn else f"{turn}回目"
+
+            try:
+                self._proc.stdin.write(msg + "\n")
+                self._proc.stdin.flush()
+            except (BrokenPipeError, OSError) as e:
+                print(f"[Claude] stdin write error: {e}, respawning...", flush=True)
+                self._spawn()
+                self._proc.stdin.write(msg + "\n")
+                self._proc.stdin.flush()
+
+            try:
+                for raw_line in self._proc.stdout:
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    try:
+                        ev = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    if ev.get("type") == "result":
+                        # result イベントでこのターンの終端を検知
+                        break
+
+                    if ev.get("type") != "stream_event":
+                        continue
+                    inner = ev.get("event", {})
+                    if inner.get("type") != "content_block_delta":
+                        continue
+                    delta = inner.get("delta", {})
+                    if delta.get("type") != "text_delta":
+                        continue
+
+                    chunk = delta.get("text", "")
+                    if not chunk:
+                        continue
+
+                    if first_text_token:
+                        t_first = time.monotonic()
+                        print(
+                            f"[Latency] first_text_token ({label}): {t_first - t_start:.2f}s",
+                            flush=True,
+                        )
+                        first_text_token = False
+
+                    for ch in chunk:
+                        buf += ch
+                        if ch in self.SENTENCE_DELIMITERS and len(buf.strip()) > 1:
+                            sentence = buf.strip()
+                            if sentence:
+                                full_response += sentence
+                                yield sentence
+                            buf = ""
+
+            except Exception as e:
+                print(f"[Claude] Stream error: {e}", file=sys.stderr, flush=True)
+
+            remainder = buf.strip()
+            if remainder:
+                full_response += remainder
+                yield remainder
+
+            if full_response:
+                conversation_history.append({"role": "user", "content": user_text})
+                conversation_history.append({"role": "assistant", "content": full_response})
+
+
+# ── グローバルクライアント（bot 起動時に初期化）────
+_persistent_client: ClaudePersistentClient | None = None
+
+
+def get_persistent_client() -> ClaudePersistentClient:
+    global _persistent_client
+    if _persistent_client is None:
+        _persistent_client = ClaudePersistentClient()
+    return _persistent_client
+
+
 def claude_generate_response(user_text: str) -> str:
     """同期版: 全応答を一括取得（ボイスメッセージ/Siri用フォールバック）"""
     sentences = list(claude_stream_sentences(user_text))
@@ -234,104 +452,9 @@ def claude_generate_response(user_text: str) -> str:
     return full
 
 
-def _claude_stream_via_cli(user_text: str):
-    """Claude CLI stream-json ストリーミング（サブスクリプション認証・API課金なし）
-
-    claude -p --output-format stream-json --verbose --include-partial-messages
-    で起動し、JSONL の text_delta イベントを行単位でパースして yield する。
-    thinking_delta は音声出力不要なので無視する。
-    """
-    prompt = build_claude_prompt(user_text)
-
-    sentence_delimiters = {"。", "！", "？", "!", "?"}
-    buf = ""
-    full_response = ""
-    first_text_token = True
-    t_start = time.monotonic()
-
-    proc = None
-    try:
-        proc = subprocess.Popen(
-            [
-                CLAUDE_PATH,
-                "-p",
-                "--model", ANTHROPIC_MODEL,
-                "--output-format", "stream-json",
-                "--verbose",
-                "--include-partial-messages",
-                "--no-session-persistence",
-                prompt,
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=CLAUDE_ENV,
-            cwd=str(REPO_DIR),
-        )
-
-        for raw_line in proc.stdout:
-            line = raw_line.strip()
-            if not line:
-                continue
-            try:
-                ev = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-            if ev.get("type") != "stream_event":
-                continue
-            inner = ev.get("event", {})
-            if inner.get("type") != "content_block_delta":
-                continue
-            delta = inner.get("delta", {})
-            if delta.get("type") != "text_delta":
-                # thinking_delta などは捨てる
-                continue
-
-            chunk = delta.get("text", "")
-            if not chunk:
-                continue
-
-            if first_text_token:
-                t_first = time.monotonic()
-                print(
-                    f"[Latency] first_text_token: {t_first - t_start:.2f}s",
-                    flush=True,
-                )
-                first_text_token = False
-
-            for ch in chunk:
-                buf += ch
-                if ch in sentence_delimiters and len(buf.strip()) > 1:
-                    sentence = buf.strip()
-                    if sentence:
-                        full_response += sentence
-                        yield sentence
-                    buf = ""
-
-        # プロセス終了待ち
-        proc.wait(timeout=15)
-
-        remainder = buf.strip()
-        if remainder:
-            full_response += remainder
-            yield remainder
-
-        if full_response:
-            conversation_history.append({"role": "user", "content": user_text})
-            conversation_history.append({"role": "assistant", "content": full_response})
-
-    finally:
-        if proc:
-            try:
-                proc.kill()
-            except Exception:
-                pass
-
-
 def claude_stream_sentences(user_text: str):
-    """Claude CLI stream-json で句点ごとに文を yield する"""
-    yield from _claude_stream_via_cli(user_text)
+    """Claude 永続プロセスで句点ごとに文を yield する"""
+    yield from get_persistent_client().stream_sentences(user_text)
 
 
 # ── VOICEVOX TTS ──────────────────────────────────
@@ -866,6 +989,11 @@ async def on_ready():
     vc = await ensure_voice_channel(guild)
     print(f"[Bot] Voice channel ready: {vc.name} (ID: {vc.id})", flush=True)
     print(f"[Bot] Send voice messages in #{LISTEN_CHANNEL_NAME} to talk to しらたま!", flush=True)
+
+    # Claude 永続プロセスを事前起動（初回起動コストをここで消化）
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, get_persistent_client().start)
+    print("[Bot] Claude persistent process ready.", flush=True)
 
 
 @bot.event
