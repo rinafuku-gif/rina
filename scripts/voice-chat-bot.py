@@ -791,6 +791,29 @@ is_recording = False
 current_sink: SafeWaveSink | None = None
 barge_in_requested = False  # TTS再生中にRyoが喋ったフラグ
 
+# ── D. 状態表示UX（Discord Activity / Presence）────
+_BOT_STATES = {
+    "idle":         "💭 待機中",
+    "recording":    "🎙️ 録音中",
+    "transcribing": "📝 文字起こし中",
+    "thinking":     "🤔 考え中",
+    "speaking":     "🔊 話してる",
+}
+
+
+def set_state(state: str) -> None:
+    """Botのプレゼンスを更新してRyoに現在状態を表示する。
+
+    state は 'idle' | 'recording' | 'transcribing' | 'thinking' | 'speaking' のいずれか。
+    asyncio イベントループ内から呼ぶこと（coroutine ではなく同期的に task を作成）。
+    """
+    label = _BOT_STATES.get(state, state)
+    try:
+        activity = discord.Game(name=label)
+        asyncio.get_event_loop().create_task(bot.change_presence(activity=activity))
+    except Exception:
+        pass  # イベントループ未起動など起動初期は無視
+
 
 async def ensure_voice_channel(guild: discord.Guild) -> discord.VoiceChannel:
     for ch in guild.voice_channels:
@@ -897,10 +920,12 @@ async def _tts_player_loop():
             bot.loop.call_soon_threadsafe(done.set)
 
         source = FFmpegPCMAudio(tts_path, options="-ar 48000 -ac 2")
+        set_state("speaking")
         voice_client.play(source, after=after_play)
         await done.wait()
 
     tts_playing = False
+    set_state("recording" if is_recording else "idle")
 
 
 def trigger_barge_in():
@@ -978,6 +1003,7 @@ async def _stream_llm_and_tts(user_text: str, channel: discord.TextChannel, t_st
         if full_response:
             await channel.send(f"🗣️ **しらたま**: {full_response}")
 
+    set_state("thinking")
     await asyncio.gather(producer(), consumer())
     return full_response
 
@@ -1001,6 +1027,7 @@ async def process_recording(sink: SafeWaveSink, channel: discord.TextChannel):
 
         try:
             t0 = time.monotonic()
+            set_state("transcribing")
             print(f"[Bot] Transcribing VC audio from user {user_id} ({len(wav_bytes)} bytes, {duration:.1f}s)...", flush=True)
             loop = asyncio.get_event_loop()
             text = await loop.run_in_executor(None, whisper_transcribe, wav_path)
@@ -1056,6 +1083,7 @@ async def start_recording():
         return
 
     is_recording = True
+    set_state("recording")
     print("[Bot] VC Recording started", flush=True)
 
     # speaking イベントで発話検知
@@ -1203,6 +1231,8 @@ async def on_ready():
     await loop.run_in_executor(None, get_persistent_client().start)
     print("[Bot] Claude persistent process ready.", flush=True)
 
+    await bot.change_presence(activity=discord.Game(name=_BOT_STATES["idle"]))
+
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -1314,6 +1344,7 @@ async def on_voice_state_update(member, before, after):
             await voice_client.disconnect()
             voice_client = None
             conversation_history.clear()
+            set_state("idle")
             if listen_channel:
                 await listen_channel.send(f"👋 **しらたま**がボイスチャンネルから退出しました。")
 
