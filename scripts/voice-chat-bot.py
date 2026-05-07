@@ -15,6 +15,7 @@ import io
 import json
 import logging
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -509,6 +510,7 @@ class ClaudePersistentClient:
             return
 
         TURN_HARD_TIMEOUT_S = 45.0
+        proc = None
 
         try:
             self._turn_count += 1
@@ -525,106 +527,132 @@ class ClaudePersistentClient:
                 },
             })
 
+            # bash 経由起動（echo で stdin 送って pipe で claude に渡す）
+            # 2026-05-07 実証: launchd plist 経由で起動された Python (asyncio + ThreadPoolExecutor)
+            # から subprocess.Popen で claude CLI を直接起動すると、
+            # stdin pipe が claude CLI 側に届かず起動初期で詰まる現象。
+            # bash の echo + pipe 構造なら shell が pipe を扱うので EOF が確実に届き正常動作する。
+            quoted_args = " ".join(shlex.quote(a) for a in self._build_args())
+            shell_cmd = f"echo {shlex.quote(msg)} | {quoted_args}"
+
             t_start = time.monotonic()
             stderr_log = open(self._STDERR_LOG, "ab")
-            stderr_log.write(f"\n=== run at {time.time()} ===\n".encode("utf-8"))
+            stderr_log.write(f"\n=== run at {time.time()} (bash via) ===\n".encode("utf-8"))
             stderr_log.flush()
 
-            # subprocess.run で完全 one-shot。stdin に input を渡して即EOF・全stdout回収。
-            # streaming は諦めて確実性を取る。MCP無効化により cold start 1.4s。
             try:
-                result = subprocess.run(
-                    self._build_args(),
-                    input=msg + "\n",
-                    capture_output=True,
+                proc = subprocess.Popen(
+                    ["bash", "-c", shell_cmd],
+                    stdout=subprocess.PIPE,
+                    stderr=stderr_log,
                     text=True,
-                    timeout=TURN_HARD_TIMEOUT_S,
                     env=CLAUDE_ENV,
                     cwd=self._CLEAN_CWD,
+                    bufsize=1,
                 )
-                stderr_log.write(result.stderr.encode("utf-8") if result.stderr else b"")
-                stderr_log.flush()
-            except subprocess.TimeoutExpired as e:
-                stderr_log.write(f"\nTimeoutExpired after {TURN_HARD_TIMEOUT_S}s\n".encode("utf-8"))
-                stderr_log.flush()
-                stderr_log.close()
-                print(
-                    f"[Claude] Turn {label} hard timeout: {TURN_HARD_TIMEOUT_S}s",
-                    flush=True,
-                )
-                yield "すみません、応答が詰まりました。もう一度お願いできますか。"
-                return
             except Exception as e:
                 stderr_log.close()
-                print(f"[Claude] subprocess error: {e}", flush=True)
-                yield "すみません、応答できませんでした。もう一度お願いできますか。"
+                print(f"[Claude] spawn error: {e}", flush=True)
+                yield "すみません、起動できませんでした。"
                 return
 
-            stderr_log.close()
-            elapsed_total = time.monotonic() - t_start
-            print(f"[Latency] Claude total ({label}): {elapsed_total:.2f}s", flush=True)
-
-            # stream-json の出力を line 単位で parse して text_delta を集める
+            buf = ""
             full_response = ""
+            first_text_token = True
             event_count = 0
-            for line in (result.stdout or "").splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    ev = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                event_count += 1
 
-                if ev.get("type") == "result":
-                    if ev.get("is_error"):
-                        err_msg = ev.get("result", "")
+            timed_out = False
+            try:
+                for raw_line in iter(proc.stdout.readline, ''):
+                    elapsed_total = time.monotonic() - t_start
+                    if elapsed_total > TURN_HARD_TIMEOUT_S:
                         print(
-                            f"[Claude] ERROR result (turn={label}): {str(err_msg)[:300]}",
+                            f"[Claude] Turn {label} hard timeout: {elapsed_total:.1f}s "
+                            f"(events_received={event_count})",
                             flush=True,
                         )
-                    break
+                        timed_out = True
+                        break
 
-                if ev.get("type") != "stream_event":
-                    continue
-                inner = ev.get("event", {})
-                if inner.get("type") != "content_block_delta":
-                    continue
-                delta = inner.get("delta", {})
-                if delta.get("type") != "text_delta":
-                    continue
-                chunk = delta.get("text", "")
-                if not chunk:
-                    continue
-                full_response += chunk
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    try:
+                        ev = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    event_count += 1
+
+                    if ev.get("type") == "result":
+                        if ev.get("is_error"):
+                            err_msg = ev.get("result", "")
+                            print(
+                                f"[Claude] ERROR result (turn={label}): {str(err_msg)[:300]}",
+                                flush=True,
+                            )
+                        break
+
+                    if ev.get("type") != "stream_event":
+                        continue
+                    inner = ev.get("event", {})
+                    if inner.get("type") != "content_block_delta":
+                        continue
+                    delta = inner.get("delta", {})
+                    if delta.get("type") != "text_delta":
+                        continue
+                    chunk = delta.get("text", "")
+                    if not chunk:
+                        continue
+
+                    if first_text_token:
+                        elapsed = time.monotonic() - t_start
+                        print(
+                            f"[Latency] first_text_token ({label}): {elapsed:.2f}s",
+                            flush=True,
+                        )
+                        first_text_token = False
+
+                    for ch in chunk:
+                        buf += ch
+                        if ch in self.SENTENCE_DELIMITERS and len(buf.strip()) > 1:
+                            sentence = buf.strip()
+                            if sentence:
+                                full_response += sentence
+                                yield sentence
+                            buf = ""
+            except Exception as e:
+                print(f"[Claude] Stream error: {e}", file=sys.stderr, flush=True)
+            finally:
+                stderr_log.close()
+
+            if timed_out:
+                yield "すみません、応答が詰まりました。もう一度お願いできますか。"
+                return
+
+            remainder = buf.strip()
+            if remainder:
+                full_response += remainder
+                yield remainder
 
             print(
-                f"[Latency] events_received={event_count}, response_len={len(full_response)}",
+                f"[Latency] Claude total ({label}): {time.monotonic()-t_start:.2f}s, "
+                f"events={event_count}, response_len={len(full_response)}",
                 flush=True,
             )
 
-            if not full_response.strip():
-                yield "すみません、うまく応答できませんでした。もう一度お願いできますか。"
-                return
-
-            # 句点単位で yield（TTS が文単位で再生できるように）
-            buf = ""
-            for ch in full_response:
-                buf += ch
-                if ch in self.SENTENCE_DELIMITERS and len(buf.strip()) > 1:
-                    sentence = buf.strip()
-                    if sentence:
-                        yield sentence
-                    buf = ""
-            remainder = buf.strip()
-            if remainder:
-                yield remainder
-
-            conversation_history.append({"role": "user", "content": user_text})
-            conversation_history.append({"role": "assistant", "content": full_response})
+            if full_response:
+                conversation_history.append({"role": "user", "content": user_text})
+                conversation_history.append({"role": "assistant", "content": full_response})
 
         finally:
+            # ターン終了時に proc を確実に kill
+            if proc is not None and proc.poll() is None:
+                try:
+                    proc.kill()
+                    proc.wait(timeout=3)
+                except Exception:
+                    pass
             self._lock.release()
 
 
