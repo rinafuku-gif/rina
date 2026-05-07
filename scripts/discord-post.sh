@@ -54,3 +54,5 @@ while [ ${#REMAINING} -gt 0 ]; do
     -d "$(jq -n --arg text "$CHUNK" '{content: $text}')" > /dev/null
   [ ${#REMAINING} -gt 0 ] && sleep 1
 done
+
+exit 0
