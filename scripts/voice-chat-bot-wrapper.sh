@@ -26,7 +26,11 @@ if [ $((NOW - LAST)) -gt 180 ]; then
     COUNT=0
 fi
 if [ "$COUNT" -ge 5 ]; then
-    "$DISCORD_POST" general '**[Voice Bot]** ⚠️ クラッシュループ検知（5分以内に5回連続クラッシュ）。自動再起動を停止しました。手動で `launchctl unload && launchctl load ~/Library/LaunchAgents/com.rina.voice-chat-bot.plist` してください。' || true
+    if [ "${VOICE_BOT_TEST_MODE:-0}" != "1" ]; then
+        "$DISCORD_POST" general '**[Voice Bot]** ⚠️ クラッシュループ検知（5分以内に5回連続クラッシュ）。自動再起動を停止しました。手動で `launchctl unload && launchctl load ~/Library/LaunchAgents/com.rina.voice-chat-bot.plist` してください。' || true
+    else
+        echo "[wrapper] TEST_MODE: skipping Discord notification" >&2
+    fi
     rm -f "$PIDFILE" "$COUNT_FILE" "$LAST_FILE"
     exit 0
 fi
