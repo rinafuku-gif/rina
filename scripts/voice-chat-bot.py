@@ -24,6 +24,11 @@ import wave
 from collections import deque
 from pathlib import Path
 
+# Anthropic SDK + dotenv（高速化: Claude CLI → SDK直接呼び出し）
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent / ".env")
+import anthropic as _anthropic
+
 # Voice debug logging
 logging.basicConfig(level=logging.WARNING, stream=sys.stderr, format='%(name)s:%(levelname)s: %(message)s')
 
@@ -40,11 +45,14 @@ LISTEN_CHANNEL_NAME = "general"  # ボイスメッセージを受け付けるチ
 VOICEVOX_URL = "http://127.0.0.1:50021"
 VOICEVOX_SPEAKER_ID = 1  # 四国めたん（あまあま）
 
-WHISPER_PATH = "/opt/homebrew/bin/whisper"
-WHISPER_MODEL = "small"
+# ── A. whisper.cpp Metal版（旧: openai-whisper Python）──
+WHISPER_PATH = "/opt/homebrew/bin/whisper-cli"
+WHISPER_MODEL_PATH = str(Path(__file__).parent.parent / "vendor" / "whisper-cpp" / "models" / "ggml-large-v3-turbo-q5_0.bin")
 WHISPER_LANGUAGE = "ja"
 
-CLAUDE_PATH = "/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin/claude"
+# ── B. Anthropic SDK（旧: Claude CLI呼び出し）──
+CLAUDE_PATH = "/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin/claude"  # フォールバック用に保持
+ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
 REPO_DIR = Path(__file__).parent.parent
 LOG_DIR = REPO_DIR / "logs"
@@ -219,6 +227,47 @@ CLAUDE_ENV = {
 CLAUDE_ENV.pop("CLAUDECODE", None)
 CLAUDE_ENV.pop("ANTHROPIC_API_KEY", None)
 
+# B. Anthropic SDK クライアント（シングルトン）
+_anthropic_client: "_anthropic.Anthropic | None" = None
+
+
+def _get_anthropic_client() -> "_anthropic.Anthropic":
+    global _anthropic_client
+    if _anthropic_client is None:
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY が未設定です")
+        _anthropic_client = _anthropic.Anthropic(api_key=api_key)
+    return _anthropic_client
+
+
+def _build_sdk_messages(user_text: str) -> tuple[str, list[dict]]:
+    """SDK用のシステムプロンプトとメッセージリストを構築する"""
+    # システムプロンプト（コンテキスト込み）
+    system_parts = [SHIRATAMA_SYSTEM_PROMPT]
+
+    ceo_ctx = load_ceo_context()
+    if ceo_ctx:
+        system_parts.append(f"\n{ceo_ctx}")
+
+    discord_hist = fetch_discord_history_sync()
+    if discord_hist:
+        system_parts.append("\n## Discord #general 直近の会話")
+        system_parts.append(discord_hist)
+
+    system_prompt = "\n".join(system_parts)
+
+    # メッセージリスト（会話履歴 + 今回の入力）
+    messages: list[dict] = []
+    for msg in conversation_history:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+
+    # ボイスチャット専用指示を user メッセージに付加
+    voice_instruction = "上のボイスチャットルールに従って2〜3文で簡潔に応答してください。応答テキストのみを出力し、「しらたま:」などのプレフィックスは付けないでください。"
+    messages.append({"role": "user", "content": f"{user_text}\n\n{voice_instruction}"})
+
+    return system_prompt, messages
+
 
 def claude_generate_response(user_text: str) -> str:
     """同期版: 全応答を一括取得（ボイスメッセージ/Siri用フォールバック）"""
@@ -228,35 +277,35 @@ def claude_generate_response(user_text: str) -> str:
 
 
 def claude_stream_sentences(user_text: str):
-    """Claude CLI をストリーミング実行し、句点ごとに文を yield する"""
-    prompt = build_claude_prompt(user_text)
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
-        f.write(prompt)
-        prompt_file = f.name
+    """B+C. Anthropic SDK streaming で句点ごとに文を yield する（first-token優先）"""
+    t_first_token: float | None = None
+    sentence_delimiters = {"。", "！", "？", "!", "?"}
+    buf = ""
+    full_response = ""
 
     try:
-        proc = subprocess.Popen(
-            ["sh", "-c", f'cat "{prompt_file}" | "{CLAUDE_PATH}" -p --model claude-haiku-4-5-20251001 --max-turns 3 --tools ""'],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, env=CLAUDE_ENV, cwd=str(REPO_DIR),
-        )
+        client = _get_anthropic_client()
+        system_prompt, messages = _build_sdk_messages(user_text)
 
-        buf = ""
-        full_response = ""
-        sentence_delimiters = {"。", "！", "？", "!", "?", "\n"}
+        with client.messages.stream(
+            model=ANTHROPIC_MODEL,
+            max_tokens=256,
+            system=system_prompt,
+            messages=messages,
+        ) as stream:
+            for text_chunk in stream.text_stream:
+                if t_first_token is None:
+                    t_first_token = time.monotonic()
+                    print(f"[Latency] first_token: {t_first_token:.3f} (relative)", flush=True)
 
-        while True:
-            ch = proc.stdout.read(1)
-            if not ch:
-                break
-            buf += ch
-
-            if ch in sentence_delimiters and len(buf.strip()) > 1:
-                sentence = buf.strip()
-                if sentence:
-                    full_response += sentence
-                    yield sentence
-                buf = ""
+                for ch in text_chunk:
+                    buf += ch
+                    if ch in sentence_delimiters and len(buf.strip()) > 1:
+                        sentence = buf.strip()
+                        if sentence:
+                            full_response += sentence
+                            yield sentence
+                        buf = ""
 
         # 残りのバッファ
         remainder = buf.strip()
@@ -264,23 +313,13 @@ def claude_stream_sentences(user_text: str):
             full_response += remainder
             yield remainder
 
-        proc.wait(timeout=10)
-
         if full_response:
             conversation_history.append({"role": "user", "content": user_text})
             conversation_history.append({"role": "assistant", "content": full_response})
 
     except Exception as e:
-        print(f"[Claude] Stream error: {e}", file=sys.stderr, flush=True)
-    finally:
-        try:
-            os.unlink(prompt_file)
-        except OSError:
-            pass
-        try:
-            proc.kill()
-        except Exception:
-            pass
+        print(f"[Claude SDK] Stream error: {e}", file=sys.stderr, flush=True)
+        # フォールバック: 何も yield しない（呼び出し元でフォールバックメッセージ使用）
 
 
 # ── VOICEVOX TTS ──────────────────────────────────
@@ -360,33 +399,47 @@ WHISPER_HALLUCINATIONS = {
 
 
 def whisper_transcribe(audio_path: str) -> str:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        result = subprocess.run(
-            [WHISPER_PATH, audio_path, "--model", WHISPER_MODEL, "--language", WHISPER_LANGUAGE,
-             "--output_format", "txt", "--output_dir", tmpdir,
-             "--no_speech_threshold", "0.6",
-             "--logprob_threshold", "-0.5",
-             "--condition_on_previous_text", "False"],
-            capture_output=True, text=True, timeout=120,
-        )
-        if result.returncode != 0:
-            print(f"[Whisper] Error: {result.stderr[:500]}", file=sys.stderr, flush=True)
-            return ""
-        txt_files = list(Path(tmpdir).glob("*.txt"))
-        if txt_files:
-            raw = txt_files[0].read_text().strip()
-            cleaned = remove_fillers(raw)
-            # ハルシネーション検出: 定型句と完全一致 or 高類似
-            if cleaned in WHISPER_HALLUCINATIONS:
-                print(f"[Whisper] Hallucination filtered: {cleaned}", flush=True)
-                return ""
-            # 句読点除去してチェック
-            stripped = cleaned.rstrip("。、！？!?.")
-            if stripped in WHISPER_HALLUCINATIONS:
-                print(f"[Whisper] Hallucination filtered: {cleaned}", flush=True)
-                return ""
-            return cleaned
-    return ""
+    """A. whisper.cpp Metal版による高速STT（旧: openai-whisper Python→1〜3秒目標）"""
+    t_start = time.monotonic()
+    result = subprocess.run(
+        [
+            WHISPER_PATH,
+            "-m", WHISPER_MODEL_PATH,
+            "-l", WHISPER_LANGUAGE,
+            "-t", "4",
+            "-np",        # no-prints（進捗表示なし）
+            "-nt",        # no-timestamps
+            "--no-speech-thold", "0.6",
+            "-f", audio_path,
+        ],
+        capture_output=True, text=True, timeout=30,
+    )
+    t_end = time.monotonic()
+    print(f"[Whisper-cpp] Elapsed: {t_end - t_start:.1f}s", flush=True)
+
+    if result.returncode != 0:
+        print(f"[Whisper-cpp] Error: {result.stderr[:300]}", file=sys.stderr, flush=True)
+        return ""
+
+    # whisper-cli は stdout にテキストを出力（-np -nt でそのまま文字列）
+    raw = result.stdout.strip()
+    # stderr にもテキストが混在する場合があるためフォールバック
+    if not raw:
+        raw = result.stderr.strip()
+
+    # [BLANK_AUDIO] など whisper-cpp の内部メッセージを除去
+    lines = [l for l in raw.splitlines() if not l.startswith("[") or l.startswith("[ja]")]
+    raw = " ".join(lines).strip()
+
+    cleaned = remove_fillers(raw)
+    if cleaned in WHISPER_HALLUCINATIONS:
+        print(f"[Whisper-cpp] Hallucination filtered: {cleaned}", flush=True)
+        return ""
+    stripped = cleaned.rstrip("。、！？!?.")
+    if stripped in WHISPER_HALLUCINATIONS:
+        print(f"[Whisper-cpp] Hallucination filtered: {cleaned}", flush=True)
+        return ""
+    return cleaned
 
 
 # ── Discordボット ─────────────────────────────────
@@ -524,6 +577,76 @@ def trigger_barge_in():
         print("[Bot] Barge-in: stopped TTS playback", flush=True)
 
 
+async def _stream_llm_and_tts(user_text: str, channel: discord.TextChannel, t_stt_end: float) -> str:
+    """C. ストリーミングパイプライン: SDK stream → 句単位TTS enqueue → 並行再生
+    first_token_latency も計測してログ出力する。
+    """
+    loop = asyncio.get_event_loop()
+    full_response = ""
+    first_sentence = True
+    t_first_token: list[float] = []  # mutable closure
+
+    def _run_stream():
+        """executor内でgeneratorを回してキューに積む（同期）"""
+        nonlocal full_response
+        sentences_buf: list[str] = []
+
+        for sentence in claude_stream_sentences(user_text):
+            sentences_buf.append(sentence)
+
+        return sentences_buf
+
+    # SDK streaming は同期なので executor で実行しつつ、asyncio でTTSを並行処理
+    # 実装: executor で全文を取得しながら、文単位で非同期に TTS を enqueue する
+    # より細かいパイプラインは asyncio.Queue を使った producer/consumer で実現
+    sentence_queue: asyncio.Queue = asyncio.Queue()
+    done_event = asyncio.Event()
+
+    async def producer():
+        """SDK stream を executor で回し、文単位で sentence_queue に put"""
+        def _gen():
+            for sentence in claude_stream_sentences(user_text):
+                # スレッドセーフな put_nowait は使えないので call_soon_threadsafe 経由
+                loop.call_soon_threadsafe(sentence_queue.put_nowait, sentence)
+            loop.call_soon_threadsafe(done_event.set)
+
+        await loop.run_in_executor(None, _gen)
+
+    async def consumer():
+        """sentence_queue から文を取り出して TTS enqueue + テキスト収集"""
+        nonlocal full_response, first_sentence
+        t_llm_start = time.monotonic()
+
+        while True:
+            # done_event が立っていてかつキューが空になったら終了
+            if done_event.is_set() and sentence_queue.empty():
+                break
+            try:
+                sentence = await asyncio.wait_for(sentence_queue.get(), timeout=0.1)
+            except asyncio.TimeoutError:
+                continue
+
+            full_response += sentence
+
+            if first_sentence:
+                t_first = time.monotonic()
+                print(
+                    f"[Latency] first_token_latency: {t_first - t_stt_end:.1f}s (from STT end) | {sentence[:40]}",
+                    flush=True,
+                )
+                first_sentence = False
+
+            if voice_client and voice_client.is_connected():
+                await _enqueue_tts(sentence)
+
+        # テキストをチャンネルに投稿
+        if full_response:
+            await channel.send(f"🗣️ **しらたま**: {full_response}")
+
+    await asyncio.gather(producer(), consumer())
+    return full_response
+
+
 async def process_recording(sink: SafeWaveSink, channel: discord.TextChannel):
     """録音チャンク処理: whisper文字起こし → Claude応答 → TTS再生（レイテンシ計測付き）"""
     for user_id, audio_data in sink.audio_data.items():
@@ -556,20 +679,17 @@ async def process_recording(sink: SafeWaveSink, channel: discord.TextChannel):
             await channel.send(f"🎙️ **{username}**: {text}")
             print(f"[Latency] STT: {t1-t0:.1f}s | text: {text[:60]}", flush=True)
 
-            async with channel.typing():
-                response = await loop.run_in_executor(None, claude_generate_response, text)
+            # C. ストリーミングパイプライン（LLM + TTS 並行）
+            response = await _stream_llm_and_tts(text, channel, t_stt_end=t1)
             t2 = time.monotonic()
-            print(f"[Latency] LLM: {t2-t1:.1f}s", flush=True)
 
             if not response:
                 response = "すみません、うまく処理できませんでした。"
-            await channel.send(f"🗣️ **しらたま**: {response}")
-            t_tts_start = t2
-            for i, sentence in enumerate(split_sentences(response)):
-                await _enqueue_tts(sentence, t_start=t_tts_start if i == 0 else None)
+                await channel.send(f"🗣️ **しらたま**: {response}")
+                await _enqueue_tts(response)
 
             t3 = time.monotonic()
-            print(f"[Latency] Total: {t3-t0:.1f}s (STT:{t1-t0:.1f} + LLM:{t2-t1:.1f} + TTS:{t3-t2:.1f})", flush=True)
+            print(f"[Latency] VC Total: {t3-t0:.1f}s (STT:{t1-t0:.1f} + LLM+TTS:{t3-t1:.1f})", flush=True)
 
         except Exception as e:
             print(f"[Bot] VC processing error: {e}", file=sys.stderr, flush=True)
@@ -662,10 +782,9 @@ def recording_finished(exception):
 
 
 async def process_voice_message(message: discord.Message):
-    """ボイスメッセージを処理: ダウンロード → whisper → Claude → TTS"""
+    """ボイスメッセージを処理: ダウンロード → whisper-cpp → Claude SDK stream → TTS"""
     channel = message.channel
 
-    # ボイスメッセージの添付ファイルをダウンロード
     attachment = message.attachments[0]
     print(f"[Bot] Voice message from {message.author.display_name}: {attachment.filename} ({attachment.size} bytes)", flush=True)
 
@@ -688,19 +807,17 @@ async def process_voice_message(message: discord.Message):
         await channel.send(f"🎙️ **{message.author.display_name}**: {text}")
         print(f"[Latency] VM STT: {t1-t0:.1f}s | text: {text[:60]}", flush=True)
 
-        async with channel.typing():
-            response = await loop.run_in_executor(None, claude_generate_response, text)
+        # C. ストリーミングパイプライン（LLM + TTS 並行）
+        response = await _stream_llm_and_tts(text, channel, t_stt_end=t1)
         t2 = time.monotonic()
-        print(f"[Latency] VM LLM: {t2-t1:.1f}s", flush=True)
 
         if not response:
             response = "すみません、うまく処理できませんでした。もう一度話しかけてください。"
+            await channel.send(f"🗣️ **しらたま**: {response}")
+            await _enqueue_tts(response)
 
-        await channel.send(f"🗣️ **しらたま**: {response}")
-        for i, sentence in enumerate(split_sentences(response)):
-            await _enqueue_tts(sentence, t_start=t2 if i == 0 else None)
         t3 = time.monotonic()
-        print(f"[Latency] VM Total: {t3-t0:.1f}s (STT:{t1-t0:.1f} + LLM:{t2-t1:.1f} + TTS:{t3-t2:.1f})", flush=True)
+        print(f"[Latency] VM Total: {t3-t0:.1f}s (STT:{t1-t0:.1f} + LLM+TTS:{t3-t1:.1f})", flush=True)
 
     except Exception as e:
         print(f"[Bot] Voice message error: {e}", file=sys.stderr, flush=True)
@@ -916,8 +1033,9 @@ async def reset(ctx):
 
 if __name__ == "__main__":
     token = load_token()
-    print("[Bot] Starting voice chat bot (Hybrid: VC recording + Voice Message + Siri)...", flush=True)
+    print("[Bot] Starting voice chat bot (低レイテンシ版: whisper-cpp Metal + Anthropic SDK stream)...", flush=True)
     print(f"[Bot] VOICEVOX: {VOICEVOX_URL}", flush=True)
-    print(f"[Bot] Whisper: {WHISPER_PATH} (model: {WHISPER_MODEL})", flush=True)
-    print(f"[Bot] Claude: {CLAUDE_PATH}", flush=True)
+    print(f"[Bot] Whisper-cpp: {WHISPER_PATH}", flush=True)
+    print(f"[Bot] Whisper model: {WHISPER_MODEL_PATH}", flush=True)
+    print(f"[Bot] LLM: Anthropic SDK ({ANTHROPIC_MODEL})", flush=True)
     bot.run(token)
