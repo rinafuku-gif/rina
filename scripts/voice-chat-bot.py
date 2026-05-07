@@ -276,50 +276,120 @@ def claude_generate_response(user_text: str) -> str:
     return full
 
 
-def claude_stream_sentences(user_text: str):
-    """B+C. Anthropic SDK streaming で句点ごとに文を yield する（first-token優先）"""
-    t_first_token: float | None = None
+def _claude_stream_via_sdk(user_text: str):
+    """Anthropic SDK streaming（ANTHROPIC_API_KEY が有効な場合のみ機能）"""
     sentence_delimiters = {"。", "！", "？", "!", "?"}
     buf = ""
     full_response = ""
+    t_start = time.monotonic()
 
+    client = _get_anthropic_client()
+    system_prompt, messages = _build_sdk_messages(user_text)
+
+    with client.messages.stream(
+        model=ANTHROPIC_MODEL,
+        max_tokens=256,
+        system=system_prompt,
+        messages=messages,
+    ) as stream:
+        for text_chunk in stream.text_stream:
+            if not full_response:
+                t_first = time.monotonic()
+                print(f"[Latency] SDK first_token: {t_first - t_start:.2f}s", flush=True)
+
+            for ch in text_chunk:
+                buf += ch
+                if ch in sentence_delimiters and len(buf.strip()) > 1:
+                    sentence = buf.strip()
+                    if sentence:
+                        full_response += sentence
+                        yield sentence
+                    buf = ""
+
+    remainder = buf.strip()
+    if remainder:
+        full_response += remainder
+        yield remainder
+
+    if full_response:
+        conversation_history.append({"role": "user", "content": user_text})
+        conversation_history.append({"role": "assistant", "content": full_response})
+
+
+def _claude_stream_via_cli(user_text: str):
+    """Claude CLI subprocess streaming（OAuth認証。フォールバックとして使用）"""
+    prompt = build_claude_prompt(user_text)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+        f.write(prompt)
+        prompt_file = f.name
+
+    proc = None
     try:
-        client = _get_anthropic_client()
-        system_prompt, messages = _build_sdk_messages(user_text)
+        proc = subprocess.Popen(
+            ["sh", "-c", f'cat "{prompt_file}" | "{CLAUDE_PATH}" -p --model {ANTHROPIC_MODEL} --max-turns 3 --tools ""'],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, env=CLAUDE_ENV, cwd=str(REPO_DIR),
+        )
 
-        with client.messages.stream(
-            model=ANTHROPIC_MODEL,
-            max_tokens=256,
-            system=system_prompt,
-            messages=messages,
-        ) as stream:
-            for text_chunk in stream.text_stream:
-                if t_first_token is None:
-                    t_first_token = time.monotonic()
-                    print(f"[Latency] first_token: {t_first_token:.3f} (relative)", flush=True)
+        buf = ""
+        full_response = ""
+        sentence_delimiters = {"。", "！", "？", "!", "?", "\n"}
+        first_chunk = True
 
-                for ch in text_chunk:
-                    buf += ch
-                    if ch in sentence_delimiters and len(buf.strip()) > 1:
-                        sentence = buf.strip()
-                        if sentence:
-                            full_response += sentence
-                            yield sentence
-                        buf = ""
+        while True:
+            ch = proc.stdout.read(1)
+            if not ch:
+                break
+            if first_chunk:
+                print(f"[Latency] CLI first_char received", flush=True)
+                first_chunk = False
+            buf += ch
 
-        # 残りのバッファ
+            if ch in sentence_delimiters and len(buf.strip()) > 1:
+                sentence = buf.strip()
+                if sentence:
+                    full_response += sentence
+                    yield sentence
+                buf = ""
+
         remainder = buf.strip()
         if remainder:
             full_response += remainder
             yield remainder
 
+        proc.wait(timeout=10)
+
         if full_response:
             conversation_history.append({"role": "user", "content": user_text})
             conversation_history.append({"role": "assistant", "content": full_response})
 
-    except Exception as e:
-        print(f"[Claude SDK] Stream error: {e}", file=sys.stderr, flush=True)
-        # フォールバック: 何も yield しない（呼び出し元でフォールバックメッセージ使用）
+    finally:
+        try:
+            os.unlink(prompt_file)
+        except OSError:
+            pass
+        if proc:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+
+
+def claude_stream_sentences(user_text: str):
+    """B+C. SDK優先 → 失敗時は CLI フォールバック。句点ごとに文を yield する"""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    use_sdk = bool(api_key and api_key.startswith("sk-ant-api"))
+
+    if use_sdk:
+        try:
+            yield from _claude_stream_via_sdk(user_text)
+            return
+        except Exception as e:
+            print(f"[Claude SDK] Error ({type(e).__name__}), falling back to CLI: {e}", file=sys.stderr, flush=True)
+
+    # CLI フォールバック（OAuth認証）
+    print(f"[Claude] Using CLI fallback", flush=True)
+    yield from _claude_stream_via_cli(user_text)
 
 
 # ── VOICEVOX TTS ──────────────────────────────────
