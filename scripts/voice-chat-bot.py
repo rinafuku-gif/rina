@@ -976,7 +976,7 @@ async def process_recording(sink: SafeWaveSink, channel: discord.TextChannel):
 
 
 RECORD_MAX_S = 20       # 最大録音時間（秒）
-SILENCE_TIMEOUT_S = 1.0  # 無音でこの秒数経過したら録音停止
+SILENCE_TIMEOUT_S = 1.8  # 無音でこの秒数経過したら録音停止（「うん」と次の発話の自然な間を許容）
 last_speaking_time: float = 0.0  # 最後に誰かが喋った時刻
 
 
