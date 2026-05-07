@@ -1,19 +1,6 @@
 {
   "deadlines": [
     {
-      "id": "3390f0fdafad81329cb7f61429050b1c",
-      "title": "Wi-Fi開通・速度確認",
-      "date": "2026-04-25",
-      "category": "",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "完���",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/Wi-Fi-3390f0fdafad81329cb7f61429050b1c"
-    },
-    {
       "id": "3390f0fdafad8185b741d4e40089deb7",
       "title": "SUNDAY PICNIC 出店",
       "date": "2026-05-24",
@@ -443,5 +430,5 @@
       "_notion_url": "https://www.notion.so/SaunaLab-Iki-Sauna-34e0f0fdafad81efb4aacfb12bbb40d6"
     }
   ],
-  "generated_at": "2026-05-07T17:47:02.570Z"
+  "generated_at": "2026-05-07T17:52:02.839Z"
 }
