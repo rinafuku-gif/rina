@@ -45,10 +45,17 @@ VOICEVOX_SPEAKER_ID = 1  # 四国めたん（あまあま）
 WHISPER_PATH = "/opt/homebrew/bin/whisper-cli"
 WHISPER_MODEL_PATH = str(Path(__file__).parent.parent / "vendor" / "whisper-cpp" / "models" / "ggml-large-v3-turbo-q5_0.bin")
 WHISPER_LANGUAGE = "ja"
+# 固有名詞を whisper に事前提示して認識精度を上げる（地名・事業名・関係者）
+WHISPER_INITIAL_PROMPT = (
+    "Ryo、しらたま、ごま、えんがわ、三十日珈琲、SATOYAMA AI BASE、"
+    "となりにとまる、任屋、Basecamp Torisawa、星の図書館、テンプレートショップ、"
+    "上野原、西原、丹波山、大月、藤野、山梨、空き家、民泊、補助金、"
+    "Notion、Discord、Obsidian、Vercel、Stripe"
+)
 
 # ── B. Claude CLI（stream-json ストリーミング / サブスクリプション認証）──
 CLAUDE_PATH = "/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin/claude"
-ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+ANTHROPIC_MODEL = "claude-sonnet-4-6"
 
 REPO_DIR = Path(__file__).parent.parent
 LOG_DIR = REPO_DIR / "logs"
@@ -105,12 +112,19 @@ SHIRATAMA_SYSTEM_PROMPT = """\
 - 山梨県上野原市を拠点に活動
 
 ## ボイスチャットでの応答ルール（最重要）
-- 応答は必ず2〜3文で簡潔に。長くても50文字以内を目指す
-- 音声で読み上げるので、箇条書きや記号は使わない
-- 自然な話し言葉で返す。書き言葉ではなく口語体
+- 1〜3文で簡潔に。20秒以内に話せる長さ（150文字以内目安）
+- 音声で読み上げるので、箇条書きや記号は使わない。完全な口語体
 - 「ですます」調で、親しみやすく
 - 質問には直接答える。前置きは不要
 - 複雑な話題は「詳しくはテキストで送りますね」と言って短く返す
+
+## 応答品質の原則（最重要）
+- **事実確認できないことは言わない**。占い・スピリチュアル・数秘術など Ryo が扱っていない領域を勝手に絡めない
+- **Ryo の事業はメモリ・コンテキストで把握している範囲のみ**。記憶にない事業・活動・人物を作らない（ハルシネーション禁止）
+- **直前の発話を最重視**。会話履歴はあくまで補助。Ryo が「もう話終わり」と言ったら締める、勝手に新しい話題を出さない
+- **「面白い話して」のような曖昧な要望** → 文脈を踏まえて具体テーマを提案するか、Ryo に「どの事業の話か」「最近の話題か」 1点だけ聞き返す
+- **聞き取れなかった単語**（「にしらに」「西原」など固有名詞の不明瞭）→ 推測で答えず「すみません、もう一度お願いできますか」と素で返す
+- 表面的な相槌で終わらせない。Ryo の発話に対して**意味のある反応**を返す（同意・追加情報・反論・確認など）
 """
 
 
@@ -545,6 +559,7 @@ def whisper_transcribe(audio_path: str) -> str:
             "-np",        # no-prints（進捗表示なし）
             "-nt",        # no-timestamps
             "--no-speech-thold", "0.6",
+            "--prompt", WHISPER_INITIAL_PROMPT,
             "-f", audio_path,
         ],
         capture_output=True, text=True, timeout=30,
