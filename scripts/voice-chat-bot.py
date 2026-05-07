@@ -15,6 +15,7 @@ import io
 import json
 import logging
 import os
+import select
 import shlex
 import subprocess
 import sys
@@ -499,6 +500,7 @@ class ClaudePersistentClient:
         - result.is_error: エラーイベントを検出してログ出力
         - 異常レイテンシ（>10秒）: 詳細ログを残す
         """
+        print(f"[Claude DEBUG] stream_sentences entered, user_text={user_text[:50]!r}", flush=True)
         # ロック取得タイムアウト
         acquired = self._lock.acquire(timeout=self.LOCK_WAIT_TIMEOUT_S)
         if not acquired:
@@ -509,6 +511,7 @@ class ClaudePersistentClient:
             yield "すみません、前の応答がまだ処理中です。少し待ってからもう一度お願いできますか。"
             return
 
+        print(f"[Claude DEBUG] lock acquired", flush=True)
         TURN_HARD_TIMEOUT_S = 45.0
         proc = None
 
@@ -517,8 +520,10 @@ class ClaudePersistentClient:
             turn = self._turn_count
             label = f"{turn}回目"
             os.makedirs(self._CLEAN_CWD, exist_ok=True)
+            print(f"[Claude DEBUG] cwd ensured", flush=True)
 
             prompt = build_claude_prompt(user_text)
+            print(f"[Claude DEBUG] prompt built, len={len(prompt)}", flush=True)
             msg = json.dumps({
                 "type": "user",
                 "message": {
@@ -526,6 +531,7 @@ class ClaudePersistentClient:
                     "content": [{"type": "text", "text": prompt}],
                 },
             })
+            print(f"[Claude DEBUG] msg JSON built, len={len(msg)}", flush=True)
 
             # bash 経由起動（echo で stdin 送って pipe で claude に渡す）
             # 2026-05-07 実証: launchd plist 経由で起動された Python (asyncio + ThreadPoolExecutor)
@@ -534,11 +540,13 @@ class ClaudePersistentClient:
             # bash の echo + pipe 構造なら shell が pipe を扱うので EOF が確実に届き正常動作する。
             quoted_args = " ".join(shlex.quote(a) for a in self._build_args())
             shell_cmd = f"echo {shlex.quote(msg)} | {quoted_args}"
+            print(f"[Claude DEBUG] shell_cmd built, len={len(shell_cmd)}", flush=True)
 
             t_start = time.monotonic()
             stderr_log = open(self._STDERR_LOG, "ab")
             stderr_log.write(f"\n=== run at {time.time()} (bash via) ===\n".encode("utf-8"))
             stderr_log.flush()
+            print(f"[Claude DEBUG] stderr log opened, spawning bash...", flush=True)
 
             try:
                 proc = subprocess.Popen(
@@ -550,6 +558,7 @@ class ClaudePersistentClient:
                     cwd=self._CLEAN_CWD,
                     bufsize=1,
                 )
+                print(f"[Claude DEBUG] spawned PID={proc.pid}", flush=True)
             except Exception as e:
                 stderr_log.close()
                 print(f"[Claude] spawn error: {e}", flush=True)
@@ -563,7 +572,11 @@ class ClaudePersistentClient:
 
             timed_out = False
             try:
-                for raw_line in iter(proc.stdout.readline, ''):
+                # select でタイムアウト付き readline。
+                # iter(readline, '') は readline が永久ブロックすると
+                # Hard timeout 判定にも到達しないので、select で 1秒ごとに
+                # readable チェックして、ブロックしない構造にする（2026-05-07 修正）。
+                while True:
                     elapsed_total = time.monotonic() - t_start
                     if elapsed_total > TURN_HARD_TIMEOUT_S:
                         print(
@@ -573,6 +586,17 @@ class ClaudePersistentClient:
                         )
                         timed_out = True
                         break
+
+                    rlist, _, _ = select.select([proc.stdout], [], [], 1.0)
+                    if proc.stdout not in rlist:
+                        if proc.poll() is not None:
+                            # プロセスが終了して buffer も空 → 抜ける
+                            break
+                        continue
+
+                    raw_line = proc.stdout.readline()
+                    if not raw_line:
+                        break  # EOF
 
                     line = raw_line.strip()
                     if not line:
