@@ -64,6 +64,10 @@ LOG_DIR.mkdir(exist_ok=True)
 MAX_CONVERSATION_TURNS = 10
 MIN_AUDIO_DURATION_S = 2.0
 
+# STTが空（whisper認識失敗）時に能動的に聞き返すための連発ガード
+_last_apology_ts: float = 0.0
+APOLOGY_COOLDOWN_S = 30.0  # 30秒以内連発禁止（ノイズ誤発火対策）
+
 
 # ── カスタムSink（py-cord WaveSink decoder問題回避） ─────
 class SafeWaveSink(Sink):
@@ -957,6 +961,14 @@ async def process_recording(sink: SafeWaveSink, channel: discord.TextChannel):
             t1 = time.monotonic()
 
             if not text or len(text.strip()) < 2:
+                # STTが空＝whisperが認識できなかった。一定長の録音なら能動的に聞き返す
+                if duration >= 1.5:
+                    global _last_apology_ts
+                    now = time.monotonic()
+                    if now - _last_apology_ts > APOLOGY_COOLDOWN_S:
+                        _last_apology_ts = now
+                        print(f"[Bot] STT empty for {duration:.1f}s audio, asking Ryo to repeat", flush=True)
+                        await _enqueue_tts("すみません、聞き取れませんでした。もう一度お願いできますか。")
                 continue
 
             user = bot.get_user(user_id)
