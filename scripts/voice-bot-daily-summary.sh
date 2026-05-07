@@ -13,8 +13,15 @@ DISCORD_POST="/Users/ocmm/rina/scripts/discord-post.sh"
 CHANNEL="dev-log"
 DATE_STR=$(date "+%Y-%m-%d")
 
-# テストモード: TEST=1 で実行するとメッセージに [TEST] プレフィックスを付ける
-TEST_MODE="${TEST:-0}"
+# テストモード:
+# - LIVE=1 が指定されたとき（launchd 経由）のみ本番投稿
+# - それ以外（手動実行）は [TEST] プレフィックス付きで投稿（誤って本番チャンネルを汚さないため）
+LIVE_MODE="${LIVE:-0}"
+if [ "$LIVE_MODE" = "1" ]; then
+    TEST_MODE=0
+else
+    TEST_MODE=1
+fi
 
 # ログファイルが存在しない場合は終了
 if [ ! -f "$LOG_FILE" ]; then
