@@ -1120,9 +1120,15 @@ async def start_recording():
                 if current_sink and current_sink.audio_data:
                     total = sum(len(a.file.getvalue()) for a in current_sink.audio_data.values())
 
-                # データが増えている = 喋っている（TTS再生中はBot音声ループバックで誤発火するので無視）
-                if total > prev_total and not tts_playing:
+                # データが増えている = Ryoが喋っている
+                # py-cord の Sink は user_id 単位で音声を保持し Bot 自身の出力は入らないため
+                # ループバック誤発火の心配なく TTS 再生中も発話検知できる
+                if total > prev_total:
                     last_speaking_time = now
+                    # バージイン: TTS再生中にRyoが話し始めたら即座に中断
+                    if tts_playing:
+                        print("[Bot] Barge-in detected: Ryo spoke during TTS playback", flush=True)
+                        trigger_barge_in()
                 prev_total = total
 
                 # 1秒以上経過 + データあり + 直近の発話から SILENCE_TIMEOUT_S 経過 → 終了
