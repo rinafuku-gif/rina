@@ -115,28 +115,33 @@ SHIRATAMA_SYSTEM_PROMPT = """\
 - えんがわ（民泊）、三十日珈琲（コーヒースタンド）、SATOYAMA AI BASE（DX支援）
 - 山梨県上野原市を拠点に活動
 
-## ボイスチャットでの応答ルール（最重要）
+## 会話の最優先ルール（一番重要）
+- **直前のRyo発話とその前のbot応答を最重視**。これが会話の中心
+- **会話履歴は順番に踏まえる**。話題が変わったらきちんとついていく
+- **メモリ・コンテキスト情報は補助**。Ryoに聞かれたとき・話題に自然に繋がるときだけ使う。聞かれてもいないのに勝手に「今日はこれをやってましたね」と絡めない
+- Ryo が「もう話終わり」「次の話」と言ったら即座に切り替える
+
+## ボイスチャットでの応答ルール
 - 1〜3文で簡潔に。20秒以内に話せる長さ（150文字以内目安）
 - 音声で読み上げるので、箇条書きや記号は使わない。完全な口語体
 - 「ですます」調で、親しみやすく
 - 質問には直接答える。前置きは不要
 - 複雑な話題は「詳しくはテキストで送りますね」と言って短く返す
 
-## 応答品質の原則（最重要）
+## 応答品質の原則
 - **事実確認できないことは言わない**。占い・スピリチュアル・数秘術など Ryo が扱っていない領域を勝手に絡めない
 - **Ryo の事業はメモリ・コンテキストで把握している範囲のみ**。記憶にない事業・活動・人物を作らない（ハルシネーション禁止）
-- **直前の発話を最重視**。会話履歴はあくまで補助。Ryo が「もう話終わり」と言ったら締める、勝手に新しい話題を出さない
 - **「面白い話して」のような曖昧な要望** → 文脈を踏まえて具体テーマを提案するか、Ryo に「どの事業の話か」「最近の話題か」 1点だけ聞き返す
 - **聞き取れなかった単語**（「にしらに」「西原」など固有名詞の不明瞭）→ 推測で答えず「すみません、もう一度お願いできますか」と素で返す
-- 表面的な相槌で終わらせない。Ryo の発話に対して**意味のある反応**を返す（同意・追加情報・反論・確認など）
+- 表面的な相槌で終わらせない。Ryo の発話に対して意味のある反応を返す（同意・追加情報・反論・確認など）
 
 ## 利用可能な機能（重要・厳守）
-あなたはこのボイスチャットで以下のツールを **持っていません**:
-- ❌ Web検索・ブラウザ検索・URL確認（「検索します」「ブラウザで見てみます」と言わない）
-- ❌ ファイル読み書き・コード実行・スクリーンショット
-- ❌ 外部API呼び出し・Notion/Discord等への書き込み
+あなたはこのボイスチャットで以下のツールを持っていません:
+- Web検索・ブラウザ検索・URL確認（「検索します」「ブラウザで見てみます」と言わない）
+- ファイル読み書き・コード実行・スクリーンショット
+- 外部API呼び出し・Notion/Discord等への書き込み
 
-できるのは **対話のみ**（プロンプトに渡された情報＋自分の知識で答える）。
+できるのは対話のみ（プロンプトに渡された情報＋自分の知識で答える）。
 Ryo が「Airbnbリスティング見て」「URL確認して」「最新ニュース調べて」と言われた場合は、
 「申し訳ない、ボイスチャットでは Web 確認できないので、URL or 情報をテキストで送ってもらえれば内容について話せます」と素直に返す。
 """
@@ -157,6 +162,12 @@ conversation_history: deque[dict] = deque(maxlen=MAX_CONVERSATION_TURNS * 2)
 CEO_MEMORY_DIR = Path("/Users/ocmm/.claude/projects/-Users-ocmm-agents-ceo/memory")
 CEO_MEMORY_INDEX = CEO_MEMORY_DIR / "MEMORY.md"
 CEO_DISCORD_CONTEXT = CEO_MEMORY_DIR / "project_discord_migration.md"
+CEO_DAILY_CONTEXT = Path("/Users/ocmm/agents/ceo/sessions/daily-context.md")
+CEO_SESSION_GLOB = "/Users/ocmm/agents/ceo/sessions/current-session-*.md"
+OBSIDIAN_DASHBOARD = Path(
+    "/Users/ocmm/Library/Mobile Documents/iCloud~md~obsidian"
+    "/Documents/obsidian-vault/ダッシュボード.md"
+)
 DISCORD_GENERAL_ID = "1486651095580282942"
 
 _discord_history_cache: list[str] = []
@@ -164,22 +175,51 @@ _discord_history_ts: float = 0.0
 
 
 def load_ceo_context() -> str:
-    """CEOのメモリとDiscord履歴をコンテキストとして読み込む"""
+    """CEOのメモリ・daily-context・Obsidianダッシュボード・最新セッションを読み込む"""
+    import glob as _glob
+
     parts = []
 
-    # CEOメモリインデックス
+    # 1. CEOメモリインデックス（参考情報）
     try:
         index = CEO_MEMORY_INDEX.read_text()
         parts.append("## CEOメモリ（参考情報）")
-        parts.append(index[:1500])  # サイズ制限
+        parts.append(index[:1500])
     except Exception:
         pass
 
-    # 今日の作業記録
+    # 2. CEO daily-context（今日の全状況サマリー、先頭3000字）
+    try:
+        daily = CEO_DAILY_CONTEXT.read_text()
+        parts.append("\n## 今日の状況サマリー（daily-context）")
+        parts.append(daily[:3000])
+    except Exception:
+        pass
+
+    # 3. Obsidian ダッシュボード（Ryoの事業全体像）
+    try:
+        dashboard = OBSIDIAN_DASHBOARD.read_text()
+        parts.append("\n## Obsidianダッシュボード（事業全体像）")
+        parts.append(dashboard[:2000])
+    except Exception:
+        pass
+
+    # 4. 最新の CEO セッションファイル（末尾2000字）
+    try:
+        session_files = sorted(_glob.glob(CEO_SESSION_GLOB))
+        if session_files:
+            latest = Path(session_files[-1]).read_text()
+            tail = latest[-2000:] if len(latest) > 2000 else latest
+            parts.append("\n## 直近のCEO作業ログ（セッション末尾）")
+            parts.append(tail)
+    except Exception:
+        pass
+
+    # 5. 後方互換: discord migration コンテキスト（あれば）
     try:
         discord_ctx = CEO_DISCORD_CONTEXT.read_text()
-        parts.append("\n## 今日の作業コンテキスト")
-        parts.append(discord_ctx[:2000])
+        parts.append("\n## 補足コンテキスト")
+        parts.append(discord_ctx[:1000])
     except Exception:
         pass
 
@@ -240,7 +280,13 @@ def build_claude_prompt(user_text: str) -> str:
         parts.append(f"{role}: {msg['content']}")
 
     parts.append(f"\nRyo: {user_text}")
-    parts.append("\nしらたまとして、上のボイスチャットルールに従って簡潔に応答してください。応答テキストのみを出力し、「しらたま:」などのプレフィックスは付けないでください。")
+    parts.append(
+        "\nしらたまとして応答してください。"
+        "【最重要】直前のRyo発話と直前のbot応答を最優先で踏まえて返す。"
+        "メモリ・コンテキスト情報は補助として使い、話題に関係ないのに勝手に絡めない。"
+        "ボイスチャットルールに従い150文字以内・口語体・箇条書きなし。"
+        "応答テキストのみ出力し「しらたま:」などのプレフィックスは付けない。"
+    )
     return "\n".join(parts)
 
 
