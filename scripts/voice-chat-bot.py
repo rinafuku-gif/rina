@@ -170,6 +170,7 @@ def fetch_discord_history_sync() -> str:
         url = f"https://discord.com/api/v10/channels/{DISCORD_GENERAL_ID}/messages?limit=20"
         req = urllib.request.Request(url, headers={
             "Authorization": f"Bot {token}",
+            "User-Agent": "DiscordBot (https://github.com/inaryo1024/voice-chat-bot, 1.0)",
         })
         with urllib.request.urlopen(req, timeout=5) as resp:
             messages = json.loads(resp.read())
