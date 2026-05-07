@@ -198,28 +198,28 @@ def load_ceo_context() -> str:
     except Exception:
         pass
 
-    # 2. CEO daily-context（今日の全状況サマリー、先頭3000字）
+    # 2. CEO daily-context（今日の全状況サマリー、先頭1500字に削減）
     try:
         daily = CEO_DAILY_CONTEXT.read_text()
         parts.append("\n## 今日の状況サマリー（daily-context）")
-        parts.append(daily[:3000])
+        parts.append(daily[:1500])
     except Exception:
         pass
 
-    # 3. Obsidian ダッシュボード（Ryoの事業全体像）
+    # 3. Obsidian ダッシュボード（事業全体像、1000字に削減）
     try:
         dashboard = OBSIDIAN_DASHBOARD.read_text()
         parts.append("\n## Obsidianダッシュボード（事業全体像）")
-        parts.append(dashboard[:2000])
+        parts.append(dashboard[:1000])
     except Exception:
         pass
 
-    # 4. 最新の CEO セッションファイル（末尾2000字）
+    # 4. 最新の CEO セッションファイル（末尾1000字に削減）
     try:
         session_files = sorted(_glob.glob(CEO_SESSION_GLOB))
         if session_files:
             latest = Path(session_files[-1]).read_text()
-            tail = latest[-2000:] if len(latest) > 2000 else latest
+            tail = latest[-1000:] if len(latest) > 1000 else latest
             parts.append("\n## 直近のCEO作業ログ（セッション末尾）")
             parts.append(tail)
     except Exception:
@@ -328,7 +328,7 @@ class ClaudePersistentClient:
 
     # ── タイムアウト設定 ─────────────────────────────
     # stdout から何も届かない時間がこれを超えたら「ハング」と判定して kill
-    HANG_TIMEOUT_S = 15.0
+    HANG_TIMEOUT_S = 25.0
     # ロック待ちのタイムアウト（前のターンが詰まっても永久待機しない）
     LOCK_WAIT_TIMEOUT_S = 20.0
 
@@ -559,7 +559,9 @@ class ClaudePersistentClient:
                         timed_out = True
                         break
 
-                    self._last_stdout_ts = time.monotonic()
+                    # 注: _last_stdout_ts は text_delta（実応答）受信時のみ更新する。
+                    # thinking_delta などの中間イベントで更新すると、
+                    # Sonnet が長く thinking してる間 HANG 判定が走らない。
                     line = raw_line.strip()
                     if not line:
                         continue
@@ -598,6 +600,10 @@ class ClaudePersistentClient:
                     chunk = delta.get("text", "")
                     if not chunk:
                         continue
+
+                    # text_delta 受信時のみ watchdog のタイムスタンプを更新
+                    # （thinking_delta では更新しないので、長 thinking で stuck したら HANG 検知される）
+                    self._last_stdout_ts = time.monotonic()
 
                     if first_text_token:
                         t_first = time.monotonic()
