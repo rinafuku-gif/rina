@@ -61,6 +61,12 @@ fi
 "$PYTHON_BIN" "$BOT_SCRIPT" &
 CHILD=$!
 echo "$CHILD" > "$PIDFILE"  # wrapper PID を本体 PID で上書き
+
+# launchctl kickstart -k は wrapper に SIGTERM 送るが、
+# wait で background 子プロセスを待ってる場合、子は孤児として残る。
+# trap で TERM/INT を受けたら子プロセスも明示的に kill する（再発防止 2026-05-07）
+trap 'kill -TERM "$CHILD" 2>/dev/null; wait "$CHILD"' TERM INT
+
 wait "$CHILD"
 RC=$?
 
