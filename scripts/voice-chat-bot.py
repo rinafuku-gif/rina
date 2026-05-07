@@ -374,20 +374,27 @@ class ClaudePersistentClient:
     # 専用クリーンディレクトリで起動して読み込みを抑制（コンテキストは build_claude_prompt で渡す）。
     _CLEAN_CWD = "/tmp/voice-chat-bot-cwd"
 
+    # debug: stderr を一時ファイルにリダイレクトして claude CLI エラーを観察
+    _STDERR_LOG = "/tmp/voice-chat-bot-claude-stderr.log"
+
     def _spawn(self):
-        """1ターン分の claude CLI subprocess を生成する。
+        """1ターン分の claude CLI subprocess を生成する（one-shot 方式）。
 
         2026-05-07: persistent process 方式は stdin 開きっぱなしで詰まる事象があったため、
         毎ターン新規 spawn → write → close stdin (= EOF) → read stdout → exit する one-shot 方式に変更。
         MCP 完全無効化により cold start が 1.4s なので、許容できるレイテンシ（毎ターン 3-4s）。
+        stderr は一時ファイルに append（debug 中、満杯対策で append open mode）。
         """
         self._kill()
         os.makedirs(self._CLEAN_CWD, exist_ok=True)
+        self._stderr_fh = open(self._STDERR_LOG, "ab")
+        self._stderr_fh.write(f"\n=== spawn at {time.time()} ===\n".encode("utf-8"))
+        self._stderr_fh.flush()
         self._proc = subprocess.Popen(
             self._build_args(),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,  # stderr buffer 満杯ハング回避
+            stderr=self._stderr_fh,
             text=True,
             env=CLAUDE_ENV,
             cwd=self._CLEAN_CWD,
