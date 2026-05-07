@@ -712,7 +712,7 @@ async def process_recording(sink: SafeWaveSink, channel: discord.TextChannel):
 
 
 RECORD_MAX_S = 20       # 最大録音時間（秒）
-SILENCE_TIMEOUT_S = 2.5  # 無音でこの秒数経過したら録音停止
+SILENCE_TIMEOUT_S = 1.0  # 無音でこの秒数経過したら録音停止
 last_speaking_time: float = 0.0  # 最後に誰かが喋った時刻
 
 
@@ -747,28 +747,30 @@ async def start_recording():
             last_speaking_time = asyncio.get_event_loop().time()
 
             # 無音検知ループ: 最大RECORD_MAX_S秒、SILENCE_TIMEOUT_S秒無音で停止
+            # VAD: 累積バイト数の差分で発話検知（前回比で増えていれば喋っている）
             elapsed = 0.0
+            prev_total = 0
             while elapsed < RECORD_MAX_S and is_recording:
-                await asyncio.sleep(0.5)
-                elapsed += 0.5
+                await asyncio.sleep(0.2)
+                elapsed += 0.2
                 now = asyncio.get_event_loop().time()
 
-                # sinkにデータが来ているか確認（簡易VAD）
-                has_data = any(len(a.file.getvalue()) > 0 for a in current_sink.audio_data.values()) if current_sink else False
+                # sink の累積データサイズを取得
+                total = 0
+                if current_sink and current_sink.audio_data:
+                    total = sum(len(a.file.getvalue()) for a in current_sink.audio_data.values())
 
-                if has_data and elapsed > 3.0:
-                    # データがあり、最後の発話からSILENCE_TIMEOUT_S秒経過
+                # データが増えている = 喋っている（TTS再生中はBot音声ループバックで誤発火するので無視）
+                if total > prev_total and not tts_playing:
+                    last_speaking_time = now
+                prev_total = total
+
+                # 1秒以上経過 + データあり + 直近の発話から SILENCE_TIMEOUT_S 経過 → 終了
+                if total > 0 and elapsed > 1.0:
                     silence = now - last_speaking_time
                     if silence >= SILENCE_TIMEOUT_S:
-                        print(f"[Bot] Silence detected ({silence:.1f}s), stopping chunk at {elapsed:.0f}s", flush=True)
+                        print(f"[Bot] Silence detected ({silence:.1f}s), stopping chunk at {elapsed:.1f}s", flush=True)
                         break
-
-                # sinkのデータサイズ変化で発話検知（speaking eventのフォールバック）
-                # TTS再生中はBotの音声がループバックするので無視（Barge-in誤発火防止）
-                if current_sink and current_sink.audio_data and not tts_playing:
-                    total = sum(len(a.file.getvalue()) for a in current_sink.audio_data.values())
-                    if total > 0:
-                        last_speaking_time = now
 
             if voice_client and voice_client.is_connected() and is_recording:
                 voice_client.stop_recording()
