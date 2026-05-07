@@ -249,11 +249,18 @@ class ClaudePersistentClient:
     2回目以降は stdin に user message JSONL を書き込むだけで
     応答 stream を受け取れる（目標: first_text_token 1〜3秒）。
 
-    排他制御: asyncio.Lock で同時発話を防ぐ。
-    死活監視: _watchdog_thread でプロセス終了を検知し自動再起動。
+    排他制御: threading.Lock で同時発話を防ぐ。
+    死活監視: _watchdog_thread でプロセス終了・ハングを検知し自動再起動。
+    ハングタイムアウト: stdout から HANG_TIMEOUT_S 秒間無応答なら kill して再起動。
     """
 
     SENTENCE_DELIMITERS = {"。", "！", "？", "!", "?"}
+
+    # ── タイムアウト設定 ─────────────────────────────
+    # stdout から何も届かない時間がこれを超えたら「ハング」と判定して kill
+    HANG_TIMEOUT_S = 15.0
+    # ロック待ちのタイムアウト（前のターンが詰まっても永久待機しない）
+    LOCK_WAIT_TIMEOUT_S = 20.0
 
     def __init__(self):
         self._proc: subprocess.Popen | None = None
@@ -262,6 +269,10 @@ class ClaudePersistentClient:
         self._turn_count = 0
         self._watchdog: threading.Thread | None = None
         self._shutdown = False
+        # ハング検知: 最後に stdout からデータを受信した時刻
+        self._last_stdout_ts: float = time.monotonic()
+        # 現在ターンが処理中かどうか（watchdog がハング判定に使う）
+        self._in_turn: bool = False
 
     # ── プロセス管理 ────────────────────────────────
 
@@ -310,6 +321,7 @@ class ClaudePersistentClient:
             cwd=str(REPO_DIR),
             bufsize=1,  # line-buffered
         )
+        self._last_stdout_ts = time.monotonic()
 
     def _kill(self):
         """現在のプロセスを強制終了する（_lock 保持中に呼ぶこと）。"""
@@ -326,14 +338,57 @@ class ClaudePersistentClient:
             self._proc = None
 
     def _watchdog_loop(self):
-        """プロセスの死活を監視し、終了していたら再起動する。
+        """プロセスの死活・ハングを監視し、問題があれば再起動する。
 
-        _lock の non-blocking 取得を試み、stream_sentences が実行中なら
-        スキップして次の2秒後に再確認する。
+        監視項目:
+        1. プロセス終了: poll() != None → 再起動
+        2. ハング: ターン処理中かつ stdout 無応答が HANG_TIMEOUT_S 超過 → kill して再起動
+
+        ハング検知時は _lock を force-acquire して再起動する。
+        stream_sentences 側は _hung フラグを見て timeout 扱いにする。
         """
+        self._hung = False
         while not self._shutdown:
             time.sleep(2)
-            # stream_sentences がロック中なら watchdog はスキップ（次回の2秒後に再確認）
+
+            now = time.monotonic()
+
+            # ── ハング検知（プロセスが生きているが stdout 無応答）──
+            if (
+                self._in_turn
+                and self._proc is not None
+                and self._proc.poll() is None
+                and now - self._last_stdout_ts > self.HANG_TIMEOUT_S
+            ):
+                elapsed = now - self._last_stdout_ts
+                print(
+                    f"[Claude] HANG detected: no stdout for {elapsed:.1f}s, force-restarting...",
+                    flush=True,
+                )
+                # _hung フラグを立てて stream_sentences 側の読み取りループを脱出させる
+                self._hung = True
+                try:
+                    self._proc.kill()
+                except Exception:
+                    pass
+                # ロックが空くのを最大5秒待ってから再 spawn
+                acquired = self._lock.acquire(timeout=5)
+                try:
+                    self._proc = None
+                    self._spawn()
+                    self._turn_count = 0
+                    self._in_turn = False
+                    self._hung = False
+                    print(
+                        f"[Claude] Restarted after hang (PID: {self._proc.pid})",
+                        flush=True,
+                    )
+                finally:
+                    if acquired:
+                        self._lock.release()
+                continue
+
+            # ── プロセス終了検知 ──────────────────────────────
             if self._lock.acquire(blocking=False):
                 try:
                     if self._proc is not None and self._proc.poll() is not None:
@@ -357,11 +412,29 @@ class ClaudePersistentClient:
 
         呼び出し元は run_in_executor 経由で asyncio から使う。
         排他ロック（threading.Lock）により同時発話は順番待ちになる。
+
+        改善点（v2）:
+        - LOCK_WAIT_TIMEOUT_S: ロック取得に時間がかかりすぎる場合はスキップ
+        - HANG_TIMEOUT_S: stdout 無応答を watchdog が検知して kill → _hung フラグで脱出
+        - result.is_error: エラーイベントを検出してログ出力
+        - 異常レイテンシ（>10秒）: 詳細ログを残す
         """
-        with self._lock:
+        # ロック取得タイムアウト: 前のターンが詰まっていても永久待機しない
+        acquired = self._lock.acquire(timeout=self.LOCK_WAIT_TIMEOUT_S)
+        if not acquired:
+            print(
+                f"[Claude] Lock timeout ({self.LOCK_WAIT_TIMEOUT_S}s): previous turn still running, skipping.",
+                flush=True,
+            )
+            yield "すみません、前の応答がまだ処理中です。少し待ってからもう一度お願いできますか。"
+            return
+
+        try:
             self._turn_count += 1
             turn = self._turn_count
             is_first_turn = (turn == 1)
+            self._hung = False
+            self._in_turn = True
 
             if self._proc is None or self._proc.poll() is not None:
                 print("[Claude] Process not running, spawning...", flush=True)
@@ -381,18 +454,32 @@ class ClaudePersistentClient:
             first_text_token = True
             t_start = time.monotonic()
             label = "初回" if is_first_turn else f"{turn}回目"
+            event_count = 0  # 異常ログ用: ターン中に受信したイベント数
 
             try:
                 self._proc.stdin.write(msg + "\n")
                 self._proc.stdin.flush()
+                self._last_stdout_ts = time.monotonic()
             except (BrokenPipeError, OSError) as e:
                 print(f"[Claude] stdin write error: {e}, respawning...", flush=True)
                 self._spawn()
                 self._proc.stdin.write(msg + "\n")
                 self._proc.stdin.flush()
+                self._last_stdout_ts = time.monotonic()
 
+            timed_out = False
             try:
                 for raw_line in self._proc.stdout:
+                    # ハング検知: watchdog が kill した場合はループを抜ける
+                    if self._hung:
+                        print(
+                            f"[Claude] Aborting stream: hang detected by watchdog (turn={label})",
+                            flush=True,
+                        )
+                        timed_out = True
+                        break
+
+                    self._last_stdout_ts = time.monotonic()
                     line = raw_line.strip()
                     if not line:
                         continue
@@ -401,8 +488,22 @@ class ClaudePersistentClient:
                     except json.JSONDecodeError:
                         continue
 
+                    event_count += 1
+
+                    # C. result イベントのエラー検出
                     if ev.get("type") == "result":
-                        # result イベントでこのターンの終端を検知
+                        if ev.get("is_error"):
+                            err_msg = ev.get("result", "")
+                            print(
+                                f"[Claude] ERROR result (turn={label}): {str(err_msg)[:300]}",
+                                flush=True,
+                            )
+                            # レート制限らしき文字列を検出してラベル付き出力
+                            if "rate" in str(err_msg).lower() or "limit" in str(err_msg).lower():
+                                print(
+                                    f"[Claude] Rate limit suspected. Will respawn on next turn.",
+                                    flush=True,
+                                )
                         break
 
                     if ev.get("type") != "stream_event":
@@ -420,10 +521,20 @@ class ClaudePersistentClient:
 
                     if first_text_token:
                         t_first = time.monotonic()
-                        print(
-                            f"[Latency] first_text_token ({label}): {t_first - t_start:.2f}s",
-                            flush=True,
-                        )
+                        elapsed = t_first - t_start
+                        # D. 異常レイテンシログ（>10秒は詳細出力）
+                        if elapsed > 10.0:
+                            print(
+                                f"[Latency] first_text_token ({label}): {elapsed:.2f}s "
+                                f"[SLOW] prompt_tail={repr(user_text[-50:])} "
+                                f"first_event={repr(chunk[:40])}",
+                                flush=True,
+                            )
+                        else:
+                            print(
+                                f"[Latency] first_text_token ({label}): {elapsed:.2f}s",
+                                flush=True,
+                            )
                         first_text_token = False
 
                     for ch in chunk:
@@ -438,6 +549,16 @@ class ClaudePersistentClient:
             except Exception as e:
                 print(f"[Claude] Stream error: {e}", file=sys.stderr, flush=True)
 
+            if timed_out:
+                # ハングタイムアウト発動: ユーザーに通知して終了
+                print(
+                    f"[Claude] Turn {label} timed out after {self.HANG_TIMEOUT_S}s "
+                    f"(events_received={event_count})",
+                    flush=True,
+                )
+                yield "すみません、応答が詰まりました。もう一度お願いできますか。"
+                return
+
             remainder = buf.strip()
             if remainder:
                 full_response += remainder
@@ -446,6 +567,10 @@ class ClaudePersistentClient:
             if full_response:
                 conversation_history.append({"role": "user", "content": user_text})
                 conversation_history.append({"role": "assistant", "content": full_response})
+
+        finally:
+            self._in_turn = False
+            self._lock.release()
 
 
 # ── グローバルクライアント（bot 起動時に初期化）────
