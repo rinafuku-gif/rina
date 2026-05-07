@@ -359,16 +359,9 @@ class ClaudePersistentClient:
         ]
 
     def start(self):
-        """プロセスを起動する（bot 起動時に1回呼ぶ）。"""
-        with self._lock:
-            self._spawn()
+        """one-shot 方式では事前 spawn 不要。互換性のため log 出力のみ。"""
         self._shutdown = False
-        self._watchdog = threading.Thread(target=self._watchdog_loop, daemon=True)
-        self._watchdog.start()
-        print(
-            f"[Claude] Persistent process started (PID: {self._proc.pid})",
-            flush=True,
-        )
+        print("[Claude] One-shot mode (per-turn spawn).", flush=True)
 
     def stop(self):
         """プロセスを終了する（bot 終了時）。"""
@@ -382,18 +375,23 @@ class ClaudePersistentClient:
     _CLEAN_CWD = "/tmp/voice-chat-bot-cwd"
 
     def _spawn(self):
-        """プロセスを生成する（_lock 保持中に呼ぶこと）。"""
+        """1ターン分の claude CLI subprocess を生成する。
+
+        2026-05-07: persistent process 方式は stdin 開きっぱなしで詰まる事象があったため、
+        毎ターン新規 spawn → write → close stdin (= EOF) → read stdout → exit する one-shot 方式に変更。
+        MCP 完全無効化により cold start が 1.4s なので、許容できるレイテンシ（毎ターン 3-4s）。
+        """
         self._kill()
         os.makedirs(self._CLEAN_CWD, exist_ok=True)
         self._proc = subprocess.Popen(
             self._build_args(),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,  # stderr buffer 満杯ハング回避
             text=True,
             env=CLAUDE_ENV,
             cwd=self._CLEAN_CWD,
-            bufsize=1,  # line-buffered
+            bufsize=1,
         )
         self._last_stdout_ts = time.monotonic()
 
@@ -503,16 +501,17 @@ class ClaudePersistentClient:
             yield "すみません、前の応答がまだ処理中です。少し待ってからもう一度お願いできますか。"
             return
 
+        # ターン全体のハードタイムアウト（cold start + 推論 + 読み取り）
+        TURN_HARD_TIMEOUT_S = 45.0
+
         try:
             self._turn_count += 1
             turn = self._turn_count
-            is_first_turn = (turn == 1)
-            self._hung = False
-            self._in_turn = True
+            label = f"{turn}回目"
 
-            if self._proc is None or self._proc.poll() is not None:
-                print("[Claude] Process not running, spawning...", flush=True)
-                self._spawn()
+            # 毎ターン新規 spawn (one-shot)。stdin EOF で確実に処理を始めさせる
+            self._spawn()
+            proc = self._proc
 
             prompt = build_claude_prompt(user_text)
             msg = json.dumps({
@@ -527,35 +526,32 @@ class ClaudePersistentClient:
             full_response = ""
             first_text_token = True
             t_start = time.monotonic()
-            label = "初回" if is_first_turn else f"{turn}回目"
-            event_count = 0  # 異常ログ用: ターン中に受信したイベント数
+            event_count = 0
 
+            # write → close stdin（EOF）で claude CLI に処理開始を促す
             try:
-                self._proc.stdin.write(msg + "\n")
-                self._proc.stdin.flush()
-                self._last_stdout_ts = time.monotonic()
+                proc.stdin.write(msg + "\n")
+                proc.stdin.flush()
+                proc.stdin.close()
             except (BrokenPipeError, OSError) as e:
-                print(f"[Claude] stdin write error: {e}, respawning...", flush=True)
-                self._spawn()
-                self._proc.stdin.write(msg + "\n")
-                self._proc.stdin.flush()
-                self._last_stdout_ts = time.monotonic()
+                print(f"[Claude] stdin write error: {e}", flush=True)
+                yield "すみません、応答できませんでした。もう一度お願いできますか。"
+                return
 
             timed_out = False
             try:
-                for raw_line in self._proc.stdout:
-                    # ハング検知: watchdog が kill した場合はループを抜ける
-                    if self._hung:
+                for raw_line in proc.stdout:
+                    # ターン全体のハードタイムアウト
+                    elapsed_total = time.monotonic() - t_start
+                    if elapsed_total > TURN_HARD_TIMEOUT_S:
                         print(
-                            f"[Claude] Aborting stream: hang detected by watchdog (turn={label})",
+                            f"[Claude] Turn {label} hard timeout: {elapsed_total:.1f}s "
+                            f"(events_received={event_count})",
                             flush=True,
                         )
                         timed_out = True
                         break
 
-                    # 注: _last_stdout_ts は text_delta（実応答）受信時のみ更新する。
-                    # thinking_delta などの中間イベントで更新すると、
-                    # Sonnet が長く thinking してる間 HANG 判定が走らない。
                     line = raw_line.strip()
                     if not line:
                         continue
@@ -566,7 +562,6 @@ class ClaudePersistentClient:
 
                     event_count += 1
 
-                    # C. result イベントのエラー検出
                     if ev.get("type") == "result":
                         if ev.get("is_error"):
                             err_msg = ev.get("result", "")
@@ -574,12 +569,6 @@ class ClaudePersistentClient:
                                 f"[Claude] ERROR result (turn={label}): {str(err_msg)[:300]}",
                                 flush=True,
                             )
-                            # レート制限らしき文字列を検出してラベル付き出力
-                            if "rate" in str(err_msg).lower() or "limit" in str(err_msg).lower():
-                                print(
-                                    f"[Claude] Rate limit suspected. Will respawn on next turn.",
-                                    flush=True,
-                                )
                         break
 
                     if ev.get("type") != "stream_event":
@@ -590,19 +579,13 @@ class ClaudePersistentClient:
                     delta = inner.get("delta", {})
                     if delta.get("type") != "text_delta":
                         continue
-
                     chunk = delta.get("text", "")
                     if not chunk:
                         continue
 
-                    # text_delta 受信時のみ watchdog のタイムスタンプを更新
-                    # （thinking_delta では更新しないので、長 thinking で stuck したら HANG 検知される）
-                    self._last_stdout_ts = time.monotonic()
-
                     if first_text_token:
                         t_first = time.monotonic()
                         elapsed = t_first - t_start
-                        # D. 異常レイテンシログ（>10秒は詳細出力）
                         if elapsed > 10.0:
                             print(
                                 f"[Latency] first_text_token ({label}): {elapsed:.2f}s "
@@ -630,14 +613,7 @@ class ClaudePersistentClient:
                 print(f"[Claude] Stream error: {e}", file=sys.stderr, flush=True)
 
             if timed_out:
-                # ハングタイムアウト発動: ユーザーに通知して終了
-                print(
-                    f"[Claude] Turn {label} timed out after {self.HANG_TIMEOUT_S}s "
-                    f"(events_received={event_count})",
-                    flush=True,
-                )
                 yield "すみません、応答が詰まりました。もう一度お願いできますか。"
-                return
 
             remainder = buf.strip()
             if remainder:
@@ -649,7 +625,15 @@ class ClaudePersistentClient:
                 conversation_history.append({"role": "assistant", "content": full_response})
 
         finally:
-            self._in_turn = False
+            # one-shot: ターン終了時に proc を確実に kill
+            if self._proc is not None:
+                try:
+                    if self._proc.poll() is None:
+                        self._proc.kill()
+                    self._proc.wait(timeout=3)
+                except Exception:
+                    pass
+                self._proc = None
             self._lock.release()
 
 
