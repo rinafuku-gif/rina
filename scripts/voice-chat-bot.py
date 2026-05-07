@@ -136,24 +136,14 @@ SHIRATAMA_SYSTEM_PROMPT = """\
 - 表面的な相槌で終わらせない。Ryo の発話に対して意味のある反応を返す（同意・追加情報・反論・確認など）
 
 ## 利用可能な機能（重要・厳守）
-
-### できること
-- **Notion の参照**: Ryo が「Notionのあのページ見て」「DBのレコード確認して」と言ったら notion-search → notion-fetch を使う
-  - 検索: notion-search でキーワード検索してページ・DBを見つける
-  - 取得: notion-fetch で具体的なページ・レコードの中身を読む
-  - 結果は 2〜4 文で口語的にまとめる（箇条書き禁止・音声で伝わるように）
-- 対話のみ（プロンプトに渡された情報＋自分の知識で答える）
-
-### できないこと（「します」と言わない）
-- Web検索・ブラウザ検索・URL確認
+あなたはこのボイスチャットで以下のツールを持っていません:
+- Web検索・ブラウザ検索・URL確認（「検索します」「ブラウザで見てみます」と言わない）
 - ファイル読み書き・コード実行・スクリーンショット
-- Notionへの書き込み・Discord等への書き込み
-- 外部API呼び出し（Airbnb・カレンダー・メール等）
+- 外部API呼び出し・Notion/Discord等への書き込み・読み取り
 
-Ryo が「Airbnbリスティング見て」「URL確認して」「最新ニュース調べて」と言われた場合は、
-「申し訳ない、ボイスチャットでは Web 確認できないので、URL or 情報をテキストで送ってもらえれば内容について話せます」と素直に返す。
-
-Notion の検索・参照は可能だが、結果が長い場合は「Notionで確認しました。要点だけ言うと……」と口語でまとめる。
+できるのは対話のみ（プロンプトに渡された情報＋自分の知識で答える）。
+Ryo が「Airbnbリスティング見て」「URL確認して」「Notion見て」「最新ニュース調べて」と言われた場合は、
+「申し訳ない、ボイスチャットでは確認できないので、内容をテキストで送ってもらえれば話せます」と素直に返す。
 """
 
 
@@ -366,7 +356,8 @@ class ClaudePersistentClient:
             "--include-partial-messages",
             "--no-session-persistence",
             "--tools", "",           # built-in（Read/Write/Bash 等）を無効化
-            "--allowedTools", self._NOTION_READ_TOOLS,  # Notion 参照系のみ許可
+            # 注: Notion MCP は cold start を悪化させる事象を確認したため一時無効化（2026-05-07）
+            # 必要時は --allowedTools で再開、ただし MCP 起動コストの調査必須
             "--system-prompt", SHIRATAMA_SYSTEM_PROMPT,
         ]
 
