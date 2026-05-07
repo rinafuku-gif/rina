@@ -547,7 +547,10 @@ class ClaudePersistentClient:
 
             timed_out = False
             try:
-                for raw_line in proc.stdout:
+                # iter(readline, '') で明示的にline単位で読む。
+                # for raw_line in proc.stdout だと TextIOWrapper の内部buffering で
+                # line 単位の yield が遅れる事象が発生（2026-05-07 実測、launchd環境）。
+                for raw_line in iter(proc.stdout.readline, ''):
                     # ターン全体のハードタイムアウト
                     elapsed_total = time.monotonic() - t_start
                     if elapsed_total > TURN_HARD_TIMEOUT_S:
