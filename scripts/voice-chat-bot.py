@@ -183,30 +183,32 @@ def load_ceo_context() -> str:
     parts = []
 
     # 1. CEOメモリインデックス（参考情報）
+    print("[ctx DEBUG] step1 CEO_MEMORY_INDEX...", flush=True)
     try:
         index = CEO_MEMORY_INDEX.read_text()
         parts.append("## CEOメモリ（参考情報）")
         parts.append(index[:1500])
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[ctx DEBUG] step1 err: {e}", flush=True)
+    print("[ctx DEBUG] step1 done", flush=True)
 
     # 2. CEO daily-context（今日の全状況サマリー、先頭1500字に削減）
+    print("[ctx DEBUG] step2 CEO_DAILY_CONTEXT...", flush=True)
     try:
         daily = CEO_DAILY_CONTEXT.read_text()
         parts.append("\n## 今日の状況サマリー（daily-context）")
         parts.append(daily[:1500])
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[ctx DEBUG] step2 err: {e}", flush=True)
+    print("[ctx DEBUG] step2 done", flush=True)
 
-    # 3. Obsidian ダッシュボード（事業全体像、1000字に削減）
-    try:
-        dashboard = OBSIDIAN_DASHBOARD.read_text()
-        parts.append("\n## Obsidianダッシュボード（事業全体像）")
-        parts.append(dashboard[:1000])
-    except Exception:
-        pass
+    # 3. Obsidian ダッシュボード — 削除（2026-05-07）
+    # iCloud Drive のファイルを launchd 経由起動の Python から read_text() すると
+    # macOS TCC + iCloud sync の組み合わせで永久ブロックする現象を実測確認。
+    # ボイチャ応答に必須でないため削除（Ryo閲覧用ファイルなので bot 不要）。
 
     # 4. 最新の CEO セッションファイル（末尾1000字に削減）
+    print("[ctx DEBUG] step4 session glob...", flush=True)
     try:
         session_files = sorted(_glob.glob(CEO_SESSION_GLOB))
         if session_files:
@@ -214,16 +216,19 @@ def load_ceo_context() -> str:
             tail = latest[-1000:] if len(latest) > 1000 else latest
             parts.append("\n## 直近のCEO作業ログ（セッション末尾）")
             parts.append(tail)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[ctx DEBUG] step4 err: {e}", flush=True)
+    print("[ctx DEBUG] step4 done", flush=True)
 
     # 5. 後方互換: discord migration コンテキスト（あれば）
+    print("[ctx DEBUG] step5 CEO_DISCORD_CONTEXT...", flush=True)
     try:
         discord_ctx = CEO_DISCORD_CONTEXT.read_text()
         parts.append("\n## 補足コンテキスト")
         parts.append(discord_ctx[:1000])
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[ctx DEBUG] step5 err: {e}", flush=True)
+    print("[ctx DEBUG] step5 done", flush=True)
 
     return "\n".join(parts) if parts else ""
 
