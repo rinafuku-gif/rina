@@ -498,27 +498,23 @@ class ClaudePersistentClient:
         - result.is_error: エラーイベントを検出してログ出力
         - 異常レイテンシ（>10秒）: 詳細ログを残す
         """
-        # ロック取得タイムアウト: 前のターンが詰まっていても永久待機しない
+        # ロック取得タイムアウト
         acquired = self._lock.acquire(timeout=self.LOCK_WAIT_TIMEOUT_S)
         if not acquired:
             print(
-                f"[Claude] Lock timeout ({self.LOCK_WAIT_TIMEOUT_S}s): previous turn still running, skipping.",
+                f"[Claude] Lock timeout ({self.LOCK_WAIT_TIMEOUT_S}s): skipping.",
                 flush=True,
             )
             yield "すみません、前の応答がまだ処理中です。少し待ってからもう一度お願いできますか。"
             return
 
-        # ターン全体のハードタイムアウト（cold start + 推論 + 読み取り）
         TURN_HARD_TIMEOUT_S = 45.0
 
         try:
             self._turn_count += 1
             turn = self._turn_count
             label = f"{turn}回目"
-
-            # 毎ターン新規 spawn (one-shot)。stdin EOF で確実に処理を始めさせる
-            self._spawn()
-            proc = self._proc
+            os.makedirs(self._CLEAN_CWD, exist_ok=True)
 
             prompt = build_claude_prompt(user_text)
             msg = json.dumps({
@@ -529,121 +525,106 @@ class ClaudePersistentClient:
                 },
             })
 
-            buf = ""
-            full_response = ""
-            first_text_token = True
             t_start = time.monotonic()
-            event_count = 0
+            stderr_log = open(self._STDERR_LOG, "ab")
+            stderr_log.write(f"\n=== run at {time.time()} ===\n".encode("utf-8"))
+            stderr_log.flush()
 
-            # write → close stdin（EOF）で claude CLI に処理開始を促す
+            # subprocess.run で完全 one-shot。stdin に input を渡して即EOF・全stdout回収。
+            # streaming は諦めて確実性を取る。MCP無効化により cold start 1.4s。
             try:
-                proc.stdin.write(msg + "\n")
-                proc.stdin.flush()
-                proc.stdin.close()
-            except (BrokenPipeError, OSError) as e:
-                print(f"[Claude] stdin write error: {e}", flush=True)
+                result = subprocess.run(
+                    self._build_args(),
+                    input=msg + "\n",
+                    capture_output=True,
+                    text=True,
+                    timeout=TURN_HARD_TIMEOUT_S,
+                    env=CLAUDE_ENV,
+                    cwd=self._CLEAN_CWD,
+                )
+                stderr_log.write(result.stderr.encode("utf-8") if result.stderr else b"")
+                stderr_log.flush()
+            except subprocess.TimeoutExpired as e:
+                stderr_log.write(f"\nTimeoutExpired after {TURN_HARD_TIMEOUT_S}s\n".encode("utf-8"))
+                stderr_log.flush()
+                stderr_log.close()
+                print(
+                    f"[Claude] Turn {label} hard timeout: {TURN_HARD_TIMEOUT_S}s",
+                    flush=True,
+                )
+                yield "すみません、応答が詰まりました。もう一度お願いできますか。"
+                return
+            except Exception as e:
+                stderr_log.close()
+                print(f"[Claude] subprocess error: {e}", flush=True)
                 yield "すみません、応答できませんでした。もう一度お願いできますか。"
                 return
 
-            timed_out = False
-            try:
-                # iter(readline, '') で明示的にline単位で読む。
-                # for raw_line in proc.stdout だと TextIOWrapper の内部buffering で
-                # line 単位の yield が遅れる事象が発生（2026-05-07 実測、launchd環境）。
-                for raw_line in iter(proc.stdout.readline, ''):
-                    # ターン全体のハードタイムアウト
-                    elapsed_total = time.monotonic() - t_start
-                    if elapsed_total > TURN_HARD_TIMEOUT_S:
+            stderr_log.close()
+            elapsed_total = time.monotonic() - t_start
+            print(f"[Latency] Claude total ({label}): {elapsed_total:.2f}s", flush=True)
+
+            # stream-json の出力を line 単位で parse して text_delta を集める
+            full_response = ""
+            event_count = 0
+            for line in (result.stdout or "").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    ev = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                event_count += 1
+
+                if ev.get("type") == "result":
+                    if ev.get("is_error"):
+                        err_msg = ev.get("result", "")
                         print(
-                            f"[Claude] Turn {label} hard timeout: {elapsed_total:.1f}s "
-                            f"(events_received={event_count})",
+                            f"[Claude] ERROR result (turn={label}): {str(err_msg)[:300]}",
                             flush=True,
                         )
-                        timed_out = True
-                        break
+                    break
 
-                    line = raw_line.strip()
-                    if not line:
-                        continue
-                    try:
-                        ev = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
+                if ev.get("type") != "stream_event":
+                    continue
+                inner = ev.get("event", {})
+                if inner.get("type") != "content_block_delta":
+                    continue
+                delta = inner.get("delta", {})
+                if delta.get("type") != "text_delta":
+                    continue
+                chunk = delta.get("text", "")
+                if not chunk:
+                    continue
+                full_response += chunk
 
-                    event_count += 1
+            print(
+                f"[Latency] events_received={event_count}, response_len={len(full_response)}",
+                flush=True,
+            )
 
-                    if ev.get("type") == "result":
-                        if ev.get("is_error"):
-                            err_msg = ev.get("result", "")
-                            print(
-                                f"[Claude] ERROR result (turn={label}): {str(err_msg)[:300]}",
-                                flush=True,
-                            )
-                        break
+            if not full_response.strip():
+                yield "すみません、うまく応答できませんでした。もう一度お願いできますか。"
+                return
 
-                    if ev.get("type") != "stream_event":
-                        continue
-                    inner = ev.get("event", {})
-                    if inner.get("type") != "content_block_delta":
-                        continue
-                    delta = inner.get("delta", {})
-                    if delta.get("type") != "text_delta":
-                        continue
-                    chunk = delta.get("text", "")
-                    if not chunk:
-                        continue
-
-                    if first_text_token:
-                        t_first = time.monotonic()
-                        elapsed = t_first - t_start
-                        if elapsed > 10.0:
-                            print(
-                                f"[Latency] first_text_token ({label}): {elapsed:.2f}s "
-                                f"[SLOW] prompt_tail={repr(user_text[-50:])} "
-                                f"first_event={repr(chunk[:40])}",
-                                flush=True,
-                            )
-                        else:
-                            print(
-                                f"[Latency] first_text_token ({label}): {elapsed:.2f}s",
-                                flush=True,
-                            )
-                        first_text_token = False
-
-                    for ch in chunk:
-                        buf += ch
-                        if ch in self.SENTENCE_DELIMITERS and len(buf.strip()) > 1:
-                            sentence = buf.strip()
-                            if sentence:
-                                full_response += sentence
-                                yield sentence
-                            buf = ""
-
-            except Exception as e:
-                print(f"[Claude] Stream error: {e}", file=sys.stderr, flush=True)
-
-            if timed_out:
-                yield "すみません、応答が詰まりました。もう一度お願いできますか。"
-
+            # 句点単位で yield（TTS が文単位で再生できるように）
+            buf = ""
+            for ch in full_response:
+                buf += ch
+                if ch in self.SENTENCE_DELIMITERS and len(buf.strip()) > 1:
+                    sentence = buf.strip()
+                    if sentence:
+                        yield sentence
+                    buf = ""
             remainder = buf.strip()
             if remainder:
-                full_response += remainder
                 yield remainder
 
-            if full_response:
-                conversation_history.append({"role": "user", "content": user_text})
-                conversation_history.append({"role": "assistant", "content": full_response})
+            conversation_history.append({"role": "user", "content": user_text})
+            conversation_history.append({"role": "assistant", "content": full_response})
 
         finally:
-            # one-shot: ターン終了時に proc を確実に kill
-            if self._proc is not None:
-                try:
-                    if self._proc.poll() is None:
-                        self._proc.kill()
-                    self._proc.wait(timeout=3)
-                except Exception:
-                    pass
-                self._proc = None
             self._lock.release()
 
 
