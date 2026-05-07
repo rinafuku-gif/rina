@@ -336,14 +336,11 @@ class ClaudePersistentClient:
 
     # ── プロセス管理 ────────────────────────────────
 
-    # Notion の参照系ツールのみを許可（書き込み・ローカルFS・Web・Bash は禁止）
-    _NOTION_READ_TOOLS = ",".join([
-        "mcp__claude_ai_Notion__notion-search",
-        "mcp__claude_ai_Notion__notion-fetch",
-        "mcp__claude_ai_Notion__notion-get-comments",
-        "mcp__claude_ai_Notion__notion-get-users",
-        "mcp__claude_ai_Notion__notion-get-teams",
-    ])
+    # MCP 完全無効化用の空設定（cold start 短縮の本丸・2026-05-07）
+    # 全 MCP server (Notion/Figma/Canva/Make/Vercel など 15個) を起動毎に立ち上げると
+    # cache_creation_input_tokens が 107K → 5.2K (-95%)、TTFT が 3.4s → 1.3s に縮む実測あり。
+    # ボイスチャットは外部API使わない（MCP/Web/Bash 全禁止）方針なので機能ロスなし。
+    _EMPTY_MCP_CONFIG = "/Users/ocmm/rina/scripts/empty-mcp.json"
 
     def _build_args(self) -> list[str]:
         return [
@@ -356,8 +353,8 @@ class ClaudePersistentClient:
             "--include-partial-messages",
             "--no-session-persistence",
             "--tools", "",           # built-in（Read/Write/Bash 等）を無効化
-            # 注: Notion MCP は cold start を悪化させる事象を確認したため一時無効化（2026-05-07）
-            # 必要時は --allowedTools で再開、ただし MCP 起動コストの調査必須
+            "--strict-mcp-config",   # MCP は --mcp-config 指定のみ使用（=空）
+            "--mcp-config", self._EMPTY_MCP_CONFIG,
             "--system-prompt", SHIRATAMA_SYSTEM_PROMPT,
         ]
 
@@ -379,9 +376,15 @@ class ClaudePersistentClient:
         with self._lock:
             self._kill()
 
+    # CLAUDE.md auto-discovery 回避用の作業ディレクトリ
+    # cwd=REPO_DIR (~/rina) だと ~/rina/CLAUDE.md (26KB) が毎ターン読み込まれる。
+    # 専用クリーンディレクトリで起動して読み込みを抑制（コンテキストは build_claude_prompt で渡す）。
+    _CLEAN_CWD = "/tmp/voice-chat-bot-cwd"
+
     def _spawn(self):
         """プロセスを生成する（_lock 保持中に呼ぶこと）。"""
         self._kill()
+        os.makedirs(self._CLEAN_CWD, exist_ok=True)
         self._proc = subprocess.Popen(
             self._build_args(),
             stdin=subprocess.PIPE,
@@ -389,7 +392,7 @@ class ClaudePersistentClient:
             stderr=subprocess.PIPE,
             text=True,
             env=CLAUDE_ENV,
-            cwd=str(REPO_DIR),
+            cwd=self._CLEAN_CWD,
             bufsize=1,  # line-buffered
         )
         self._last_stdout_ts = time.monotonic()
