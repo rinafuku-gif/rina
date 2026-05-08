@@ -1,19 +1,6 @@
 {
   "deadlines": [
     {
-      "id": "3390f0fdafad8185b741d4e40089deb7",
-      "title": "SUNDAY PICNIC 出店",
-      "date": "2026-05-24",
-      "category": "",
-      "business": "三十日珈琲",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
-    },
-    {
       "id": "3390f0fdafad819a8ab4f7d9cb5b8144",
       "title": "Basecamp Torisawa 正式オープン",
       "date": "2026-05-12",
@@ -95,7 +82,7 @@
       "id": "33c0f0fdafad8194949af1bb4910b579",
       "title": "【蔵サウナ】都留信金から融資の内諾を取得",
       "date": "2026-05-24",
-      "category": "補助金・資金",
+      "category": "���助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -599,5 +586,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-35a0f0fdafad81f68162f797e8afc376"
     }
   ],
-  "generated_at": "2026-05-08T16:22:02.347Z"
+  "generated_at": "2026-05-08T16:27:02.904Z"
 }
