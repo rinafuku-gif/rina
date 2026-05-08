@@ -27,19 +27,6 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     },
     {
-      "id": "3390f0fdafad819caedcc91eb369624a",
-      "title": "テスト宿泊（関係者）",
-      "date": "2026-05-06",
-      "category": "",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/3390f0fdafad819caedcc91eb369624a"
-    },
-    {
       "id": "3390f0fdafad81c086e0c84e272e6c63",
       "title": "Phase 6: 集客・掲載",
       "date": "2026-05-09",
@@ -548,8 +535,8 @@
     },
     {
       "id": "35a0f0fdafad81998257cbcc595b7bf0",
-      "title": "【プライベート】関西帰省の段取りリスト作成（5/17発前にバンドル化）",
-      "date": "2026-05-15",
+      "title": "【プライベート】関西帰省の段取りリスト作成",
+      "date": "2026-05-09",
       "category": "その他",
       "business": "プライベート",
       "status": "進行中",
@@ -557,12 +544,12 @@
       "notes": "",
       "_gtd": "次にやること",
       "_priority": "中",
-      "_notion_url": "https://www.notion.so/5-17-35a0f0fdafad81998257cbcc595b7bf0"
+      "_notion_url": "https://www.notion.so/35a0f0fdafad81998257cbcc595b7bf0"
     },
     {
       "id": "35a0f0fdafad81bb8b38c38dd088dccf",
       "title": "【SATOYAMA AI BASE】美和さんアプリ 残作業棚卸し → 完成期日コミット",
-      "date": "2026-05-15",
+      "date": "2026-05-09",
       "category": "デザイン",
       "business": "SATOYAMA AI BASE",
       "status": "進行中",
@@ -612,5 +599,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-35a0f0fdafad81f68162f797e8afc376"
     }
   ],
-  "generated_at": "2026-05-08T06:12:02.606Z"
+  "generated_at": "2026-05-08T06:17:03.105Z"
 }
