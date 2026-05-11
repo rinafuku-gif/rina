@@ -53,19 +53,6 @@
       "_notion_url": "https://www.notion.so/Airbnb-3390f0fdafad81c8920ded56196bfac9"
     },
     {
-      "id": "3390f0fdafad81d6a378cc762481de8a",
-      "title": "キッチン・備品設置",
-      "date": "2026-04-16",
-      "category": "",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "完���",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/3390f0fdafad81d6a378cc762481de8a"
-    },
-    {
       "id": "33c0f0fdafad8132af5fcda8a5fe693c",
       "title": "【蔵サウナ】山田さん（政策秘書課）に事業計画書を送付",
       "date": "2026-05-10",
@@ -327,7 +314,7 @@
     },
     {
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
-      "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
+      "title": "【蔵サウナ】総務省へ計画書正式提出（市���由・月末締切）",
       "date": "2026-06-30",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -612,5 +599,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-35a0f0fdafad81f68162f797e8afc376"
     }
   ],
-  "generated_at": "2026-05-11T01:02:03.045Z"
+  "generated_at": "2026-05-11T01:07:04.212Z"
 }
