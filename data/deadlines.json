@@ -119,7 +119,7 @@
     },
     {
       "id": "35a0f0fdafad81998257cbcc595b7bf0",
-      "title": "【プライベート】関西帰省の段取りリスト作成",
+      "title": "【プライベート】���西帰省の段取りリスト作成",
       "date": "2026-05-09",
       "category": "その他",
       "business": "プライベート",
@@ -196,19 +196,6 @@
       "_notion_url": "https://www.notion.so/34e0f0fdafad8122a61adbc82a8c4af5"
     },
     {
-      "id": "34e0f0fdafad8186aaadf43a9ba67624",
-      "title": "【蔵サウナ】単価50万円超12項目で相見積もり依頼（5月中・5社）",
-      "date": "2026-05-08",
-      "category": "補助金・資金",
-      "business": "蔵サウナ",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/50-12-5-5-34e0f0fdafad8186aaadf43a9ba67624"
-    },
-    {
       "id": "34e0f0fdafad819dad4bce2455619c75",
       "title": "【蔵サウナ】蔵の現状写真撮影（ポンチ絵用）",
       "date": "2026-05-29",
@@ -236,7 +223,7 @@
     },
     {
       "id": "34e0f0fdafad81b4a4b3c8e073421f91",
-      "title": "【蔵サウナ】上野原市政策秘書課 山田さんに資料持参で再訪問",
+      "title": "【蔵サウナ】上野原市政策秘書課 山田さん��資料持参で再訪問",
       "date": "2026-05-23",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -379,7 +366,7 @@
     },
     {
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
-      "title": "【任屋】持続化補助金 創業��� 計画書作成着手（大神田さん名義）",
+      "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
       "date": "2026-04-21",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -404,23 +391,10 @@
       "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad81d0b195c3ca298ceeaa"
     },
     {
-      "id": "3480f0fdafad81de915cc714c1326bd7",
-      "title": "【Basecamp】お風呂掃除",
-      "date": "2026-05-12",
-      "category": "設計・施工",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "���了",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad81de915cc714c1326bd7"
-    },
-    {
       "id": "3480f0fdafad81e69550c249d5aa1b82",
       "title": "【えんがわ】持続化補助金 第19回 申請提出（上野原商工会経由・個人事業主）",
       "date": "2026-04-30",
-      "category": "",
+      "category": "補助金・資金",
       "business": "えんがわ",
       "status": "進行中",
       "checklist": [],
@@ -612,5 +586,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-11T23:42:04.655Z"
+  "generated_at": "2026-05-11T23:47:02.659Z"
 }
