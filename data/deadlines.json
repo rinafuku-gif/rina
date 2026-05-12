@@ -57,7 +57,7 @@
       "title": "【蔵サウナ】6月申請に向けた逆算スケジュール作成",
       "date": "2026-05-14",
       "category": "補助金・資金",
-      "business": "蔵サウナ",
+      "business": "",
       "status": "進行中",
       "checklist": [],
       "notes": "",
@@ -82,7 +82,7 @@
       "id": "35a0f0fdafad816891dfd0c60fc31da4",
       "title": "【プライベート】父：手続き窓口の現地下見（吹田市役所・大阪北年金事務所・斎場）",
       "date": "2026-05-19",
-      "category": "行政手続き",
+      "category": "",
       "business": "プライベート",
       "status": "進行中",
       "checklist": [],
@@ -119,7 +119,7 @@
     },
     {
       "id": "35a0f0fdafad81998257cbcc595b7bf0",
-      "title": "【プライベート】��西帰省の段取りリスト作成",
+      "title": "【プライベート】関西帰省の段取りリスト作成",
       "date": "2026-05-09",
       "category": "その他",
       "business": "プライベート",
@@ -225,7 +225,7 @@
       "id": "34e0f0fdafad81aa9f8cd31c4aa3efbc",
       "title": "【蔵サウナ】相見積もり1次回収・資金計画書最終版",
       "date": "2026-05-30",
-      "category": "補助金・資金",
+      "category": "",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -327,7 +327,7 @@
     },
     {
       "id": "3480f0fdafad810b98c9f1ea9be23878",
-      "title": "【Basecamp】ギアレンタ���規約作成",
+      "title": "【Basecamp】ギアレンタル規約作成",
       "date": "2026-05-09",
       "category": "契約・法務",
       "business": "Basecamp Torisawa",
@@ -599,5 +599,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-12T19:32:03.235Z"
+  "generated_at": "2026-05-12T19:37:03.807Z"
 }
