@@ -57,7 +57,7 @@
       "title": "【蔵サウナ】6月申請に向けた逆算スケジュール作成",
       "date": "2026-05-14",
       "category": "補助金・資金",
-      "business": "",
+      "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
       "notes": "",
@@ -82,7 +82,7 @@
       "id": "35a0f0fdafad816891dfd0c60fc31da4",
       "title": "【プライベート】父：手続き窓口の現地下見（吹田市役所・大阪北年金事務所・斎場）",
       "date": "2026-05-19",
-      "category": "",
+      "category": "行政手続き",
       "business": "プライベート",
       "status": "進行中",
       "checklist": [],
@@ -225,7 +225,7 @@
       "id": "34e0f0fdafad81aa9f8cd31c4aa3efbc",
       "title": "【蔵サウナ】相見積もり1次回収・資金計画書最終版",
       "date": "2026-05-30",
-      "category": "",
+      "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -379,7 +379,7 @@
     },
     {
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
-      "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
+      "title": "【任屋】持続化補助金 創業��� 計画書作成着手（大神田さん名義）",
       "date": "2026-04-21",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -599,5 +599,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-12T08:37:02.852Z"
+  "generated_at": "2026-05-12T08:42:03.886Z"
 }
