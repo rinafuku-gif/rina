@@ -119,7 +119,7 @@
     },
     {
       "id": "35a0f0fdafad81998257cbcc595b7bf0",
-      "title": "【プライベート】���西帰省の段取りリスト作成",
+      "title": "【プライベート】関西帰省の段取りリスト作成",
       "date": "2026-05-09",
       "category": "その他",
       "business": "プライベート",
@@ -368,7 +368,7 @@
       "id": "3480f0fdafad814bbfced74a0e8ecece",
       "title": "【Basecamp】周辺情報ガイド作成",
       "date": "2026-05-08",
-      "category": "��ーケティング",
+      "category": "マーケティング",
       "business": "Basecamp Torisawa",
       "status": "進行中",
       "checklist": [],
@@ -379,7 +379,7 @@
     },
     {
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
-      "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
+      "title": "【任屋】持続化補助金 創業��� 計画書作成着手（大神田さん名義）",
       "date": "2026-04-21",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -407,7 +407,7 @@
       "id": "3480f0fdafad81e69550c249d5aa1b82",
       "title": "【えんがわ】持続化補助金 第19回 申請提出（上野原商工会経由・個人事業主）",
       "date": "2026-04-30",
-      "category": "補助金・資金",
+      "category": "",
       "business": "えんがわ",
       "status": "進行中",
       "checklist": [],
@@ -599,5 +599,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-13T06:57:02.943Z"
+  "generated_at": "2026-05-13T07:02:03.677Z"
 }
