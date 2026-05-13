@@ -236,7 +236,7 @@
     },
     {
       "id": "34e0f0fdafad81aa9f8cd31c4aa3efbc",
-      "title": "【蔵サウナ】相見積もり1次回収・資金計画書最終版",
+      "title": "【���サウナ】相見積もり1次回収・資金計画書最終版",
       "date": "2026-05-30",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -430,19 +430,6 @@
       "_notion_url": "https://www.notion.so/19-3480f0fdafad81e69550c249d5aa1b82"
     },
     {
-      "id": "33d0f0fdafad812e853ef03b4a531a60",
-      "title": "調味料リスト作成",
-      "date": "2026-04-20",
-      "category": "飲食",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "完���",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/33d0f0fdafad812e853ef03b4a531a60"
-    },
-    {
       "id": "33d0f0fdafad8129858efd96a4a082a0",
       "title": "【蔵サウナ】宿泊施設サステナビリティ補助金 申請準備",
       "date": "2026-05-30",
@@ -625,5 +612,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-13T23:02:03.822Z"
+  "generated_at": "2026-05-13T23:07:02.838Z"
 }
