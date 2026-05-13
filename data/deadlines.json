@@ -1,6 +1,19 @@
 {
   "deadlines": [
     {
+      "id": "35f0f0fdafad8137892aea17ef29af3e",
+      "title": "【えんがわAIガイド】ローカル起動セットアップ（APIキー2つ取得+.env作成+起動確認、15分）",
+      "date": "2026-05-14",
+      "category": "その他",
+      "business": "えんがわ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "次にやること",
+      "_priority": "中",
+      "_notion_url": "https://www.notion.so/AI-API-2-env-15-35f0f0fdafad8137892aea17ef29af3e"
+    },
+    {
       "id": "35a0f0fdafad811ab03ee10d14706213",
       "title": "【となりにとまる】上野原 簡易宿所 事業計画 Draft",
       "date": "2026-05-31",
@@ -66,19 +79,6 @@
       "_notion_url": "https://www.notion.so/6-35a0f0fdafad8154a7b4f2dc5454efa8"
     },
     {
-      "id": "35a0f0fdafad8157b6a4c67e7e33b307",
-      "title": "【プライベート】父：エンディングノート的情報の聞き取り（保険・銀行・サブスク・年金・本籍）",
-      "date": "2026-05-17",
-      "category": "行政手続き",
-      "business": "プライベート",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/35a0f0fdafad8157b6a4c67e7e33b307"
-    },
-    {
       "id": "35a0f0fdafad816891dfd0c60fc31da4",
       "title": "【プライベート】父：手続き窓口の現地下見（吹田市役所・大阪北年金事務所・斎場）",
       "date": "2026-05-19",
@@ -119,7 +119,7 @@
     },
     {
       "id": "35a0f0fdafad81998257cbcc595b7bf0",
-      "title": "【プライベート】��西帰省の段取りリスト作成",
+      "title": "【プライベート】関西帰省の段取りリスト作成",
       "date": "2026-05-09",
       "category": "その他",
       "business": "プライベート",
@@ -145,7 +145,7 @@
     },
     {
       "id": "35a0f0fdafad81c0a678cffd5d62678c",
-      "title": "【プライベート】吹田実家：ゴミ捨て",
+      "title": "",
       "date": "2026-05-18",
       "category": "その他",
       "business": "プライベート",
@@ -186,7 +186,7 @@
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
       "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
       "date": "2026-06-30",
-      "category": "補助金・資金",
+      "category": "補助���・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -599,5 +599,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-13T12:37:03.083Z"
+  "generated_at": "2026-05-13T12:42:05.251Z"
 }
