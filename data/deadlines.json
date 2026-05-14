@@ -41,7 +41,7 @@
     },
     {
       "id": "35a0f0fdafad813bbbc5c58bf9f6c52d",
-      "title": "【プライベート】父���金融機関の口座一覧と通帳保管場所の把握",
+      "title": "【プライベート】父：金融機関の口座一覧と通帳保管場所の把握",
       "date": "2026-05-17",
       "category": "行政手続き",
       "business": "プライベート",
@@ -69,7 +69,7 @@
       "id": "35a0f0fdafad8154a7b4f2dc5454efa8",
       "title": "【蔵サウナ】6月申請に向けた逆算スケジュール作成",
       "date": "2026-05-14",
-      "category": "補助金・資���",
+      "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -88,7 +88,7 @@
       "checklist": [],
       "notes": "",
       "_gtd": "日付指定",
-      "_priority": "��",
+      "_priority": "高",
       "_notion_url": "https://www.notion.so/35a0f0fdafad8157b6a4c67e7e33b307"
     },
     {
@@ -231,7 +231,7 @@
       "checklist": [],
       "notes": "",
       "_gtd": "保留",
-      "_priority": null,
+      "_priority": "中",
       "_notion_url": "https://www.notion.so/34e0f0fdafad819dad4bce2455619c75"
     },
     {
@@ -612,5 +612,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-14T04:57:02.782Z"
+  "generated_at": "2026-05-14T05:02:03.014Z"
 }
