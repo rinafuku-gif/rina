@@ -28,7 +28,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用���）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -158,7 +158,7 @@
     },
     {
       "id": "35a0f0fdafad81c0a678cffd5d62678c",
-      "title": "",
+      "title": "【プライベート】吹田実家：ゴミ捨て",
       "date": "2026-05-18",
       "category": "その他",
       "business": "プライベート",
@@ -199,7 +199,7 @@
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
       "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
       "date": "2026-06-30",
-      "category": "補助��・資金",
+      "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -366,7 +366,7 @@
     },
     {
       "id": "3480f0fdafad814a929cc84db1e93be3",
-      "title": "【えんがわ】上野���商工会に電話（個人事業主扱いで様式4発行依頼）",
+      "title": "【えんがわ】上野原商工会に電話（個人事業主扱いで様式4発行依頼）",
       "date": "2026-04-21",
       "category": "補助金・資金",
       "business": "えんがわ",
@@ -612,5 +612,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-14T10:47:03.114Z"
+  "generated_at": "2026-05-14T10:52:03.725Z"
 }
