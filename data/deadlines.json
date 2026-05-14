@@ -2,7 +2,7 @@
   "deadlines": [
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊��営パッケージ v0 設計（汎用化）",
+      "title": "",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -119,7 +119,7 @@
     },
     {
       "id": "35a0f0fdafad81bb8b38c38dd088dccf",
-      "title": "【SATOYAMA AI BASE】美和さんアプリ 残作業棚卸し → 完成期日コミット",
+      "title": "【SATOYAMA AI BASE】美和さんアプリ 残作業棚卸し → 完成期��コミット",
       "date": "2026-05-09",
       "category": "デザイン",
       "business": "SATOYAMA AI BASE",
@@ -586,5 +586,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-14T20:27:05.145Z"
+  "generated_at": "2026-05-14T20:32:03.275Z"
 }
