@@ -79,6 +79,19 @@
       "_notion_url": "https://www.notion.so/6-35a0f0fdafad8154a7b4f2dc5454efa8"
     },
     {
+      "id": "35a0f0fdafad8157b6a4c67e7e33b307",
+      "title": "【プライベート】父：エンディングノート的情報の聞き取り（保険・銀行・サブスク・年金・本籍）",
+      "date": "2026-05-17",
+      "category": "行政手続き",
+      "business": "プライベート",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/35a0f0fdafad8157b6a4c67e7e33b307"
+    },
+    {
       "id": "35a0f0fdafad816891dfd0c60fc31da4",
       "title": "【プライベート】父：手続き窓口の現地下見（吹田市役所・大阪北年金事務所・斎場）",
       "date": "2026-05-19",
@@ -145,7 +158,7 @@
     },
     {
       "id": "35a0f0fdafad81c0a678cffd5d62678c",
-      "title": "",
+      "title": "【プライベート】吹田実家：ゴミ捨て",
       "date": "2026-05-18",
       "category": "その他",
       "business": "プライベート",
@@ -186,7 +199,7 @@
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
       "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
       "date": "2026-06-30",
-      "category": "補助���・資金",
+      "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -599,5 +612,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-14T01:52:05.231Z"
+  "generated_at": "2026-05-14T01:57:03.475Z"
 }
