@@ -28,7 +28,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用��）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -430,6 +430,19 @@
       "_notion_url": "https://www.notion.so/19-3480f0fdafad81e69550c249d5aa1b82"
     },
     {
+      "id": "33d0f0fdafad812e853ef03b4a531a60",
+      "title": "調味料リスト作成",
+      "date": "2026-04-20",
+      "category": "飲食",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "��了",
+      "_priority": "中",
+      "_notion_url": "https://www.notion.so/33d0f0fdafad812e853ef03b4a531a60"
+    },
+    {
       "id": "33d0f0fdafad8129858efd96a4a082a0",
       "title": "【蔵サウナ】宿泊施設サステナビリティ補助金 申請準備",
       "date": "2026-05-30",
@@ -612,5 +625,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-14T02:37:02.619Z"
+  "generated_at": "2026-05-14T02:42:04.309Z"
 }
