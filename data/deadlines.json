@@ -2,7 +2,7 @@
   "deadlines": [
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊��営パッケージ v0 設計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -105,23 +105,10 @@
       "_notion_url": "https://www.notion.so/35a0f0fdafad8193b3aeda7922f80454"
     },
     {
-      "id": "35a0f0fdafad81998257cbcc595b7bf0",
-      "title": "【プライベート】関西帰省の段取りリスト作成",
-      "date": "2026-05-09",
-      "category": "その他",
-      "business": "プライベート",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/35a0f0fdafad81998257cbcc595b7bf0"
-    },
-    {
       "id": "35a0f0fdafad81bb8b38c38dd088dccf",
       "title": "【SATOYAMA AI BASE】美和さんアプリ 残作業棚卸し → 完成期日コミット",
       "date": "2026-05-09",
-      "category": "デザイン",
+      "category": "",
       "business": "SATOYAMA AI BASE",
       "status": "進行中",
       "checklist": [],
@@ -586,5 +573,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-15T21:12:03.062Z"
+  "generated_at": "2026-05-15T21:17:02.745Z"
 }
