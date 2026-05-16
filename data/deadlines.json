@@ -105,6 +105,19 @@
       "_notion_url": "https://www.notion.so/35a0f0fdafad8193b3aeda7922f80454"
     },
     {
+      "id": "35a0f0fdafad81998257cbcc595b7bf0",
+      "title": "【プライベート】関西帰省の段取りリスト作成",
+      "date": "2026-05-09",
+      "category": "その他",
+      "business": "プライベート",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "次にやること",
+      "_priority": "中",
+      "_notion_url": "https://www.notion.so/35a0f0fdafad81998257cbcc595b7bf0"
+    },
+    {
       "id": "35a0f0fdafad81bb8b38c38dd088dccf",
       "title": "【SATOYAMA AI BASE】美和さんアプリ 残作業棚卸し → 完成期日コミット",
       "date": "2026-05-09",
@@ -352,6 +365,19 @@
       "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad814bbfced74a0e8ecece"
     },
     {
+      "id": "3480f0fdafad8190b484d7777614f759",
+      "title": "【Basecamp】清掃オペレーション確立",
+      "date": "2026-05-06",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "��了",
+      "_priority": null,
+      "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad8190b484d7777614f759"
+    },
+    {
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
       "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
       "date": "2026-04-21",
@@ -573,5 +599,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-16T17:37:03.959Z"
+  "generated_at": "2026-05-16T17:42:03.234Z"
 }
