@@ -210,7 +210,7 @@
     },
     {
       "id": "34e0f0fdafad81aa9f8cd31c4aa3efbc",
-      "title": "【蔵サウナ】相見積もり1次回収・資金計画書最終版",
+      "title": "",
       "date": "2026-05-30",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -218,7 +218,7 @@
       "checklist": [],
       "notes": "",
       "_gtd": "日付指定",
-      "_priority": "高",
+      "_priority": null,
       "_notion_url": "https://www.notion.so/1-34e0f0fdafad81aa9f8cd31c4aa3efbc"
     },
     {
@@ -586,5 +586,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-16T05:32:03.890Z"
+  "generated_at": "2026-05-16T05:37:02.763Z"
 }
