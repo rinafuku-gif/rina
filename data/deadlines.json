@@ -106,7 +106,7 @@
     },
     {
       "id": "3630f0fdafad81ce9c0aca29d53c0a99",
-      "title": "BC鳥沢 追加備品購入（HDMI・ハブ・洗濯バサミ���",
+      "title": "BC鳥沢 追加備品購入（HDMI・ハブ・洗濯バサミ）",
       "date": "2026-05-22",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -132,7 +132,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 ��計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 ���計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -181,6 +181,19 @@
       "_gtd": "次にやること",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/6-35a0f0fdafad8154a7b4f2dc5454efa8"
+    },
+    {
+      "id": "35a0f0fdafad8157b6a4c67e7e33b307",
+      "title": "【プライベート】父：エンディングノート的情報の聞き取り（保険・銀行・サブスク・年金・本籍）",
+      "date": "2026-05-18",
+      "category": "行政手続き",
+      "business": "プライベート",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/35a0f0fdafad8157b6a4c67e7e33b307"
     },
     {
       "id": "35a0f0fdafad816891dfd0c60fc31da4",
@@ -330,7 +343,7 @@
       "title": "【蔵サウナ】都留信用組合 副支店長アポ取り→面談（戸田見積持参）",
       "date": "2026-05-23",
       "category": "補助金・資金",
-      "business": "",
+      "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
       "notes": "",
@@ -394,7 +407,7 @@
       "id": "3480f0fdafad814a929cc84db1e93be3",
       "title": "【えんがわ】上野原商工会に電話（個人事業主扱いで様式4発行依頼）",
       "date": "2026-04-21",
-      "category": "補助金���資金",
+      "category": "補助金・資金",
       "business": "えんがわ",
       "status": "進行中",
       "checklist": [],
@@ -612,5 +625,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-17T16:57:03.451Z"
+  "generated_at": "2026-05-17T17:02:17.403Z"
 }
