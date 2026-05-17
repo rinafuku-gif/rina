@@ -2,7 +2,7 @@
   "deadlines": [
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊��営パッケージ v0 設計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -174,13 +174,26 @@
       "title": "【蔵サウナ】蔵の現状写真撮影（ポンチ絵用）",
       "date": "2026-05-29",
       "category": "補助金・資金",
-      "business": "蔵サウナ",
+      "business": "蔵サウ��",
       "status": "進行中",
       "checklist": [],
       "notes": "",
       "_gtd": "保留",
       "_priority": "中",
       "_notion_url": "https://www.notion.so/34e0f0fdafad819dad4bce2455619c75"
+    },
+    {
+      "id": "34e0f0fdafad81aa9f8cd31c4aa3efbc",
+      "title": "【蔵サウナ】相見積もり1次回収・資金計画書最終版",
+      "date": "2026-05-30",
+      "category": "補助金・資金",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/1-34e0f0fdafad81aa9f8cd31c4aa3efbc"
     },
     {
       "id": "34e0f0fdafad81b4a4b3c8e073421f91",
@@ -521,5 +534,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-17T07:32:02.830Z"
+  "generated_at": "2026-05-17T07:37:03.365Z"
 }
