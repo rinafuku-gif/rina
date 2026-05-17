@@ -217,7 +217,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "日付��定",
+      "_gtd": "日付指定",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/35a0f0fdafad8176951ce6f74644fe1b"
     },
@@ -236,7 +236,7 @@
     },
     {
       "id": "35a0f0fdafad81c0a678cffd5d62678c",
-      "title": "【プライベート】吹田実家：ゴミ捨て",
+      "title": "【プ���イベート】吹田実家：ゴミ捨て",
       "date": "2026-05-18",
       "category": "その他",
       "business": "プライベート",
@@ -444,7 +444,7 @@
     },
     {
       "id": "3480f0fdafad81d0b195c3ca298ceeaa",
-      "title": "【Basecamp】ギアの使用マニュアル作成",
+      "title": "",
       "date": "2026-05-24",
       "category": "ブランディング",
       "business": "Basecamp Torisawa",
@@ -625,5 +625,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-17T15:42:03.298Z"
+  "generated_at": "2026-05-17T15:47:04.122Z"
 }
