@@ -159,13 +159,13 @@
     {
       "id": "34e0f0fdafad8186aaadf43a9ba67624",
       "title": "【蔵サウナ】単価50万円超12項目で相見積もり依頼（5月中・5社）",
-      "date": "2026-05-08",
+      "date": "2026-05-18",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "次にやること",
+      "_gtd": "保留",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/50-12-5-5-34e0f0fdafad8186aaadf43a9ba67624"
     },
@@ -285,19 +285,6 @@
       "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad810b98c9f1ea9be23878"
-    },
-    {
-      "id": "3480f0fdafad810fa139d2e46d9051b1",
-      "title": "【Basecamp】Wi-Fi配線（開通・速度確認）",
-      "date": "2026-04-25",
-      "category": "設計・施工",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "完���",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/Basecamp-Wi-Fi-3480f0fdafad810fa139d2e46d9051b1"
     },
     {
       "id": "3480f0fdafad8112aec1dae321087ab6",
@@ -547,5 +534,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-17T08:02:03.228Z"
+  "generated_at": "2026-05-17T08:07:03.194Z"
 }
