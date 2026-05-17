@@ -2,7 +2,7 @@
   "deadlines": [
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
+      "title": "",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -184,7 +184,7 @@
     },
     {
       "id": "34e0f0fdafad81aa9f8cd31c4aa3efbc",
-      "title": "",
+      "title": "【蔵サウナ】相見積もり1次回収・資金計画書最終版",
       "date": "2026-05-30",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -192,7 +192,7 @@
       "checklist": [],
       "notes": "",
       "_gtd": "日付指定",
-      "_priority": null,
+      "_priority": "高",
       "_notion_url": "https://www.notion.so/1-34e0f0fdafad81aa9f8cd31c4aa3efbc"
     },
     {
@@ -340,7 +340,7 @@
     },
     {
       "id": "33d0f0fdafad8129858efd96a4a082a0",
-      "title": "【蔵サウナ】宿泊施設サステナビリティ���助金 申請準備",
+      "title": "【蔵サウナ】宿泊施設サステナビリティ補助金 申請準備",
       "date": "2026-05-30",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -353,7 +353,7 @@
     },
     {
       "id": "33d0f0fdafad81d3bdafefdf175f0a5f",
-      "title": "",
+      "title": "【三十日珈琲】持続化補助金 申請提出（ドラフトv2確認→提出）",
       "date": "2026-04-30",
       "category": "補助金・資金",
       "business": "三十日珈琲",
@@ -495,5 +495,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-17T08:47:08.865Z"
+  "generated_at": "2026-05-17T08:52:05.228Z"
 }
