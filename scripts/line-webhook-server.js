@@ -174,6 +174,7 @@ function googleApiRequest(method, url, body, token, contentType) {
 const BOOKINGS_LOG = path.join(REPO_DIR, "logs", ".airbnb-bookings.json");
 const ENGAWA_HIBA_CAL = "4651f62429c52388651033e5b59f4cb81a418694431ab262748b231c663e461f@group.calendar.google.com";
 const ENGAWA_UME_CAL = "engawa.yanagawa@gmail.com";
+const BC_TORISAWA_CAL = "c_aba25d9245279ce28085bd6ccde59d6af1b75a3212bc83613eca252f20d391b3@group.calendar.google.com";
 
 function loadBookingsLog() {
   try { return JSON.parse(fs.readFileSync(BOOKINGS_LOG, "utf-8")); } catch { return []; }
@@ -191,6 +192,8 @@ function parseAirbnbConfirmationEmail(body) {
   // フォールバック: 旧パターン（互換性のため残す）
   else if (/MOUNTAIN VIEW\s*\|\s*.*H\b/i.test(body)) room = "HIBA";
   else if (/MOUNTAIN VIEW\s*\|\s*.*U\b/i.test(body)) room = "UME";
+  // BC鳥沢: リスティング名「【大月・鳥沢】泊まれる道具箱 - こだわりギアが詰まった山麓のベースキャンプ」
+  else if (/【?大月[・\s]*鳥沢】?|泊まれる道具箱|Basecamp\s*Torisawa|BC\s*鳥沢/i.test(body)) room = "TORISAWA";
 
   // チェックイン・チェックアウト日
   // メール形式: 「チェックイン    チェックアウト\n\n4月5日(日)   4月6日(月)」
@@ -237,6 +240,10 @@ function parseAirbnbConfirmationEmail(body) {
   // 過去メール（リスティング名にH/Uがない場合）の1泊単価判定
   if (room === "UNKNOWN" && nightlyRate > 0) {
     room = nightlyRate >= 10000 ? "UME" : "HIBA";
+  }
+  // BC鳥沢のメールフォーマット未確認 → 判定漏れ検出用の警告ログ
+  if (room === "UNKNOWN") {
+    console.warn("[Airbnb parser] UNKNOWN room - body sample:", body.slice(0, 300).replace(/\s+/g, " "));
   }
 
   return { room, dates, confirmationCode, guests, nightlyRate, nights, hostEarnings, guestTotal };
@@ -326,7 +333,7 @@ async function syncAirbnbBookings(gToken) {
     }
 
     // Google Calendar にイベント作成
-    const calId = parsed.room === "HIBA" ? ENGAWA_HIBA_CAL : ENGAWA_UME_CAL;
+    const calId = parsed.room === "HIBA" ? ENGAWA_HIBA_CAL : parsed.room === "TORISAWA" ? BC_TORISAWA_CAL : ENGAWA_UME_CAL;
     // CI/CO日と泊数をタイトルに明記（カレンダーで一目でわかるように）
     const ciMonth = parseInt(checkinDate.split("-")[1]);
     const ciDay = parseInt(checkinDate.split("-")[2]);
@@ -459,7 +466,7 @@ async function syncAirbnbBookings(gToken) {
         for (const code of cancelledCodes) {
           const booking = currentBookings.find(b => b.confirmationCode === code);
           if (!booking) continue;
-          const calId = booking.room === "HIBA" ? ENGAWA_HIBA_CAL : ENGAWA_UME_CAL;
+          const calId = booking.room === "HIBA" ? ENGAWA_HIBA_CAL : booking.room === "TORISAWA" ? BC_TORISAWA_CAL : ENGAWA_UME_CAL;
           const timeMin = booking.checkin + "T00:00:00Z";
           const coD = new Date(booking.checkout + "T00:00:00Z");
           coD.setUTCDate(coD.getUTCDate() + 2);
@@ -476,7 +483,7 @@ async function syncAirbnbBookings(gToken) {
                 if (desc.includes(code) || summary.includes(booking.guestName)) {
                   const delUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${ev.id}`;
                   await googleApiRequest("DELETE", delUrl, null, gToken);
-                  console.log(`[cancel] Calendar event deleted: ${booking.guestName} (${code}) from ${calId === ENGAWA_HIBA_CAL ? "HIBA" : "UME"}`);
+                  console.log(`[cancel] Calendar event deleted: ${booking.guestName} (${code}) from ${calId === ENGAWA_HIBA_CAL ? "HIBA" : calId === BC_TORISAWA_CAL ? "TORISAWA" : "UME"}`);
                   deleted = true;
                 }
               }
@@ -572,7 +579,7 @@ async function syncAirbnbBookings(gToken) {
         if (newCheckout) console.log(`[modify]   Check-out: ${existing.checkout} → ${newCheckout}`);
 
         // カレンダーイベントを更新
-        const calId = existing.room === "HIBA" ? ENGAWA_HIBA_CAL : ENGAWA_UME_CAL;
+        const calId = existing.room === "HIBA" ? ENGAWA_HIBA_CAL : existing.room === "TORISAWA" ? BC_TORISAWA_CAL : ENGAWA_UME_CAL;
         const timeMin = existing.checkin + "T00:00:00Z";
         const coD = new Date(existing.checkout + "T00:00:00Z");
         coD.setUTCDate(coD.getUTCDate() + 2);
