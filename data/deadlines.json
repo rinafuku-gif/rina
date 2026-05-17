@@ -2,7 +2,7 @@
   "deadlines": [
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊��営パッケージ v0 設計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -366,7 +366,7 @@
     },
     {
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
-      "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
+      "title": "",
       "date": "2026-04-21",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -402,6 +402,19 @@
       "_gtd": "いつかやるかも",
       "_priority": null,
       "_notion_url": "https://www.notion.so/19-3480f0fdafad81e69550c249d5aa1b82"
+    },
+    {
+      "id": "33d0f0fdafad8120ab1ce21fb7d6c90f",
+      "title": "ラグ選定（1階南側押し入れショールーム + 1階北側リビング）",
+      "date": "2026-04-20",
+      "category": "デザイン",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "��了",
+      "_priority": "中",
+      "_notion_url": "https://www.notion.so/1-1-33d0f0fdafad8120ab1ce21fb7d6c90f"
     },
     {
       "id": "33d0f0fdafad8129858efd96a4a082a0",
@@ -586,5 +599,5 @@
       "_notion_url": "https://www.notion.so/Basecamp-Torisawa-3390f0fdafad819a8ab4f7d9cb5b8144"
     }
   ],
-  "generated_at": "2026-05-17T05:47:03.685Z"
+  "generated_at": "2026-05-17T05:52:03.215Z"
 }
