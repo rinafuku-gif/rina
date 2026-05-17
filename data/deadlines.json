@@ -2,7 +2,7 @@
   "deadlines": [
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊��営パッケージ v0 設計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -174,7 +174,7 @@
       "title": "【蔵サウナ】蔵の現状写真撮影（ポンチ絵用）",
       "date": "2026-05-29",
       "category": "補助金・資金",
-      "business": "蔵サウナ",
+      "business": "蔵サウ��",
       "status": "進行中",
       "checklist": [],
       "notes": "",
@@ -301,7 +301,7 @@
     },
     {
       "id": "3480f0fdafad814a929cc84db1e93be3",
-      "title": "【えんがわ】上野原商工会に電話（個人事業主扱いで様式4発行依頼）",
+      "title": "【えんがわ】上野原商��会に電話（個人事業主扱いで様式4発行依頼）",
       "date": "2026-04-21",
       "category": "補助金・資金",
       "business": "えんがわ",
@@ -534,5 +534,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-17T07:52:02.863Z"
+  "generated_at": "2026-05-17T07:57:02.627Z"
 }
