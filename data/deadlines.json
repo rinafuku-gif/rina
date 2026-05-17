@@ -1,6 +1,136 @@
 {
   "deadlines": [
     {
+      "id": "3630f0fdafad8102bd87ebd61b70583f",
+      "title": "日本政策金融公庫への接触（創業融資相談）",
+      "date": "2026-12-15",
+      "category": "補助金・資金",
+      "business": "となりにとまる",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/3630f0fdafad8102bd87ebd61b70583f"
+    },
+    {
+      "id": "3630f0fdafad810e9682e46c335dc193",
+      "title": "山梨中央銀行担当者に��業進捗中間報告",
+      "date": "2026-09-01",
+      "category": "補助金・資金",
+      "business": "となりにとまる",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/3630f0fdafad810e9682e46c335dc193"
+    },
+    {
+      "id": "3630f0fdafad8151be75c211d77aea32",
+      "title": "BC鳥沢 宿泊者名簿フォーム複製",
+      "date": "2026-05-25",
+      "category": "行政手続き",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "次にやること",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/BC-3630f0fdafad8151be75c211d77aea32"
+    },
+    {
+      "id": "3630f0fdafad816795d0f5e32973b00e",
+      "title": "山梨中央銀行に正式融資相談",
+      "date": "2026-11-30",
+      "category": "補助金・資金",
+      "business": "となりにとまる",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/3630f0fdafad816795d0f5e32973b00e"
+    },
+    {
+      "id": "3630f0fdafad818b8486da9da90e71b6",
+      "title": "山梨中央銀行 100万円使途報告書 提出",
+      "date": "2026-06-15",
+      "category": "補助金・資金",
+      "business": "となりにとまる",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "次にやること",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/100-3630f0fdafad818b8486da9da90e71b6"
+    },
+    {
+      "id": "3630f0fdafad818b957afc0180bc551f",
+      "title": "BC鳥沢 旅館業許可番号入力完了確認（オーナー作業）",
+      "date": "2026-05-31",
+      "category": "行政手続き",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "保留",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/BC-3630f0fdafad818b957afc0180bc551f"
+    },
+    {
+      "id": "3630f0fdafad8198a9f0f0c81bdfcb55",
+      "title": "任屋・よりみち開業準備本格化",
+      "date": "2026-09-30",
+      "category": "設計・施工",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/3630f0fdafad8198a9f0f0c81bdfcb55"
+    },
+    {
+      "id": "3630f0fdafad81be9bedec69f852dedc",
+      "title": "BC鳥沢 Gmail→Googleカレンダー自動化",
+      "date": "2026-05-30",
+      "category": "その他",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "次にやること",
+      "_priority": "中",
+      "_notion_url": "https://www.notion.so/BC-Gmail-Google-3630f0fdafad81be9bedec69f852dedc"
+    },
+    {
+      "id": "3630f0fdafad81ce9c0aca29d53c0a99",
+      "title": "BC鳥沢 追加備品購入（HDMI・ハブ・洗濯バサミ）",
+      "date": "2026-05-22",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "次にやること",
+      "_priority": "中",
+      "_notion_url": "https://www.notion.so/BC-HDMI-3630f0fdafad81ce9c0aca29d53c0a99"
+    },
+    {
+      "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
+      "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
+      "date": "2026-10-31",
+      "category": "その他",
+      "business": "となりにとまる",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "中",
+      "_notion_url": "https://www.notion.so/v3-3630f0fdafad81e4a8fbf3e971a1fa41"
+    },
+    {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
       "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
       "date": "2026-05-31",
@@ -495,5 +625,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-17T10:12:03.466Z"
+  "generated_at": "2026-05-17T10:17:02.553Z"
 }
