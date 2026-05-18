@@ -132,7 +132,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 ���計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -246,6 +246,19 @@
       "_gtd": "日付指定",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/34e0f0fdafad8122a61adbc82a8c4af5"
+    },
+    {
+      "id": "34e0f0fdafad8186aaadf43a9ba67624",
+      "title": "【蔵サウナ】単価50万円超12項目で相見積もり依頼（5月中・5社）",
+      "date": "2026-05-19",
+      "category": "補助金・資金",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "保留",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/50-12-5-5-34e0f0fdafad8186aaadf43a9ba67624"
     },
     {
       "id": "34e0f0fdafad819dad4bce2455619c75",
@@ -573,5 +586,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-18T18:57:02.649Z"
+  "generated_at": "2026-05-18T19:02:03.181Z"
 }
