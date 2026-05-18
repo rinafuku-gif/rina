@@ -516,10 +516,16 @@ if [ ! -f "$OBSIDIAN_FILE" ]; then
   echo "" >> "$OBSIDIAN_FILE"
 fi
 
-# printfで一括書き込み（echoのwrite error回避）
-printf '\n---\n\n## %s\n\n%s\n\n' "$TODAY" "$REPORT" >> "$OBSIDIAN_FILE" 2>/dev/null || true
-
-echo "ai-news: Saved to Obsidian ($OBSIDIAN_FILE)" >&2
+# printfで一括書き込み（失敗を検出してstderrに残す。iCloud deadlock のサイレント失敗対策）
+OBSIDIAN_TMP_ERR=$(mktemp)
+if printf '\n---\n\n## %s\n\n%s\n\n' "$TODAY" "$REPORT" >> "$OBSIDIAN_FILE" 2>"$OBSIDIAN_TMP_ERR"; then
+  echo "ai-news: Saved to Obsidian ($OBSIDIAN_FILE)" >&2
+else
+  OBSIDIAN_ERR_MSG=$(cat "$OBSIDIAN_TMP_ERR")
+  echo "ai-news: ERROR Obsidian write failed ($OBSIDIAN_FILE): $OBSIDIAN_ERR_MSG" >&2
+  echo "ai-news: ERROR iCloud Drive状態を確認してください。Notion DBには書き込み済み" >&2
+fi
+rm -f "$OBSIDIAN_TMP_ERR"
 
 # ── Notion AI News DB蓄積 ────────────────────────
 
