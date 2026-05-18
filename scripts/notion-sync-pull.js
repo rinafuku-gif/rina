@@ -283,6 +283,7 @@ function scanInconsistencies(tasks) {
 async function sendDiscordIfNeeded(issues) {
   const total = issues.staleMaybe.length + issues.shouldPromote.length + issues.overdue.length;
   if (total === 0) return;
+  return; // disabled 2026-05-18: Task-Bot 7:00 briefing が代替（再有効化はこの行削除）
   const sentFlag = path.join(LOG_DIR, `.gtd-scan-sent-${today()}`);
   if (fs.existsSync(sentFlag)) { log(`GTD scan already sent today (${total} issues)`); return; }
   if (NO_DISCORD || DRY_RUN) { log(`DRY/NO_DISCORD: would send GTD scan (${total} issues)`); return; }
