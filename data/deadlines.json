@@ -430,8 +430,21 @@
       "_notion_url": "https://www.notion.so/19-3480f0fdafad81e69550c249d5aa1b82"
     },
     {
+      "id": "33d0f0fdafad81679432d83435d9ae1c",
+      "title": "OSB合板の設置（1階南側壁面上段・玄関正面・玄関左側）",
+      "date": "2026-04-20",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "��了",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/OSB-1-33d0f0fdafad81679432d83435d9ae1c"
+    },
+    {
       "id": "33d0f0fdafad8129858efd96a4a082a0",
-      "title": "【蔵サウナ】宿泊施設サステナビリティ補助金 申請準備",
+      "title": "",
       "date": "2026-05-30",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -586,5 +599,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-18T16:07:03.681Z"
+  "generated_at": "2026-05-18T16:12:02.628Z"
 }
