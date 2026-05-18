@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に事業進捗中間報告",
+      "title": "山梨中央銀行担当者に��業進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -191,7 +191,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "���付指定",
+      "_gtd": "日付指定",
       "_priority": "中",
       "_notion_url": "https://www.notion.so/35a0f0fdafad816891dfd0c60fc31da4"
     },
@@ -290,7 +290,7 @@
       "id": "34e0f0fdafad81b4a4b3c8e073421f91",
       "title": "【蔵サウナ】上野原市政策秘書課 山田さんに資料持参で再訪問",
       "date": "2026-05-23",
-      "category": "",
+      "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -353,7 +353,7 @@
     },
     {
       "id": "3480f0fdafad8112aec1dae321087ab6",
-      "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
+      "title": "",
       "date": "2026-05-24",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -363,19 +363,6 @@
       "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://www.notion.so/10000-3480f0fdafad8112aec1dae321087ab6"
-    },
-    {
-      "id": "3480f0fdafad81329018c52b749bef53",
-      "title": "【Basecamp】窓掃除（1階南側・キッチン・脱衣所・2階階段・トイレ）",
-      "date": "2026-05-12",
-      "category": "設計・施工",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "��了",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/Basecamp-1-2-3480f0fdafad81329018c52b749bef53"
     },
     {
       "id": "3480f0fdafad814a929cc84db1e93be3",
@@ -599,5 +586,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-18T21:42:03.026Z"
+  "generated_at": "2026-05-18T21:47:02.951Z"
 }
