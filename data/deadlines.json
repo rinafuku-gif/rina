@@ -132,7 +132,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 ���計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -191,7 +191,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "日付指定",
+      "_gtd": "���付指定",
       "_priority": "中",
       "_notion_url": "https://www.notion.so/35a0f0fdafad816891dfd0c60fc31da4"
     },
@@ -290,7 +290,7 @@
       "id": "34e0f0fdafad81b4a4b3c8e073421f91",
       "title": "【蔵サウナ】上野原市政策秘書課 山田さんに資料持参で再訪問",
       "date": "2026-05-23",
-      "category": "補助金・資金",
+      "category": "",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -363,6 +363,19 @@
       "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://www.notion.so/10000-3480f0fdafad8112aec1dae321087ab6"
+    },
+    {
+      "id": "3480f0fdafad81329018c52b749bef53",
+      "title": "【Basecamp】窓掃除（1階南側・キッチン・脱衣所・2階階段・トイレ）",
+      "date": "2026-05-12",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "��了",
+      "_priority": null,
+      "_notion_url": "https://www.notion.so/Basecamp-1-2-3480f0fdafad81329018c52b749bef53"
     },
     {
       "id": "3480f0fdafad814a929cc84db1e93be3",
@@ -586,5 +599,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-18T21:37:03.196Z"
+  "generated_at": "2026-05-18T21:42:03.026Z"
 }
