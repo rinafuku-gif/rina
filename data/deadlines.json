@@ -226,7 +226,7 @@
       "title": "【プライベート】SUNDAY PICNIC 出店可否を先方に連絡",
       "date": "2026-05-19",
       "category": "マーケティング",
-      "business": "��ライベート",
+      "business": "プライベート",
       "status": "進行中",
       "checklist": [],
       "notes": "",
@@ -265,7 +265,7 @@
       "title": "【蔵サウナ】蔵の現状写真撮影（ポンチ絵用）",
       "date": "2026-05-29",
       "category": "補助金・資金",
-      "business": "���サウナ",
+      "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
       "notes": "",
@@ -353,7 +353,7 @@
     },
     {
       "id": "3480f0fdafad8112aec1dae321087ab6",
-      "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
+      "title": "",
       "date": "2026-05-24",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -586,5 +586,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-18T21:27:03.126Z"
+  "generated_at": "2026-05-18T21:32:03.426Z"
 }
