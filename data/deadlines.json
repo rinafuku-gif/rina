@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に��業進捗中間報告",
+      "title": "山梨中央銀行担当者に事業進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -106,7 +106,7 @@
     },
     {
       "id": "3630f0fdafad81ce9c0aca29d53c0a99",
-      "title": "BC鳥沢 追加備品購入（HDMI・ハブ・洗濯バサミ）",
+      "title": "BC鳥沢 追加備品購入（HDMI・ハブ・洗濯バサミ���",
       "date": "2026-05-22",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -132,7 +132,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 ��計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -225,7 +225,7 @@
       "id": "35a0f0fdafad8193b3aeda7922f80454",
       "title": "【プライベート】父：本籍地と住民票上の住所を確認（吹田市民か）",
       "date": "2026-05-18",
-      "category": "行政手続き",
+      "category": "行政手��き",
       "business": "プライベート",
       "status": "進行中",
       "checklist": [],
@@ -391,19 +391,6 @@
       "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad810b98c9f1ea9be23878"
     },
     {
-      "id": "3480f0fdafad8112aec1dae321087ab6",
-      "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
-      "date": "2026-05-24",
-      "category": "補助金・資金",
-      "business": "蔵サウナ",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/10000-3480f0fdafad8112aec1dae321087ab6"
-    },
-    {
       "id": "3480f0fdafad814a929cc84db1e93be3",
       "title": "【えんがわ】上野原商工会に電話（個人事業主扱いで様式4発行依頼）",
       "date": "2026-04-21",
@@ -420,7 +407,7 @@
       "id": "3480f0fdafad814bbfced74a0e8ecece",
       "title": "【Basecamp】周辺情報ガイド作成",
       "date": "2026-05-24",
-      "category": "マーケティング",
+      "category": "マーケティン��",
       "business": "Basecamp Torisawa",
       "status": "進行中",
       "checklist": [],
@@ -433,7 +420,7 @@
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
       "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
       "date": "2026-04-21",
-      "category": "補助金・資金",
+      "category": "",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -625,5 +612,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-18T03:42:03.479Z"
+  "generated_at": "2026-05-18T03:47:02.903Z"
 }
