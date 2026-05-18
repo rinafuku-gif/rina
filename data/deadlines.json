@@ -132,7 +132,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 ���計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -155,19 +155,6 @@
       "_gtd": "日付指定",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/35a0f0fdafad813bbbc5c58bf9f6c52d"
-    },
-    {
-      "id": "35a0f0fdafad81499bf1fe8c67ed3398",
-      "title": "【プライベート】吹田実家：DIY作業",
-      "date": "2026-05-18",
-      "category": "設計・施工",
-      "business": "プライベート",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/DIY-35a0f0fdafad81499bf1fe8c67ed3398"
     },
     {
       "id": "35a0f0fdafad8154a7b4f2dc5454efa8",
@@ -237,7 +224,7 @@
     {
       "id": "35a0f0fdafad81f68162f797e8afc376",
       "title": "【プライベート】SUNDAY PICNIC 出店可否を先方に連絡",
-      "date": "2026-05-18",
+      "date": "2026-05-19",
       "category": "マーケティング",
       "business": "プライベート",
       "status": "進行中",
@@ -263,7 +250,7 @@
     {
       "id": "34e0f0fdafad8186aaadf43a9ba67624",
       "title": "【蔵サウナ】単価50万円超12項目で相見積もり依頼（5月中・5社）",
-      "date": "2026-05-18",
+      "date": "2026-05-19",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -329,7 +316,7 @@
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
       "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
       "date": "2026-05-24",
-      "category": "��の他",
+      "category": "その他",
       "business": "SATOYAMA AI BASE",
       "status": "進行中",
       "checklist": [],
@@ -394,7 +381,7 @@
       "id": "3480f0fdafad814bbfced74a0e8ecece",
       "title": "【Basecamp】周辺情報ガイド作成",
       "date": "2026-05-24",
-      "category": "マーケティング",
+      "category": "��ーケティング",
       "business": "Basecamp Torisawa",
       "status": "進行中",
       "checklist": [],
@@ -446,7 +433,7 @@
       "id": "33d0f0fdafad8129858efd96a4a082a0",
       "title": "【蔵サウナ】宿泊施設サステナビリティ補助金 申請準備",
       "date": "2026-05-30",
-      "category": "補助金・��金",
+      "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -575,7 +562,7 @@
     {
       "id": "3390f0fdafad81c8920ded56196bfac9",
       "title": "Airbnb公開・予約受付開始",
-      "date": "2026-05-18",
+      "date": "2026-05-19",
       "category": "",
       "business": "Basecamp Torisawa",
       "status": "進行中",
@@ -599,5 +586,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-18T13:42:03.519Z"
+  "generated_at": "2026-05-18T13:47:03.197Z"
 }
