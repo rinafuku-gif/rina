@@ -367,6 +367,7 @@ cat > "$PROMPT_FILE" <<'PROMPT_HEADER'
 - メタコメント（「厳選しました」等）禁止。レポート本文だけ
 - URLは必ず含める。URLがないニュースは書かない
 - 英語・中国語は日本語に翻訳
+- **過去7日以内に既に取り上げたURL（プロンプト末尾に列挙）は絶対に再度出力しない**（同一URLの再掲は重複扱いで除外）
 
 # トーン
 - **単調な「要約: ...」「→ 影響: ...」フォーマットは捨てる**
@@ -439,6 +440,38 @@ cat > "$PROMPT_FILE" <<'PROMPT_HEADER'
 PROMPT_HEADER
 
 echo "対象日: $TODAY" >> "$PROMPT_FILE"
+
+# 過去7日のURL一覧をNotion DBから取得（dedup用）
+echo "" >> "$PROMPT_FILE"
+echo "# 過去7日以内に既に取り上げたURL（重複出力禁止）" >> "$PROMPT_FILE"
+NOTION_KEY="${NOTION_API_KEY:-}"
+if [ -n "$NOTION_KEY" ]; then
+  SEVEN_DAYS_AGO=$(date -v-7d +%Y-%m-%d 2>/dev/null || date -d '7 days ago' +%Y-%m-%d 2>/dev/null || echo "")
+  if [ -n "$SEVEN_DAYS_AGO" ]; then
+    curl -s -X POST "https://api.notion.com/v1/databases/$NOTION_AI_NEWS_DB/query" \
+      -H "Authorization: Bearer $NOTION_KEY" \
+      -H "Notion-Version: 2022-06-28" \
+      -H "Content-Type: application/json" \
+      -d "{\"filter\":{\"property\":\"収集日\",\"date\":{\"on_or_after\":\"$SEVEN_DAYS_AGO\"}},\"page_size\":100}" 2>/dev/null \
+      | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    seen = set()
+    for p in d.get('results', []):
+        u = (p.get('properties', {}).get('URL', {}) or {}).get('url') or ''
+        if u and u not in seen:
+            print('- ' + u)
+            seen.add(u)
+except Exception as e:
+    pass
+" >> "$PROMPT_FILE" 2>/dev/null || echo "# (過去URL取得失敗 — dedup skip)" >> "$PROMPT_FILE"
+  fi
+else
+  echo "# (NOTION_API_KEY未設定 — dedup skip)" >> "$PROMPT_FILE"
+fi
+echo "" >> "$PROMPT_FILE"
+
 cat >> "$PROMPT_FILE" <<'PROMPT_FORMAT'
 
 出力が完了したら、レポート本文の後に `===NOTION_JSON===` と書いてから、以下のJSON配列を出力:
