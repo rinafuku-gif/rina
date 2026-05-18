@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に��業進捗中間報告",
+      "title": "山梨中央銀行担当者に事業進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -132,7 +132,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 ���計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -469,19 +469,6 @@
       "_notion_url": "https://www.notion.so/19-3480f0fdafad81e69550c249d5aa1b82"
     },
     {
-      "id": "33d0f0fdafad81ed8ecee01c45b15c1d",
-      "title": "キッチンスペースDIY",
-      "date": "2026-04-20",
-      "category": "設計・施工",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "完���",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/DIY-33d0f0fdafad81ed8ecee01c45b15c1d"
-    },
-    {
       "id": "33d0f0fdafad8129858efd96a4a082a0",
       "title": "【蔵サウナ】宿泊施設サステナビリティ補助金 申請準備",
       "date": "2026-05-30",
@@ -638,5 +625,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-18T03:52:03.346Z"
+  "generated_at": "2026-05-18T03:57:02.781Z"
 }
