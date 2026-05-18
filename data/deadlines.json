@@ -132,7 +132,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 ���計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -185,7 +185,7 @@
     {
       "id": "35a0f0fdafad8157b6a4c67e7e33b307",
       "title": "【プライベート】父：エンディングノート的情報の聞き取り（保険・銀行・サブスク・年金・本籍）",
-      "date": "2026-05-18",
+      "date": "2026-05-19",
       "category": "行政手続き",
       "business": "プライベート",
       "status": "進行中",
@@ -209,22 +209,9 @@
       "_notion_url": "https://www.notion.so/35a0f0fdafad816891dfd0c60fc31da4"
     },
     {
-      "id": "35a0f0fdafad8176951ce6f74644fe1b",
-      "title": "【プライベート】父：遺言書の有無確認、未作成なら公正証書遺言を相談",
-      "date": "2026-05-18",
-      "category": "契約・法務",
-      "business": "プライベート",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/35a0f0fdafad8176951ce6f74644fe1b"
-    },
-    {
       "id": "35a0f0fdafad8193b3aeda7922f80454",
       "title": "【プライベート】父：本籍地と住民票上の住所を確認（吹田市民か）",
-      "date": "2026-05-18",
+      "date": "2026-05-19",
       "category": "行政手続き",
       "business": "プライベート",
       "status": "進行中",
@@ -233,19 +220,6 @@
       "_gtd": "日付指定",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/35a0f0fdafad8193b3aeda7922f80454"
-    },
-    {
-      "id": "35a0f0fdafad81c0a678cffd5d62678c",
-      "title": "【プライベート】吹田実家：ゴミ捨て",
-      "date": "2026-05-18",
-      "category": "その他",
-      "business": "プライベート",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/35a0f0fdafad81c0a678cffd5d62678c"
     },
     {
       "id": "35a0f0fdafad81ec8c94e83c1466896d",
@@ -355,7 +329,7 @@
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
       "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
       "date": "2026-05-24",
-      "category": "その他",
+      "category": "��の他",
       "business": "SATOYAMA AI BASE",
       "status": "進行中",
       "checklist": [],
@@ -472,7 +446,7 @@
       "id": "33d0f0fdafad8129858efd96a4a082a0",
       "title": "【蔵サウナ】宿泊施設サステナビリティ補助金 申請準備",
       "date": "2026-05-30",
-      "category": "補助金・資金",
+      "category": "補助金・��金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -625,5 +599,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-18T13:37:03.809Z"
+  "generated_at": "2026-05-18T13:42:03.519Z"
 }
