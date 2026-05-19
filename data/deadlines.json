@@ -160,7 +160,7 @@
       "id": "35a0f0fdafad8154a7b4f2dc5454efa8",
       "title": "【蔵サウナ】6月申請に向けた逆算スケジュール作成",
       "date": "2026-05-24",
-      "category": "補助金・資金",
+      "category": "",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -425,7 +425,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "���付指定",
+      "_gtd": "日付指定",
       "_priority": null,
       "_notion_url": "https://www.notion.so/33d0f0fdafad8129858efd96a4a082a0"
     },
@@ -560,5 +560,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-19T11:47:03.342Z"
+  "generated_at": "2026-05-19T11:52:03.296Z"
 }
