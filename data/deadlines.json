@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に事業進捗中間報告",
+      "title": "山梨中央銀行担当者に��業進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -41,7 +41,7 @@
     },
     {
       "id": "3630f0fdafad818b8486da9da90e71b6",
-      "title": "山梨中央銀行 100万円使途報告書 提出",
+      "title": "山梨中央銀行 100��円使途報告書 提出",
       "date": "2026-06-15",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -259,19 +259,6 @@
       "_gtd": "保留",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/34e0f0fdafad81ecb21bfec55162ea4a"
-    },
-    {
-      "id": "3490f0fdafad813b979bf2b8f797bb37",
-      "title": "【SATOYAMA】ハヤリソーセージ 村上さんへ現状連絡（今日中）",
-      "date": "2026-04-21",
-      "category": "マーケティング",
-      "business": "SATOYAMA AI BASE",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "���了",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/SATOYAMA-3490f0fdafad813b979bf2b8f797bb37"
     },
     {
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
@@ -521,5 +508,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-19T23:07:04.829Z"
+  "generated_at": "2026-05-19T23:12:04.404Z"
 }
