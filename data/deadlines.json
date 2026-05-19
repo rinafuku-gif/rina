@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に��業進捗中間報告",
+      "title": "山梨中央銀行担当者に事業進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -160,7 +160,7 @@
       "id": "35a0f0fdafad8154a7b4f2dc5454efa8",
       "title": "【蔵サウナ】6月申請に向けた逆算スケジュール作成",
       "date": "2026-05-24",
-      "category": "補助金・資金",
+      "category": "",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -226,7 +226,7 @@
       "title": "【プライベート】SUNDAY PICNIC 出店可否を先方に連絡",
       "date": "2026-05-19",
       "category": "マーケティング",
-      "business": "プライベート",
+      "business": "プラ���ベート",
       "status": "進行中",
       "checklist": [],
       "notes": "",
@@ -238,7 +238,7 @@
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
       "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
       "date": "2026-06-30",
-      "category": "補助金・資金",
+      "category": "",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -586,5 +586,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-19T06:27:03.269Z"
+  "generated_at": "2026-05-19T06:32:02.435Z"
 }
