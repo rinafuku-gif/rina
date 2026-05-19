@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に事業進捗中間報告",
+      "title": "山梨中央銀行担当者に��業進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -25,19 +25,6 @@
       "_gtd": "日付指定",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/3630f0fdafad810e9682e46c335dc193"
-    },
-    {
-      "id": "3630f0fdafad8151be75c211d77aea32",
-      "title": "BC鳥沢 宿泊者名簿フォーム複製",
-      "date": "2026-05-25",
-      "category": "行政手続き",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/BC-3630f0fdafad8151be75c211d77aea32"
     },
     {
       "id": "3630f0fdafad816795d0f5e32973b00e",
@@ -54,7 +41,7 @@
     },
     {
       "id": "3630f0fdafad818b8486da9da90e71b6",
-      "title": "山梨中央銀行 100万円使途報告書 提出",
+      "title": "山梨中央銀行 100��円使途報告書 提出",
       "date": "2026-06-15",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -92,32 +79,6 @@
       "_notion_url": "https://www.notion.so/3630f0fdafad8198a9f0f0c81bdfcb55"
     },
     {
-      "id": "3630f0fdafad81be9bedec69f852dedc",
-      "title": "BC鳥沢 Gmail→Googleカレンダー自動化",
-      "date": "2026-05-30",
-      "category": "その他",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/BC-Gmail-Google-3630f0fdafad81be9bedec69f852dedc"
-    },
-    {
-      "id": "3630f0fdafad81ce9c0aca29d53c0a99",
-      "title": "BC鳥沢 追加備品購入（HDMI・ハブ・洗濯バサミ）",
-      "date": "2026-05-22",
-      "category": "設計・施工",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/BC-HDMI-3630f0fdafad81ce9c0aca29d53c0a99"
-    },
-    {
       "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
       "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
       "date": "2026-10-31",
@@ -132,7 +93,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 ���計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -168,6 +129,19 @@
       "_gtd": "次にやること",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/6-35a0f0fdafad8154a7b4f2dc5454efa8"
+    },
+    {
+      "id": "35a0f0fdafad8157b6a4c67e7e33b307",
+      "title": "【プライベート】父：エンディングノート的情報の聞き取り（保険・銀行・サブスク・年金・本籍）",
+      "date": "2026-05-19",
+      "category": "行政手続き",
+      "business": "プライベート",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/35a0f0fdafad8157b6a4c67e7e33b307"
     },
     {
       "id": "35a0f0fdafad816891dfd0c60fc31da4",
@@ -352,19 +326,6 @@
       "_notion_url": "https://www.notion.so/4-3480f0fdafad814a929cc84db1e93be3"
     },
     {
-      "id": "3480f0fdafad814bbfced74a0e8ecece",
-      "title": "【Basecamp】周辺情報ガイド作成",
-      "date": "2026-05-24",
-      "category": "マーケティング",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad814bbfced74a0e8ecece"
-    },
-    {
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
       "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
       "date": "2026-04-21",
@@ -547,5 +508,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-19T12:42:03.558Z"
+  "generated_at": "2026-05-19T12:47:03.281Z"
 }
