@@ -160,7 +160,7 @@
       "id": "35a0f0fdafad8154a7b4f2dc5454efa8",
       "title": "【蔵サウナ】6月申請に向けた逆算スケジュール作成",
       "date": "2026-05-24",
-      "category": "",
+      "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -207,19 +207,6 @@
       "_gtd": "日付指定",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/35a0f0fdafad8193b3aeda7922f80454"
-    },
-    {
-      "id": "35a0f0fdafad81ec8c94e83c1466896d",
-      "title": "【プライベート】西神：段ボール・不要衣服の処分",
-      "date": "2026-05-19",
-      "category": "その他",
-      "business": "プライベート",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/35a0f0fdafad81ec8c94e83c1466896d"
     },
     {
       "id": "35a0f0fdafad81f68162f797e8afc376",
@@ -381,7 +368,7 @@
       "id": "3480f0fdafad814bbfced74a0e8ecece",
       "title": "【Basecamp】周辺情報ガイド作成",
       "date": "2026-05-24",
-      "category": "",
+      "category": "マーケティング",
       "business": "Basecamp Torisawa",
       "status": "進行中",
       "checklist": [],
@@ -586,5 +573,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-19T08:27:07.075Z"
+  "generated_at": "2026-05-19T08:32:05.795Z"
 }
