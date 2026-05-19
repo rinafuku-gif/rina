@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に��業進捗中間報告",
+      "title": "山梨中央銀行担当者に事業進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -132,7 +132,7 @@
     },
     {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
+      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 ���計（汎用化）",
       "date": "2026-05-31",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -168,19 +168,6 @@
       "_gtd": "次にやること",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/6-35a0f0fdafad8154a7b4f2dc5454efa8"
-    },
-    {
-      "id": "35a0f0fdafad8157b6a4c67e7e33b307",
-      "title": "【プライベート】父：エンディングノート的情報の聞き取り（保険・銀行・サブスク・年金・本籍）",
-      "date": "2026-05-19",
-      "category": "行政手続き",
-      "business": "プライベート",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/35a0f0fdafad8157b6a4c67e7e33b307"
     },
     {
       "id": "35a0f0fdafad816891dfd0c60fc31da4",
@@ -379,7 +366,7 @@
     },
     {
       "id": "3480f0fdafad814bbfced74a0e8ecece",
-      "title": "【Basecamp】周辺情報ガ���ド作成",
+      "title": "【Basecamp】周辺情報ガイド作成",
       "date": "2026-05-24",
       "category": "マーケティング",
       "business": "Basecamp Torisawa",
@@ -586,5 +573,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-19T05:17:03.025Z"
+  "generated_at": "2026-05-19T05:22:06.088Z"
 }
