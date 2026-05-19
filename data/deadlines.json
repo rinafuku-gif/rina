@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に��業進捗中間報告",
+      "title": "山梨中央銀行担当者に事業進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -106,7 +106,7 @@
     },
     {
       "id": "3630f0fdafad81ce9c0aca29d53c0a99",
-      "title": "BC鳥沢 追加備品購入（HDMI・ハブ・洗濯バサミ）",
+      "title": "BC鳥沢 追加備品購入（HDMI・ハブ・洗濯バサミ���",
       "date": "2026-05-22",
       "category": "設計・施工",
       "business": "Basecamp Torisawa",
@@ -160,7 +160,7 @@
       "id": "35a0f0fdafad8154a7b4f2dc5454efa8",
       "title": "【蔵サウナ】6月申請に向けた逆算スケジュール作成",
       "date": "2026-05-24",
-      "category": "補助金・資金",
+      "category": "",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -366,7 +366,7 @@
     },
     {
       "id": "3480f0fdafad814bbfced74a0e8ecece",
-      "title": "【Basecamp】周辺���報ガイド作成",
+      "title": "【Basecamp】周辺情報ガイド作成",
       "date": "2026-05-24",
       "category": "マーケティング",
       "business": "Basecamp Torisawa",
@@ -560,5 +560,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-19T10:57:03.310Z"
+  "generated_at": "2026-05-19T11:02:04.043Z"
 }
