@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に事業進捗中間報告",
+      "title": "山梨中央銀行担当者に事���進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -41,7 +41,7 @@
     },
     {
       "id": "3630f0fdafad818b8486da9da90e71b6",
-      "title": "山梨中央銀行 100万円使途報告書 提出",
+      "title": "山梨中央銀行 100万���使途報告書 提出",
       "date": "2026-06-15",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -82,7 +82,7 @@
       "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
       "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
       "date": "2026-10-31",
-      "category": "���の他",
+      "category": "��の他",
       "business": "となりにとまる",
       "status": "進行中",
       "checklist": [],
@@ -155,19 +155,6 @@
       "_gtd": "日付指定",
       "_priority": "中",
       "_notion_url": "https://www.notion.so/35a0f0fdafad816891dfd0c60fc31da4"
-    },
-    {
-      "id": "35a0f0fdafad8193b3aeda7922f80454",
-      "title": "【プライベート】父：本籍地と住民票上の住所を確認（吹田市民か）",
-      "date": "2026-05-25",
-      "category": "行政手続き",
-      "business": "プライベート",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/35a0f0fdafad8193b3aeda7922f80454"
     },
     {
       "id": "35a0f0fdafad81f68162f797e8afc376",
@@ -508,5 +495,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-20T14:42:03.650Z"
+  "generated_at": "2026-05-20T14:47:02.836Z"
 }
