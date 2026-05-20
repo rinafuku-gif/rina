@@ -353,7 +353,7 @@
     },
     {
       "id": "3480f0fdafad81e69550c249d5aa1b82",
-      "title": "【えんがわ】持続化補助金 第19回 申請提出（上野原商工会経由・個��事業主）",
+      "title": "【えんがわ】持続化補助金 第19回 申請提出（上野原商工会経由・個人事業主）",
       "date": "2026-04-30",
       "category": "補助金・資金",
       "business": "えんがわ",
@@ -363,6 +363,19 @@
       "_gtd": "いつかやるかも",
       "_priority": null,
       "_notion_url": "https://www.notion.so/19-3480f0fdafad81e69550c249d5aa1b82"
+    },
+    {
+      "id": "33d0f0fdafad812e853ef03b4a531a60",
+      "title": "調味料リスト作成",
+      "date": "2026-04-20",
+      "category": "飲食",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "���了",
+      "_priority": "中",
+      "_notion_url": "https://www.notion.so/33d0f0fdafad812e853ef03b4a531a60"
     },
     {
       "id": "33d0f0fdafad8129858efd96a4a082a0",
@@ -508,5 +521,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-20T01:47:03.544Z"
+  "generated_at": "2026-05-20T01:52:03.234Z"
 }
