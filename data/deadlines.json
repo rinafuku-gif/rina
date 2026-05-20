@@ -352,10 +352,23 @@
       "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad81d0b195c3ca298ceeaa"
     },
     {
+      "id": "3480f0fdafad81de915cc714c1326bd7",
+      "title": "【Basecamp】お風呂掃除",
+      "date": "2026-05-12",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "��了",
+      "_priority": null,
+      "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad81de915cc714c1326bd7"
+    },
+    {
       "id": "3480f0fdafad81e69550c249d5aa1b82",
       "title": "【えんがわ】持続化補助金 第19回 申請提出（上野原商工会経由・個人事業主）",
       "date": "2026-04-30",
-      "category": "補助金・資金",
+      "category": "",
       "business": "えんがわ",
       "status": "進行中",
       "checklist": [],
@@ -508,5 +521,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-20T22:17:02.944Z"
+  "generated_at": "2026-05-20T22:22:12.182Z"
 }
