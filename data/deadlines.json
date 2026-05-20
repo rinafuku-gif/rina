@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に事業進捗中間報告",
+      "title": "山梨中央銀行担当者に��業進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -41,7 +41,7 @@
     },
     {
       "id": "3630f0fdafad818b8486da9da90e71b6",
-      "title": "山梨中央銀行 100万円使途報告書 提出",
+      "title": "山梨中央銀行 100��円使途報告書 提出",
       "date": "2026-06-15",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -82,7 +82,7 @@
       "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
       "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
       "date": "2026-10-31",
-      "category": "���の他",
+      "category": "その他",
       "business": "となりにとまる",
       "status": "進行中",
       "checklist": [],
@@ -288,7 +288,7 @@
     },
     {
       "id": "3480f0fdafad810b98c9f1ea9be23878",
-      "title": "【Basecamp】ギアレ���タル規約作成",
+      "title": "【Basecamp】ギアレンタル規約作成",
       "date": "2026-05-24",
       "category": "契約・法務",
       "business": "Basecamp Torisawa",
@@ -363,19 +363,6 @@
       "_gtd": "いつかやるかも",
       "_priority": null,
       "_notion_url": "https://www.notion.so/19-3480f0fdafad81e69550c249d5aa1b82"
-    },
-    {
-      "id": "33d0f0fdafad812e853ef03b4a531a60",
-      "title": "調味料リスト作成",
-      "date": "2026-04-20",
-      "category": "飲食",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "���了",
-      "_priority": "中",
-      "_notion_url": "https://www.notion.so/33d0f0fdafad812e853ef03b4a531a60"
     },
     {
       "id": "33d0f0fdafad8129858efd96a4a082a0",
@@ -521,5 +508,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-20T08:27:05.379Z"
+  "generated_at": "2026-05-20T08:32:03.444Z"
 }
