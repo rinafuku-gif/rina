@@ -29,19 +29,19 @@ const PORT = 3100;
 const DISCORD_NOTIFICATIONS_CHANNEL_ID = "1486651097157472307";
 const DISCORD_BOT_TOKEN = (() => {
   try {
-    const discordEnvPath = "/Users/ocmm/.claude/channels/discord/.env";
+    const discordEnvPath = "/Users/Inaryo/.claude/channels/discord/.env";
     const discordEnv = fs.readFileSync(discordEnvPath, "utf-8");
     const match = discordEnv.match(/^DISCORD_BOT_TOKEN=(.*)$/m);
     return match ? match[1].trim() : "";
   } catch {
-    console.error("[Discord] Bot token not found at /Users/ocmm/.claude/channels/discord/.env");
+    console.error("[Discord] Bot token not found at /Users/Inaryo/.claude/channels/discord/.env");
     return "";
   }
 })();
 
 const REPO_DIR = path.join(__dirname, "..");
 const PROMPT_FILE = path.join(REPO_DIR, "logs", ".current-prompt.txt");
-const CLAUDE_PATH = "/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin/claude";
+const CLAUDE_PATH = "/Users/Inaryo/.local/share/mise/installs/node/24.14.0/bin/claude";
 const CLAUDE_TIMEOUT = 480000; // 8分
 
 // Notion API 設定
@@ -1213,7 +1213,7 @@ const server = http.createServer((req, res) => {
         fs.writeFileSync(promptFile, ocrPrompt, "utf-8");
 
         const execEnv = Object.assign({}, process.env, {
-          PATH: `/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin:/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+          PATH: `/Users/Inaryo/.local/share/mise/installs/node/24.14.0/bin:/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
           HOME: "/Users/ocmm",
         });
         delete execEnv.CLAUDECODE;
@@ -1476,7 +1476,7 @@ const server = http.createServer((req, res) => {
         fs.writeFileSync(promptFile, ocrPrompt, "utf-8");
 
         const execEnv = Object.assign({}, process.env, {
-          PATH: `/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin:/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+          PATH: `/Users/Inaryo/.local/share/mise/installs/node/24.14.0/bin:/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
           HOME: "/Users/ocmm",
         });
         delete execEnv.CLAUDECODE;
@@ -1604,7 +1604,7 @@ const server = http.createServer((req, res) => {
       console.log(`[${new Date().toISOString()}] Voice input: ${filePart.data.length} bytes`);
 
       try {
-        const WHISPER = "/Users/ocmm/Library/Python/3.9/bin/mlx_whisper";
+        const WHISPER = "/Users/Inaryo/Library/Python/3.9/bin/mlx_whisper";
         const outDir = path.join(uploadDir, `whisper_voice_${Date.now()}`);
         fs.mkdirSync(outDir, { recursive: true });
 
@@ -1768,7 +1768,7 @@ const server = http.createServer((req, res) => {
 
       (async () => {
         try {
-          const WHISPER = "/Users/ocmm/Library/Python/3.9/bin/mlx_whisper";
+          const WHISPER = "/Users/Inaryo/Library/Python/3.9/bin/mlx_whisper";
           const outDir = path.join(uploadDir, `whisper_${Date.now()}`);
           fs.mkdirSync(outDir, { recursive: true });
 
@@ -1795,7 +1795,7 @@ const server = http.createServer((req, res) => {
             fs.writeFileSync(promptFile, summaryPrompt, "utf-8");
 
             const execEnv = Object.assign({}, process.env, {
-              PATH: `/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin:/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+              PATH: `/Users/Inaryo/.local/share/mise/installs/node/24.14.0/bin:/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
               HOME: "/Users/ocmm",
             });
             delete execEnv.CLAUDECODE;
@@ -2131,7 +2131,7 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
             fs.writeFileSync(promptFile, prompt, "utf-8");
 
             const execEnv = Object.assign({}, process.env, {
-              PATH: `/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin:/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+              PATH: `/Users/Inaryo/.local/share/mise/installs/node/24.14.0/bin:/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
               HOME: "/Users/ocmm",
             });
             delete execEnv.CLAUDECODE;
@@ -3694,7 +3694,7 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 
         const envVars = {
           ...process.env,
-          PATH: "/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin:/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+          PATH: "/Users/Inaryo/.local/share/mise/installs/node/24.14.0/bin:/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
         };
         if (extraContext) envVars.EXTRA_CONTEXT = extraContext;
         if (photoPath) envVars.PHOTO_PATH = photoPath;
@@ -4341,7 +4341,7 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
     fs.writeFileSync(PROMPT_FILE, prompt, "utf-8");
 
     const execEnv = Object.assign({}, process.env, {
-      PATH: `/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin:/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+      PATH: `/Users/Inaryo/.local/share/mise/installs/node/24.14.0/bin:/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
       HOME: "/Users/ocmm",
     });
     delete execEnv.CLAUDECODE;
@@ -5039,7 +5039,7 @@ ${siteAnalysisText ? `- 「既存サイト分析」セクションの情報を�
     fs.writeFileSync(tmpPromptFile, fullPrompt, "utf-8");
 
     const execEnv = Object.assign({}, process.env, {
-      PATH: `/Users/ocmm/.local/share/mise/installs/node/24.14.0/bin:/Users/ocmm/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+      PATH: `/Users/Inaryo/.local/share/mise/installs/node/24.14.0/bin:/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
       HOME: "/Users/ocmm",
     });
     delete execEnv.CLAUDECODE;
@@ -5282,7 +5282,7 @@ async function updateNotionDXStatus(caseId, newStatus) {
 }
 
 // ========== DX自動実装パイプライン (Phase 2) ==========
-const DX_PROJECTS_DIR = "/Users/ocmm/dx-projects";
+const DX_PROJECTS_DIR = "/Users/Inaryo/dx-projects";
 
 function updateDxStatus(caseId, updates) {
   const hearingDir = path.join(REPO_DIR, "data", "dx-hearing");
