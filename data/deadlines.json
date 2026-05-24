@@ -82,7 +82,7 @@
       "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
       "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
       "date": "2026-10-31",
-      "category": "���の他",
+      "category": "その他",
       "business": "となりにとまる",
       "status": "進行中",
       "checklist": [],
@@ -142,6 +142,19 @@
       "_gtd": "日付指定",
       "_priority": "高",
       "_notion_url": "https://www.notion.so/35a0f0fdafad8157b6a4c67e7e33b307"
+    },
+    {
+      "id": "35a0f0fdafad816891dfd0c60fc31da4",
+      "title": "【プライベート】父：手続き窓口の現地下見（吹田市役所・大阪北年金事務所・斎場）",
+      "date": "2026-06-06",
+      "category": "行政手続き",
+      "business": "プライベート",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "中",
+      "_notion_url": "https://www.notion.so/35a0f0fdafad816891dfd0c60fc31da4"
     },
     {
       "id": "35a0f0fdafad8193b3aeda7922f80454",
@@ -264,7 +277,7 @@
       "id": "3480f0fdafad810b98c9f1ea9be23878",
       "title": "【Basecamp】ギアレンタル規約作成",
       "date": "2026-05-24",
-      "category": "契���・法務",
+      "category": "契約・法務",
       "business": "Basecamp Torisawa",
       "status": "進行中",
       "checklist": [],
@@ -482,5 +495,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-24T01:17:09.884Z"
+  "generated_at": "2026-05-24T01:22:05.567Z"
 }
