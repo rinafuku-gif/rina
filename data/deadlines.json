@@ -82,7 +82,7 @@
       "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
       "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
       "date": "2026-10-31",
-      "category": "その他",
+      "category": "���の他",
       "business": "となりにとまる",
       "status": "進行中",
       "checklist": [],
@@ -157,19 +157,6 @@
       "_notion_url": "https://www.notion.so/35a0f0fdafad816891dfd0c60fc31da4"
     },
     {
-      "id": "35a0f0fdafad8193b3aeda7922f80454",
-      "title": "【プライベート】父：本籍地と住民票上の住所を確認（吹田市民か）",
-      "date": "2026-05-25",
-      "category": "行政手続き",
-      "business": "プライベート",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/35a0f0fdafad8193b3aeda7922f80454"
-    },
-    {
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
       "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
       "date": "2026-06-30",
@@ -236,7 +223,7 @@
     },
     {
       "id": "34e0f0fdafad81ecb21bfec55162ea4a",
-      "title": "【蔵サウナ】都留信用組合 副支店長アポ取り→面談���戸田見積持参）",
+      "title": "【蔵サウナ】都留信用組合 副支店長アポ取り→面談（戸田見積持参）",
       "date": "2026-05-25",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -495,5 +482,5 @@
       "_notion_url": "https://www.notion.so/SUNDAY-PICNIC-3390f0fdafad8185b741d4e40089deb7"
     }
   ],
-  "generated_at": "2026-05-25T03:12:03.278Z"
+  "generated_at": "2026-05-25T03:17:05.096Z"
 }
