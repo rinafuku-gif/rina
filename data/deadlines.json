@@ -157,6 +157,19 @@
       "_notion_url": "https://www.notion.so/35a0f0fdafad816891dfd0c60fc31da4"
     },
     {
+      "id": "35a0f0fdafad8193b3aeda7922f80454",
+      "title": "【プライベート】父：本籍地と住民票上の住所を確認（吹田市民か）",
+      "date": "2026-06-06",
+      "category": "行政手続き",
+      "business": "プライベート",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "日付指定",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/35a0f0fdafad8193b3aeda7922f80454"
+    },
+    {
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
       "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
       "date": "2026-06-30",
@@ -298,19 +311,6 @@
       "_gtd": "いつかやるかも",
       "_priority": null,
       "_notion_url": "https://www.notion.so/4-3480f0fdafad814a929cc84db1e93be3"
-    },
-    {
-      "id": "3480f0fdafad81a9b605d5bbd29a76d3",
-      "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
-      "date": "2026-04-21",
-      "category": "補助金・資金",
-      "business": "蔵サウナ",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "いつかやるかも",
-      "_priority": null,
-      "_notion_url": "https://www.notion.so/3480f0fdafad81a9b605d5bbd29a76d3"
     },
     {
       "id": "3480f0fdafad81d0b195c3ca298ceeaa",
@@ -469,5 +469,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad81fcaecfd41e18d13ff8"
     }
   ],
-  "generated_at": "2026-05-26T22:07:03.514Z"
+  "generated_at": "2026-05-26T22:12:03.245Z"
 }
