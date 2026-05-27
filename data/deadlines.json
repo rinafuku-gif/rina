@@ -82,7 +82,7 @@
       "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
       "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
       "date": "2026-10-31",
-      "category": "���の他",
+      "category": "その他",
       "business": "となりにとまる",
       "status": "進行中",
       "checklist": [],
@@ -155,19 +155,6 @@
       "_gtd": "日付指定",
       "_priority": "中",
       "_notion_url": "https://www.notion.so/35a0f0fdafad816891dfd0c60fc31da4"
-    },
-    {
-      "id": "35a0f0fdafad8193b3aeda7922f80454",
-      "title": "【プライベート】父：本籍地と住民票上の住所を確認（吹田市民か）",
-      "date": "2026-06-06",
-      "category": "行政手続き",
-      "business": "プライベート",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "日付指定",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/35a0f0fdafad8193b3aeda7922f80454"
     },
     {
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
@@ -406,7 +393,7 @@
     {
       "id": "33c0f0fdafad8149a931f09925e7da1e",
       "title": "【蔵サウナ】提出書類の最終化→上野原市へ提出",
-      "date": "2026-05-27",
+      "date": "2026-05-29",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -419,7 +406,7 @@
     {
       "id": "33c0f0fdafad81768f81fe0b35b91cff",
       "title": "【蔵サウナ】ポンチ絵（A4横1枚）の作成",
-      "date": "2026-05-26",
+      "date": "2026-05-29",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -432,7 +419,7 @@
     {
       "id": "33c0f0fdafad8194949af1bb4910b579",
       "title": "【蔵サウナ】都留信金から融資の内諾を取得",
-      "date": "2026-05-26",
+      "date": "2026-05-29",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -445,7 +432,7 @@
     {
       "id": "33c0f0fdafad819ea527f18382dc96a7",
       "title": "【蔵サウナ】見積もり反映→事業計画書を最終化",
-      "date": "2026-05-26",
+      "date": "2026-05-29",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -458,7 +445,7 @@
     {
       "id": "33c0f0fdafad81b9b245f75043e2e316",
       "title": "【蔵サウナ】都留信金へ融資相談（大神田さんと同行）",
-      "date": "2026-05-26",
+      "date": "2026-05-29",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -471,7 +458,7 @@
     {
       "id": "33c0f0fdafad81fcaecfd41e18d13ff8",
       "title": "【蔵サウナ】山田さんから見解・情報を受領→書類に反映",
-      "date": "2026-05-26",
+      "date": "2026-05-29",
       "category": "行政手続き",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -482,5 +469,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad81fcaecfd41e18d13ff8"
     }
   ],
-  "generated_at": "2026-05-27T22:02:03.604Z"
+  "generated_at": "2026-05-27T22:07:02.791Z"
 }
