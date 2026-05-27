@@ -82,7 +82,7 @@
       "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
       "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
       "date": "2026-10-31",
-      "category": "���の他",
+      "category": "その他",
       "business": "となりにとまる",
       "status": "進行中",
       "checklist": [],
@@ -249,7 +249,7 @@
     },
     {
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
-      "title": "",
+      "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
       "date": "2026-05-26",
       "category": "その他",
       "business": "SATOYAMA AI BASE",
@@ -482,5 +482,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad81fcaecfd41e18d13ff8"
     }
   ],
-  "generated_at": "2026-05-27T00:07:05.742Z"
+  "generated_at": "2026-05-27T00:12:03.597Z"
 }
