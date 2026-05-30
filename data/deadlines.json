@@ -82,7 +82,7 @@
       "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
       "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
       "date": "2026-10-31",
-      "category": "���の他",
+      "category": "その他",
       "business": "となりにとまる",
       "status": "進行中",
       "checklist": [],
@@ -366,7 +366,7 @@
     },
     {
       "id": "33d0f0fdafad81d3bdafefdf175f0a5f",
-      "title": "【三十���珈琲】持続化補助金 申請提出（ドラフトv2確認→提出）",
+      "title": "【三十日珈琲】持続化補助金 申請提出（ドラフトv2確認→提出）",
       "date": "2026-04-30",
       "category": "補助金・資金",
       "business": "三十日珈琲",
@@ -482,5 +482,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad81fcaecfd41e18d13ff8"
     }
   ],
-  "generated_at": "2026-05-30T17:27:05.083Z"
+  "generated_at": "2026-05-30T17:32:03.674Z"
 }
