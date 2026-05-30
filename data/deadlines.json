@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に事業進捗中間報告",
+      "title": "山梨中央銀行担当者に事���進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -82,7 +82,7 @@
       "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
       "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
       "date": "2026-10-31",
-      "category": "���の他",
+      "category": "その他",
       "business": "となりにとまる",
       "status": "進行中",
       "checklist": [],
@@ -249,7 +249,7 @@
     },
     {
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
-      "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年���確定）",
+      "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
       "date": "2026-05-31",
       "category": "その他",
       "business": "SATOYAMA AI BASE",
@@ -311,6 +311,19 @@
       "_gtd": "いつかやるかも",
       "_priority": null,
       "_notion_url": "https://www.notion.so/4-3480f0fdafad814a929cc84db1e93be3"
+    },
+    {
+      "id": "3480f0fdafad817f9567e54901037dbe",
+      "title": "【Basecamp】キッズスペースアイテム購入",
+      "date": "2026-04-23",
+      "category": "その他",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "��了",
+      "_priority": null,
+      "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad817f9567e54901037dbe"
     },
     {
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
@@ -482,5 +495,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad81fcaecfd41e18d13ff8"
     }
   ],
-  "generated_at": "2026-05-30T21:42:03.887Z"
+  "generated_at": "2026-05-30T21:47:03.402Z"
 }
