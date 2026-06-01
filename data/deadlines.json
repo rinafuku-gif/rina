@@ -235,6 +235,19 @@
       "_notion_url": "https://www.notion.so/34e0f0fdafad81b4a4b3c8e073421f91"
     },
     {
+      "id": "34e0f0fdafad81eabc70d3f3a4a008e0",
+      "title": "【蔵サウナ】戸田工務店に追加確認（別途工事AI/AJ/AK・サウナストーブ・電気水道引込の概算）",
+      "date": "2026-04-30",
+      "category": "設計・施工",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "完���",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/AI-AJ-AK-34e0f0fdafad81eabc70d3f3a4a008e0"
+    },
+    {
       "id": "34e0f0fdafad81ecb21bfec55162ea4a",
       "title": "【蔵サウナ】都留信用組合 副支店長アポ取り→面談（戸田見積持参）",
       "date": "2026-06-02",
@@ -290,7 +303,7 @@
       "id": "3480f0fdafad8112aec1dae321087ab6",
       "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
       "date": "2026-06-02",
-      "category": "補助金・資金",
+      "category": "",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -324,6 +337,19 @@
       "_gtd": "いつかやるかも",
       "_priority": null,
       "_notion_url": "https://www.notion.so/3480f0fdafad81a9b605d5bbd29a76d3"
+    },
+    {
+      "id": "3480f0fdafad81d0b195c3ca298ceeaa",
+      "title": "【Basecamp】ギアの使用マニュアル作成",
+      "date": "2026-06-02",
+      "category": "ブランディング",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "次にやること",
+      "_priority": null,
+      "_notion_url": "https://www.notion.so/Basecamp-3480f0fdafad81d0b195c3ca298ceeaa"
     },
     {
       "id": "3480f0fdafad81e69550c249d5aa1b82",
@@ -469,5 +495,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad81fcaecfd41e18d13ff8"
     }
   ],
-  "generated_at": "2026-06-01T11:52:04.008Z"
+  "generated_at": "2026-06-01T11:57:03.737Z"
 }
