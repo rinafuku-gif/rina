@@ -15,7 +15,7 @@
     },
     {
       "id": "3630f0fdafad810e9682e46c335dc193",
-      "title": "山梨中央銀行担当者に事業進捗中間報告",
+      "title": "山梨中央銀行担当者に��業進捗中間報告",
       "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -41,7 +41,7 @@
     },
     {
       "id": "3630f0fdafad818b8486da9da90e71b6",
-      "title": "山梨中央銀行 100万円使途報告書 提出",
+      "title": "山梨中央銀行 100��円使途報告書 提出",
       "date": "2026-06-15",
       "category": "補助金・資金",
       "business": "となりにとまる",
@@ -235,19 +235,6 @@
       "_notion_url": "https://www.notion.so/34e0f0fdafad81b4a4b3c8e073421f91"
     },
     {
-      "id": "34e0f0fdafad81eabc70d3f3a4a008e0",
-      "title": "【蔵サウナ】戸田工務店に追加確認（別途工事AI/AJ/AK・サウナストーブ・電気水道引込の概算）",
-      "date": "2026-04-30",
-      "category": "設計・施工",
-      "business": "蔵サウナ",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "完���",
-      "_priority": "高",
-      "_notion_url": "https://www.notion.so/AI-AJ-AK-34e0f0fdafad81eabc70d3f3a4a008e0"
-    },
-    {
       "id": "34e0f0fdafad81ecb21bfec55162ea4a",
       "title": "【蔵サウナ】都留信用組合 副支店長アポ取り→面談（戸田見積持参）",
       "date": "2026-06-02",
@@ -303,7 +290,7 @@
       "id": "3480f0fdafad8112aec1dae321087ab6",
       "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
       "date": "2026-06-02",
-      "category": "",
+      "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -342,7 +329,7 @@
       "id": "3480f0fdafad81d0b195c3ca298ceeaa",
       "title": "【Basecamp】ギアの使用マニュアル作成",
       "date": "2026-06-02",
-      "category": "ブランディング",
+      "category": "",
       "business": "Basecamp Torisawa",
       "status": "進行中",
       "checklist": [],
@@ -495,5 +482,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad81fcaecfd41e18d13ff8"
     }
   ],
-  "generated_at": "2026-06-01T11:57:03.737Z"
+  "generated_at": "2026-06-01T12:02:03.174Z"
 }
