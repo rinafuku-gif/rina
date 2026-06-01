@@ -82,7 +82,7 @@
       "id": "3630f0fdafad81e4a8fbf3e971a1fa41",
       "title": "事業計画書 v3 ブラッシュアップ・財務シミュ詳細化",
       "date": "2026-10-31",
-      "category": "その他",
+      "category": "���の他",
       "business": "となりにとまる",
       "status": "進行中",
       "checklist": [],
@@ -295,7 +295,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "次���やること",
+      "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://www.notion.so/10000-3480f0fdafad8112aec1dae321087ab6"
     },
@@ -482,5 +482,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad81fcaecfd41e18d13ff8"
     }
   ],
-  "generated_at": "2026-06-01T08:37:04.102Z"
+  "generated_at": "2026-06-01T08:42:04.764Z"
 }
