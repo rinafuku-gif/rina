@@ -27,6 +27,19 @@
       "_notion_url": "https://www.notion.so/3630f0fdafad816795d0f5e32973b00e"
     },
     {
+      "id": "3630f0fdafad81be9bedec69f852dedc",
+      "title": "BC鳥沢 Gmail→Googleカレンダー自動化",
+      "date": "2026-05-30",
+      "category": "その他",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "完��",
+      "_priority": "中",
+      "_notion_url": "https://www.notion.so/BC-Gmail-Google-3630f0fdafad81be9bedec69f852dedc"
+    },
+    {
       "id": "35a0f0fdafad81329c7fce158c2338c5",
       "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
       "date": "2026-06-13",
@@ -122,7 +135,7 @@
       "title": "【蔵サウナ】単価50万円超12項目で相見積もり依頼（5月中・5社）",
       "date": "2026-06-03",
       "category": "補助金・資金",
-      "business": "蔵サウナ",
+      "business": "蔵サウ��",
       "status": "進行中",
       "checklist": [],
       "notes": "",
@@ -170,6 +183,19 @@
       "_notion_url": "https://www.notion.so/34e0f0fdafad81b4a4b3c8e073421f91"
     },
     {
+      "id": "34e0f0fdafad81eabc70d3f3a4a008e0",
+      "title": "【蔵サウナ】戸田工務店に追加確認（別途工事AI/AJ/AK・サウナストーブ・電気水道引込の概算）",
+      "date": "2026-04-30",
+      "category": "設計・施工",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "完��",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/AI-AJ-AK-34e0f0fdafad81eabc70d3f3a4a008e0"
+    },
+    {
       "id": "34e0f0fdafad81ecb21bfec55162ea4a",
       "title": "【蔵サウナ】都留信用組合 副支店長アポ取り→面談（戸田見積持参）",
       "date": "2026-06-05",
@@ -194,6 +220,19 @@
       "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://www.notion.so/SATOYAMA-3480f0fdafad81b5adedef94d08d6bb4"
+    },
+    {
+      "id": "3480f0fdafad8112aec1dae321087ab6",
+      "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
+      "date": "2026-06-05",
+      "category": "補助金・資金",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "次にやること",
+      "_priority": null,
+      "_notion_url": "https://www.notion.so/10000-3480f0fdafad8112aec1dae321087ab6"
     },
     {
       "id": "3480f0fdafad814a929cc84db1e93be3",
@@ -235,5 +274,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-02T11:32:05.012Z"
+  "generated_at": "2026-06-02T11:37:04.747Z"
 }
