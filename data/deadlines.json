@@ -153,7 +153,7 @@
       "checklist": [],
       "notes": "",
       "_gtd": "次にやること",
-      "_priority": "高",
+      "_priority": null,
       "_notion_url": "https://www.notion.so/1-34e0f0fdafad81aa9f8cd31c4aa3efbc"
     },
     {
@@ -248,5 +248,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-02T17:32:03.114Z"
+  "generated_at": "2026-06-02T17:37:02.942Z"
 }
