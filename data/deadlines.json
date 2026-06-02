@@ -139,7 +139,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "次にやること",
+      "_gtd": "次にやるこ���",
       "_priority": "中",
       "_notion_url": "https://www.notion.so/34e0f0fdafad819dad4bce2455619c75"
     },
@@ -153,7 +153,7 @@
       "checklist": [],
       "notes": "",
       "_gtd": "次にやること",
-      "_priority": null,
+      "_priority": "高",
       "_notion_url": "https://www.notion.so/1-34e0f0fdafad81aa9f8cd31c4aa3efbc"
     },
     {
@@ -248,5 +248,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-02T17:37:02.942Z"
+  "generated_at": "2026-06-02T17:42:03.815Z"
 }
