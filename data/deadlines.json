@@ -139,7 +139,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "次にやるこ���",
+      "_gtd": "次にやること",
       "_priority": "中",
       "_notion_url": "https://www.notion.so/34e0f0fdafad819dad4bce2455619c75"
     },
@@ -222,6 +222,19 @@
       "_notion_url": "https://www.notion.so/4-3480f0fdafad814a929cc84db1e93be3"
     },
     {
+      "id": "33d0f0fdafad81a899f8df737e042312",
+      "title": "2階客室デスク制作（OSB合板で制作）",
+      "date": "2026-04-20",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "���ミ箱",
+      "_priority": "高",
+      "_notion_url": "https://www.notion.so/2-OSB-33d0f0fdafad81a899f8df737e042312"
+    },
+    {
       "id": "33c0f0fdafad81768f81fe0b35b91cff",
       "title": "【蔵サウナ】ポンチ絵（A4横1枚）の作成",
       "date": "2026-06-08",
@@ -248,5 +261,5 @@
       "_notion_url": "https://www.notion.so/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-02T19:37:05.757Z"
+  "generated_at": "2026-06-02T19:42:05.217Z"
 }
