@@ -200,7 +200,7 @@
       "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
       "date": "2026-06-05",
       "category": "補助金・資金",
-      "business": "��サウナ",
+      "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
       "notes": "",
@@ -220,19 +220,6 @@
       "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://app.notion.com/p/4-3480f0fdafad814a929cc84db1e93be3"
-    },
-    {
-      "id": "3480f0fdafad818681acd497e0772292",
-      "title": "【Basecamp】下駄箱捨てる",
-      "date": "2026-04-28",
-      "category": "設計・施工",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "��了",
-      "_priority": null,
-      "_notion_url": "https://app.notion.com/p/Basecamp-3480f0fdafad818681acd497e0772292"
     },
     {
       "id": "33c0f0fdafad81768f81fe0b35b91cff",
@@ -261,5 +248,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-03T03:07:08.768Z"
+  "generated_at": "2026-06-03T03:12:02.626Z"
 }
