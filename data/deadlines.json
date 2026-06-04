@@ -30,7 +30,7 @@
       "id": "35a0f0fdafad81329c7fce158c2338c5",
       "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
       "date": "2026-06-13",
-      "category": "設��・施工",
+      "category": "設計・施工",
       "business": "Basecamp Torisawa",
       "status": "進行中",
       "checklist": [],
@@ -74,7 +74,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "次にや��こと",
+      "_gtd": "次にやること",
       "_priority": "高",
       "_notion_url": "https://app.notion.com/p/35a0f0fdafad8157b6a4c67e7e33b307"
     },
@@ -196,19 +196,6 @@
       "_notion_url": "https://app.notion.com/p/SATOYAMA-3480f0fdafad81b5adedef94d08d6bb4"
     },
     {
-      "id": "3480f0fdafad810fa139d2e46d9051b1",
-      "title": "【Basecamp】Wi-Fi配線（開通・速度確認）",
-      "date": "2026-04-25",
-      "category": "設計・施工",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "完��",
-      "_priority": null,
-      "_notion_url": "https://app.notion.com/p/Basecamp-Wi-Fi-3480f0fdafad810fa139d2e46d9051b1"
-    },
-    {
       "id": "3480f0fdafad8112aec1dae321087ab6",
       "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
       "date": "2026-06-05",
@@ -261,5 +248,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-04T14:57:03.215Z"
+  "generated_at": "2026-06-04T15:02:04.677Z"
 }
