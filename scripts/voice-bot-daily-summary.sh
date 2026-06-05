@@ -5,6 +5,15 @@
 # 集計対象: /Users/ocmm/rina/logs/voice-chat-bot.log
 #   ログにタイムスタンプが含まれないため、現ファイルを全量集計して
 #   「当日のサマリー」として投稿する。
+#
+# 【2026-06-06 変更】異常検知時のみ Discord 投稿、平常時はスキップ
+# 異常の定義（以下いずれか1つでも該当したら投稿）:
+#   - HANG_COUNT      > 0     （ハング検知）
+#   - CRASH_LOOP_COUNT > 0    （クラッシュループ検知）
+#   - STT_FAIL_COUNT  > 0     （認識失敗：asking Ryo to repeat）
+#   - FTT_P95         >= 35.0 （応答遅延 p95 閾値 35s ← コメントで調整可能）
+# 閾値を変更する場合は ALERT_THRESHOLD_P95 の値を書き換える
+ALERT_THRESHOLD_P95=35.0
 
 set -uo pipefail
 
@@ -107,25 +116,52 @@ FTT_MAX=$(echo "$FTT_STATS" | awk '{print $3}')
 STT_STATS=$(calc_stats "$STT_VALUES")
 STT_AVG=$(echo "$STT_STATS" | awk '{print $1}')
 
-# --- メッセージ組み立て ---
+# --- 異常判定 ---
+# bc で浮動小数点比較（FTT_P95 >= ALERT_THRESHOLD_P95）
+P95_ALERT=0
+if [ -n "$FTT_P95" ] && [ "$FTT_P95" != "0.0" ]; then
+    P95_ALERT=$(echo "$FTT_P95 >= $ALERT_THRESHOLD_P95" | bc -l 2>/dev/null || echo 0)
+fi
 
-if [ "${TURN_COUNT:-0}" -eq 0 ]; then
-    MESSAGE="**[Voice Bot Daily Summary]** ${DATE_STR}
-使用なし（ターン数: 0）"
-else
-    MESSAGE="**[Voice Bot Daily Summary]** ${DATE_STR}
+ANOMALY=0
+ANOMALY_REASONS=""
+if [ "${HANG_COUNT:-0}" -gt 0 ]; then
+    ANOMALY=1
+    ANOMALY_REASONS="${ANOMALY_REASONS} ハング検知:${HANG_COUNT}回"
+fi
+if [ "${CRASH_LOOP_COUNT:-0}" -gt 0 ]; then
+    ANOMALY=1
+    ANOMALY_REASONS="${ANOMALY_REASONS} クラッシュループ:${CRASH_LOOP_COUNT}回"
+fi
+if [ "${STT_FAIL_COUNT:-0}" -gt 0 ]; then
+    ANOMALY=1
+    ANOMALY_REASONS="${ANOMALY_REASONS} 認識失敗:${STT_FAIL_COUNT}回"
+fi
+if [ "${P95_ALERT:-0}" = "1" ]; then
+    ANOMALY=1
+    ANOMALY_REASONS="${ANOMALY_REASONS} 応答遅延p95:${FTT_P95}s(閾値${ALERT_THRESHOLD_P95}s超)"
+fi
+
+# 平常時はスキップ（ログ出力のみ）
+if [ "$ANOMALY" = "0" ]; then
+    echo "[voice-bot-daily-summary] 平常 — Discord投稿スキップ ($DATE_STR / ターン数:${TURN_COUNT})" >&2
+    exit 0
+fi
+
+# --- 異常時メッセージ組み立て ---
+MESSAGE="**[Voice Bot 異常検知]** ${DATE_STR}
+異常:${ANOMALY_REASONS}
 ターン数: ${TURN_COUNT}
 first_text_token: avg ${FTT_AVG}s / p95 ${FTT_P95}s / max ${FTT_MAX}s
 STT 平均: ${STT_AVG}s / 認識失敗: ${STT_FAIL_COUNT}回
 ハング検知: ${HANG_COUNT}回 / 多重起動防止: ${WRAPPER_BLOCK_COUNT}回 / クラッシュループ: ${CRASH_LOOP_COUNT}回"
-fi
 
 # テストモードはプレフィックスを付ける
 if [ "$TEST_MODE" = "1" ]; then
     MESSAGE="[TEST] ${MESSAGE}"
 fi
 
-echo "[voice-bot-daily-summary] 投稿するメッセージ:" >&2
+echo "[voice-bot-daily-summary] 異常検知 → Discord投稿:${ANOMALY_REASONS}" >&2
 echo "$MESSAGE" >&2
 
 # Discord 投稿
