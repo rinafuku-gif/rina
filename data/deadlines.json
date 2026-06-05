@@ -100,7 +100,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "次にや���こと",
+      "_gtd": "次にやること",
       "_priority": "高",
       "_notion_url": "https://app.notion.com/p/35a0f0fdafad8193b3aeda7922f80454"
     },
@@ -196,19 +196,6 @@
       "_notion_url": "https://app.notion.com/p/SATOYAMA-3480f0fdafad81b5adedef94d08d6bb4"
     },
     {
-      "id": "3480f0fdafad8101984ef71ad5597840",
-      "title": "【Basecamp】宿泊者名簿フォーマット準備（検査前必須）",
-      "date": "2026-05-08",
-      "category": "契約・法務",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "完��",
-      "_priority": null,
-      "_notion_url": "https://app.notion.com/p/Basecamp-3480f0fdafad8101984ef71ad5597840"
-    },
-    {
       "id": "3480f0fdafad8112aec1dae321087ab6",
       "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
       "date": "2026-06-05",
@@ -261,5 +248,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-05T18:02:03.276Z"
+  "generated_at": "2026-06-05T18:07:03.062Z"
 }
