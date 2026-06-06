@@ -358,6 +358,13 @@ RAW_NEWS_TRIMMED=$(echo -e "$RAW_NEWS" | head -200)
 # プロンプトをファイルに書き出し（heredocのエスケープ問題回避）
 PROMPT_FILE="$LOG_DIR/.ai-news-prompt.txt"
 cat > "$PROMPT_FILE" <<'PROMPT_HEADER'
+【最優先・必読】
+- ツールを一切使用してはならない。Web検索、ファイル読み込み、コード実行、いかなるツール呼び出しも絶対禁止。
+- 以下に提供する「本日の生データ」のみを情報源とする。外部情報の取得は一切行わない。
+- 「検索できませんでした」「権限がなく」「Web検索権限がない」「最終版です」「as-is」「生データから組み立て済み」などのメタコメントを出力することは絶対に禁止。
+- 必ず指定の出力形式（📰 AI日報 ～ ===NOTION_JSON===）でレポート本文を出力すること。形式から外れた応答は許可しない。
+- 生データが少ない・不十分と感じても、あるデータで最善のレポートを作ること。データ不足を理由に出力を省略・変更しない。
+
 あなたはRyoの右腕AIキャスター。事業に効く情報だけを厳選して、リズムよく届けてください。
 
 # 絶対ルール
@@ -489,31 +496,81 @@ PROMPT_FORMAT
 
 echo "$RAW_NEWS_TRIMMED" >> "$PROMPT_FILE"
 
-FULL_OUTPUT=$("$CLAUDE_PATH" -p --model claude-sonnet-4-6 --max-turns 3 < "$PROMPT_FILE" 2>/dev/null || echo "")
+FULL_OUTPUT=$("$CLAUDE_PATH" -p --model claude-sonnet-4-6 --max-turns 5 --tools "" < "$PROMPT_FILE" 2>/dev/null || echo "")
 rm -f "$PROMPT_FILE"
+
+# ── 品質ガード: 出力が劣化している場合はリトライ ────────────────────
+_is_degraded() {
+  local out="$1"
+  local len=${#out}
+  if [ "$len" -lt 800 ]; then return 0; fi
+  if echo "$out" | grep -qF "権限がなく"; then return 0; fi
+  if echo "$out" | grep -qF "検索エージェント"; then return 0; fi
+  if echo "$out" | grep -qF "最終版です"; then return 0; fi
+  if echo "$out" | grep -qF "プロンプトの生データ"; then return 0; fi
+  if echo "$out" | grep -qF "as-is final"; then return 0; fi
+  return 1
+}
+
+if _is_degraded "$FULL_OUTPUT"; then
+  DEGRADED_LEN=${#FULL_OUTPUT}
+  echo "ai-news: WARNING report degraded (${DEGRADED_LEN} chars) — retrying once..." >&2
+  # リトライ: プロンプトを再構築して再度実行
+  PROMPT_FILE_RETRY="$LOG_DIR/.ai-news-prompt-retry.txt"
+  cat > "$PROMPT_FILE_RETRY" <<'RETRY_HEADER'
+【最優先・必読】
+- ツールを一切使用してはならない。Web検索、ファイル読み込み、コード実行、いかなるツール呼び出しも絶対禁止。
+- 以下に提供する「本日の生データ」のみを情報源とする。外部情報の取得は一切行わない。
+- 「検索できませんでした」「権限がなく」「Web検索権限がない」「最終版です」などのメタコメントを出力することは絶対に禁止。
+- 必ず📰 AI日報の形式でレポート本文を出力すること。
+- 生データが少なくても、あるデータで最善のレポートを作ること。
+
+あなたはRyoの右腕AIキャスター。事業に効く情報だけを厳選して日本語レポートにしてください。
+
+カテゴリは「🔥即行動候補」「👀押さえる」「🌐周辺動向」の3つ。件数は5〜10件。URLを必ず含める。
+
+## 出力（ここから下を上の形式で）
+RETRY_HEADER
+  echo "対象日: $TODAY" >> "$PROMPT_FILE_RETRY"
+  echo "" >> "$PROMPT_FILE_RETRY"
+  echo "# 本日の生データ" >> "$PROMPT_FILE_RETRY"
+  echo "$RAW_NEWS_TRIMMED" >> "$PROMPT_FILE_RETRY"
+  FULL_OUTPUT_RETRY=$("$CLAUDE_PATH" -p --model claude-sonnet-4-6 --max-turns 5 --tools "" < "$PROMPT_FILE_RETRY" 2>/dev/null || echo "")
+  rm -f "$PROMPT_FILE_RETRY"
+  if _is_degraded "$FULL_OUTPUT_RETRY"; then
+    RETRY_LEN=${#FULL_OUTPUT_RETRY}
+    echo "ai-news: ERROR report degraded after retry (${RETRY_LEN} chars) — aborting post, not overwriting Obsidian" >&2
+    exit 1
+  fi
+  echo "ai-news: Retry succeeded (${#FULL_OUTPUT_RETRY} chars)" >&2
+  FULL_OUTPUT="$FULL_OUTPUT_RETRY"
+fi
 
 # レポート部分とJSON部分を分離
 REPORT=$(echo "$FULL_OUTPUT" | sed '/===NOTION_JSON===/,$d')
 NOTION_JSON_RAW=$(echo "$FULL_OUTPUT" | sed -n '/===NOTION_JSON===/,$p' | tail -n +2)
 
-# JSONの抽出（```json ブロックを除去し、配列部分だけ取り出す）
-NOTION_JSON=$(echo "$NOTION_JSON_RAW" | python3 -c "
+# JSONの抽出（Pythonスクリプトファイル経由 — インライン-cの backtick 誤解釈を回避）
+_NOTION_EXTRACT_PY="$LOG_DIR/.ai-news-notion-extract.py"
+cat > "$_NOTION_EXTRACT_PY" << 'PYEOF'
 import sys, json, re
 raw = sys.stdin.read()
-# ```json ... ``` ブロックを除去
-raw = re.sub(r'\`\`\`json\s*', '', raw)
-raw = re.sub(r'\`\`\`\s*', '', raw)
+# ```json ... ``` ブロックを除去（backtick をシェルから分離するためファイル経由）
+raw = re.sub(r'```json\s*', '', raw)
+raw = re.sub(r'```\s*', '', raw)
 # JSON配列を抽出
 match = re.search(r'\[.*\]', raw, re.DOTALL)
 if match:
     try:
         data = json.loads(match.group())
         print(json.dumps(data))
-    except:
+    except Exception:
         print('')
 else:
     print('')
-" 2>/dev/null || echo "")
+PYEOF
+NOTION_JSON=$(echo "$NOTION_JSON_RAW" | python3 "$_NOTION_EXTRACT_PY" 2>/dev/null || echo "")
+rm -f "$_NOTION_EXTRACT_PY"
 
 echo "ai-news: Notion JSON extracted ($(echo "$NOTION_JSON" | wc -c | tr -d ' ') chars)" >&2
 
