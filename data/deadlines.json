@@ -43,7 +43,7 @@
       "id": "35a0f0fdafad813bbbc5c58bf9f6c52d",
       "title": "【プライベート】父：金融機関の口座一覧と通帳保管場所の把握",
       "date": "2026-06-10",
-      "category": "行政手続き",
+      "category": "行政手���き",
       "business": "プライベート",
       "status": "進行中",
       "checklist": [],
@@ -54,7 +54,7 @@
     },
     {
       "id": "35a0f0fdafad8154a7b4f2dc5454efa8",
-      "title": "【蔵サウナ】6月申請に向けた��算スケジュール作成",
+      "title": "【蔵サウナ】6月申請に向けた逆算スケジュール作成",
       "date": "2026-06-06",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -171,7 +171,7 @@
     },
     {
       "id": "34e0f0fdafad81ecb21bfec55162ea4a",
-      "title": "【蔵サウナ】都留信用組合 副支店長アポ取り→面談（戸��見積持参）",
+      "title": "【蔵サウナ】都留信用組合 副支店長アポ取り→面談（戸田見積持参）",
       "date": "2026-06-07",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -248,5 +248,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-06T03:12:09.795Z"
+  "generated_at": "2026-06-06T03:17:02.848Z"
 }
