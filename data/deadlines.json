@@ -43,7 +43,7 @@
       "id": "35a0f0fdafad813bbbc5c58bf9f6c52d",
       "title": "【プライベート】父：金融機関の口座一覧と通帳保管場所の把握",
       "date": "2026-06-10",
-      "category": "行政手���き",
+      "category": "行政手��き",
       "business": "プライベート",
       "status": "進行中",
       "checklist": [],
@@ -222,6 +222,19 @@
       "_notion_url": "https://app.notion.com/p/4-3480f0fdafad814a929cc84db1e93be3"
     },
     {
+      "id": "3480f0fdafad81d1abc8ce6a627eefb1",
+      "title": "【Basecamp】キーボックス 紛失防止チェーン取り付け",
+      "date": "2026-04-29",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "ゴ��箱",
+      "_priority": null,
+      "_notion_url": "https://app.notion.com/p/Basecamp-3480f0fdafad81d1abc8ce6a627eefb1"
+    },
+    {
       "id": "33c0f0fdafad81768f81fe0b35b91cff",
       "title": "【蔵サウナ】ポンチ絵（A4横1枚）の作成",
       "date": "2026-06-08",
@@ -248,5 +261,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-07T09:17:10.855Z"
+  "generated_at": "2026-06-07T09:22:03.112Z"
 }
