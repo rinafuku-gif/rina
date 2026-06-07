@@ -132,7 +132,7 @@
     },
     {
       "id": "34e0f0fdafad819dad4bce2455619c75",
-      "title": "【蔵サウナ】蔵の現状写真撮影（ポンチ絵用��",
+      "title": "【蔵サウナ】蔵の現状写真撮影（ポンチ絵用）",
       "date": "2026-06-07",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -222,6 +222,19 @@
       "_notion_url": "https://app.notion.com/p/4-3480f0fdafad814a929cc84db1e93be3"
     },
     {
+      "id": "33d0f0fdafad810c978dcc95c17a6008",
+      "title": "洗面兼脱衣所 壁紙変更",
+      "date": "2026-04-20",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "完���",
+      "_priority": "中",
+      "_notion_url": "https://app.notion.com/p/33d0f0fdafad810c978dcc95c17a6008"
+    },
+    {
       "id": "33c0f0fdafad81768f81fe0b35b91cff",
       "title": "【蔵サウナ】ポンチ絵（A4横1枚）の作成",
       "date": "2026-06-08",
@@ -248,5 +261,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-07T02:22:02.911Z"
+  "generated_at": "2026-06-07T02:27:03.379Z"
 }
