@@ -43,7 +43,7 @@
       "id": "35a0f0fdafad813bbbc5c58bf9f6c52d",
       "title": "【プライベート】父：金融機関の口座一覧と通帳保管場所の把握",
       "date": "2026-06-10",
-      "category": "行政手続き",
+      "category": "行政手���き",
       "business": "プライベート",
       "status": "進行中",
       "checklist": [],
@@ -55,7 +55,7 @@
     {
       "id": "35a0f0fdafad8154a7b4f2dc5454efa8",
       "title": "【蔵サウナ】6月申請に向けた逆算スケジュール作成",
-      "date": "2026-06-08",
+      "date": "2026-06-11",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -146,7 +146,7 @@
     {
       "id": "34e0f0fdafad81aa9f8cd31c4aa3efbc",
       "title": "【蔵サウナ】相見積もり1次回収・資金計画書最終版",
-      "date": "2026-06-08",
+      "date": "2026-06-11",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -159,7 +159,7 @@
     {
       "id": "34e0f0fdafad81b4a4b3c8e073421f91",
       "title": "【蔵サウナ】上野原市政策秘書課 山田さんに資料持参で再訪問",
-      "date": "2026-06-08",
+      "date": "2026-06-11",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -185,7 +185,7 @@
     {
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
       "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
-      "date": "2026-06-08",
+      "date": "2026-06-11",
       "category": "その他",
       "business": "SATOYAMA AI BASE",
       "status": "進行中",
@@ -211,7 +211,7 @@
     {
       "id": "3480f0fdafad814a929cc84db1e93be3",
       "title": "【えんがわ】上野原商工会に電話（個人事業主扱いで様式4発行依頼）",
-      "date": "2026-06-08",
+      "date": "2026-06-11",
       "category": "補助金・資金",
       "business": "えんがわ",
       "status": "進行中",
@@ -224,7 +224,7 @@
     {
       "id": "33c0f0fdafad81768f81fe0b35b91cff",
       "title": "【蔵サウナ】ポンチ絵（A4横1枚）の作成",
-      "date": "2026-06-08",
+      "date": "2026-06-11",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
@@ -248,5 +248,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-08T21:57:02.552Z"
+  "generated_at": "2026-06-08T22:02:04.588Z"
 }
