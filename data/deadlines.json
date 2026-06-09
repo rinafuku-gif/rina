@@ -105,6 +105,19 @@
       "_notion_url": "https://app.notion.com/p/35a0f0fdafad8193b3aeda7922f80454"
     },
     {
+      "id": "35a0f0fdafad81bb8b38c38dd088dccf",
+      "title": "【SATOYAMA AI BASE】美和さんアプリ 残作業棚卸し → 完成期日コミット",
+      "date": "2026-05-09",
+      "category": "デザイン",
+      "business": "SATOYAMA AI BASE",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "���了",
+      "_priority": "中",
+      "_notion_url": "https://app.notion.com/p/SATOYAMA-AI-BASE-35a0f0fdafad81bb8b38c38dd088dccf"
+    },
+    {
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
       "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
       "date": "2026-06-10",
@@ -145,7 +158,7 @@
     },
     {
       "id": "34e0f0fdafad81aa9f8cd31c4aa3efbc",
-      "title": "【��サウナ】相見積もり1次回収・資金計画書最終版",
+      "title": "【蔵サウナ】相見積もり1次回収・資金計画書最終版",
       "date": "2026-06-11",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -248,5 +261,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-09T11:07:04.800Z"
+  "generated_at": "2026-06-09T11:12:02.851Z"
 }
