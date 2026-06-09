@@ -43,7 +43,7 @@
       "id": "35a0f0fdafad813bbbc5c58bf9f6c52d",
       "title": "【プライベート】父：金融機関の口座一覧と通帳保管場所の把握",
       "date": "2026-06-10",
-      "category": "行政手���き",
+      "category": "行政手続き",
       "business": "プライベート",
       "status": "進行中",
       "checklist": [],
@@ -132,7 +132,7 @@
     },
     {
       "id": "34e0f0fdafad819dad4bce2455619c75",
-      "title": "【蔵サウナ】蔵の現状写真撮影（ポンチ絵用）",
+      "title": "【蔵サウナ】蔵の現状写真撮影（ポンチ絵用��",
       "date": "2026-06-10",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -248,5 +248,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-09T14:52:03.667Z"
+  "generated_at": "2026-06-09T14:57:06.714Z"
 }
