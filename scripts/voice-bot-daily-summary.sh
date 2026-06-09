@@ -41,30 +41,44 @@ fi
 # --- 集計処理 ---
 # grep -c はマッチ0件で exit 1 を返すため || true で無視する
 
+# 【2026-06-09 修正】集計範囲を「最後のボット起動マーカー以降」に限定する。
+# ログはローテーションなしで全量 append されるため、過去セッションの HANG 等が
+# 毎晩カウントされ誤検知が続いていた。起動マーカー以降のみ見ることで
+# 現行セッションのメトリクスだけを集計する。
+#
+# 起動マーカー: "[Bot] Starting voice chat bot"
+# マーカーが1つも存在しない場合（ログ内容が想定外）は全量を使い警告を出す。
+LIVE_LOG=$(awk '/\[Bot\] Starting voice chat bot/{buf=""; found=1} found{buf=buf $0 ORS} END{printf "%s", buf}' \
+    "$LOG_FILE" 2>/dev/null || true)
+if [ -z "$LIVE_LOG" ]; then
+    echo "[voice-bot-daily-summary] WARNING: 起動マーカーが見つかりません。ログ全量で集計します。" >&2
+    LIVE_LOG=$(cat "$LOG_FILE")
+fi
+
 # ターン数 (first_text_token の行数 = 1ターン)
-TURN_COUNT=$(grep -c "\[Latency\] first_text_token" "$LOG_FILE" 2>/dev/null || true)
+TURN_COUNT=$(printf '%s' "$LIVE_LOG" | grep -c "\[Latency\] first_text_token" 2>/dev/null || true)
 TURN_COUNT=${TURN_COUNT:-0}
 
 # first_text_token の秒数リスト (数値のみ抽出)
-FTT_VALUES=$(grep "\[Latency\] first_text_token" "$LOG_FILE" 2>/dev/null \
+FTT_VALUES=$(printf '%s' "$LIVE_LOG" | grep "\[Latency\] first_text_token" 2>/dev/null \
     | grep -oE "[0-9]+\.[0-9]+s" \
     | grep -oE "[0-9]+\.[0-9]+" \
     2>/dev/null || true)
 
 # STT秒数リスト
-STT_VALUES=$(grep "\[Latency\] STT:" "$LOG_FILE" 2>/dev/null \
+STT_VALUES=$(printf '%s' "$LIVE_LOG" | grep "\[Latency\] STT:" 2>/dev/null \
     | grep -oE "STT: [0-9]+\.[0-9]+s" \
     | grep -oE "[0-9]+\.[0-9]+" \
     2>/dev/null || true)
 
 # その他カウント (0件で exit 1 する grep -c を || true で保護)
-STT_FAIL_COUNT=$(grep -c "asking Ryo to repeat" "$LOG_FILE" 2>/dev/null || true)
+STT_FAIL_COUNT=$(printf '%s' "$LIVE_LOG" | grep -c "asking Ryo to repeat" 2>/dev/null || true)
 STT_FAIL_COUNT=${STT_FAIL_COUNT:-0}
-HANG_COUNT=$(grep -c "\[Claude\] HANG detected" "$LOG_FILE" 2>/dev/null || true)
+HANG_COUNT=$(printf '%s' "$LIVE_LOG" | grep -c "\[Claude\] HANG detected" 2>/dev/null || true)
 HANG_COUNT=${HANG_COUNT:-0}
-WRAPPER_BLOCK_COUNT=$(grep -c "\[wrapper\] already running" "$LOG_FILE" 2>/dev/null || true)
+WRAPPER_BLOCK_COUNT=$(printf '%s' "$LIVE_LOG" | grep -c "\[wrapper\] already running" 2>/dev/null || true)
 WRAPPER_BLOCK_COUNT=${WRAPPER_BLOCK_COUNT:-0}
-CRASH_LOOP_COUNT=$(grep -c "クラッシュループ検知" "$LOG_FILE" 2>/dev/null || true)
+CRASH_LOOP_COUNT=$(printf '%s' "$LIVE_LOG" | grep -c "クラッシュループ検知" 2>/dev/null || true)
 CRASH_LOOP_COUNT=${CRASH_LOOP_COUNT:-0}
 
 # awk で avg / p95 / max を計算 — 結果は "avg p95 max" の1行
