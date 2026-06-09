@@ -105,19 +105,6 @@
       "_notion_url": "https://app.notion.com/p/35a0f0fdafad8193b3aeda7922f80454"
     },
     {
-      "id": "35a0f0fdafad81bb8b38c38dd088dccf",
-      "title": "【SATOYAMA AI BASE】美和さんアプリ 残作業棚卸し → 完成期日コミット",
-      "date": "2026-05-09",
-      "category": "デザイン",
-      "business": "SATOYAMA AI BASE",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "���了",
-      "_priority": "中",
-      "_notion_url": "https://app.notion.com/p/SATOYAMA-AI-BASE-35a0f0fdafad81bb8b38c38dd088dccf"
-    },
-    {
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
       "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
       "date": "2026-06-10",
@@ -235,6 +222,19 @@
       "_notion_url": "https://app.notion.com/p/4-3480f0fdafad814a929cc84db1e93be3"
     },
     {
+      "id": "33d0f0fdafad810c978dcc95c17a6008",
+      "title": "洗面兼脱衣所 壁紙変更",
+      "date": "2026-04-20",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "完��",
+      "_priority": "中",
+      "_notion_url": "https://app.notion.com/p/33d0f0fdafad810c978dcc95c17a6008"
+    },
+    {
       "id": "33c0f0fdafad81768f81fe0b35b91cff",
       "title": "【蔵サウナ】ポンチ絵（A4横1枚）の作成",
       "date": "2026-06-11",
@@ -261,5 +261,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-09T09:42:03.497Z"
+  "generated_at": "2026-06-09T09:47:04.070Z"
 }
