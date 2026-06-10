@@ -43,7 +43,7 @@
       "id": "35a0f0fdafad813bbbc5c58bf9f6c52d",
       "title": "【プライベート】父：金融機関の口座一覧と通帳保管場所の把握",
       "date": "2026-06-10",
-      "category": "行政手続き",
+      "category": "行政手��き",
       "business": "プライベート",
       "status": "進行中",
       "checklist": [],
@@ -103,19 +103,6 @@
       "_gtd": "次にやること",
       "_priority": "高",
       "_notion_url": "https://app.notion.com/p/35a0f0fdafad8193b3aeda7922f80454"
-    },
-    {
-      "id": "35a0f0fdafad81bb8b38c38dd088dccf",
-      "title": "【SATOYAMA AI BASE】美和さんアプリ 残作業棚卸し → 完成期日コミット",
-      "date": "2026-05-09",
-      "category": "デザイン",
-      "business": "SATOYAMA AI BASE",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "���了",
-      "_priority": "中",
-      "_notion_url": "https://app.notion.com/p/SATOYAMA-AI-BASE-35a0f0fdafad81bb8b38c38dd088dccf"
     },
     {
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
@@ -261,5 +248,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-10T08:17:04.654Z"
+  "generated_at": "2026-06-10T08:22:04.942Z"
 }
