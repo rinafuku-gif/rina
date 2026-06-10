@@ -496,7 +496,7 @@ PROMPT_FORMAT
 
 echo "$RAW_NEWS_TRIMMED" >> "$PROMPT_FILE"
 
-FULL_OUTPUT=$("$CLAUDE_PATH" -p --model claude-sonnet-4-6 --max-turns 5 --tools "" < "$PROMPT_FILE" 2>/dev/null || echo "")
+FULL_OUTPUT=$("$CLAUDE_PATH" -p --model claude-fable-5 --max-turns 5 --tools "" < "$PROMPT_FILE" 2>/dev/null || echo "")
 rm -f "$PROMPT_FILE"
 
 # ── 品質ガード: 出力が劣化している場合はリトライ ────────────────────
