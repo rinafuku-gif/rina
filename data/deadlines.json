@@ -30,7 +30,7 @@
       "id": "35a0f0fdafad81329c7fce158c2338c5",
       "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
       "date": "2026-06-13",
-      "category": "設計・��工",
+      "category": "設計・施工",
       "business": "Basecamp Torisawa",
       "status": "進行中",
       "checklist": [],
@@ -74,7 +74,7 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "次にやるこ��",
+      "_gtd": "次にやること",
       "_priority": "高",
       "_notion_url": "https://app.notion.com/p/35a0f0fdafad8157b6a4c67e7e33b307"
     },
@@ -248,5 +248,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-10T08:37:04.340Z"
+  "generated_at": "2026-06-10T08:42:04.451Z"
 }
