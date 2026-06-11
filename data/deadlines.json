@@ -53,6 +53,19 @@
       "_notion_url": "https://app.notion.com/p/35a0f0fdafad813bbbc5c58bf9f6c52d"
     },
     {
+      "id": "35a0f0fdafad8157b6a4c67e7e33b307",
+      "title": "【プライベート】父：エンディングノート的情報の聞き取り（保険・銀行・サブスク・年金・本籍）",
+      "date": "2026-06-11",
+      "category": "行政手続き",
+      "business": "プライベート",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "次にやること",
+      "_priority": "高",
+      "_notion_url": "https://app.notion.com/p/35a0f0fdafad8157b6a4c67e7e33b307"
+    },
+    {
       "id": "35a0f0fdafad816891dfd0c60fc31da4",
       "title": "【プライベート】父：手続き窓口の現地下見（吹田市役所・大阪北年金事務所・斎場）",
       "date": "2026-06-13",
@@ -145,7 +158,7 @@
     },
     {
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
-      "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
+      "title": "【SATOYAMA】専門家登録申請書 最終確定（顔���真貼付・経歴年月確定）",
       "date": "2026-06-11",
       "category": "その他",
       "business": "SATOYAMA AI BASE",
@@ -209,5 +222,5 @@
       "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
     }
   ],
-  "generated_at": "2026-06-11T13:07:03.926Z"
+  "generated_at": "2026-06-11T13:12:03.978Z"
 }
