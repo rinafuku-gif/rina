@@ -113,22 +113,9 @@
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "次にやること",
+      "_gtd": "保留",
       "_priority": "高",
       "_notion_url": "https://app.notion.com/p/50-12-5-5-34e0f0fdafad8186aaadf43a9ba67624"
-    },
-    {
-      "id": "34e0f0fdafad819dad4bce2455619c75",
-      "title": "【蔵サウナ】蔵の現状写真撮影（ポンチ絵用）",
-      "date": "2026-06-21",
-      "category": "補助金・資金",
-      "business": "蔵サウナ",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "中",
-      "_notion_url": "https://app.notion.com/p/34e0f0fdafad819dad4bce2455619c75"
     },
     {
       "id": "34e0f0fdafad81aa9f8cd31c4aa3efbc",
@@ -144,19 +131,6 @@
       "_notion_url": "https://app.notion.com/p/1-34e0f0fdafad81aa9f8cd31c4aa3efbc"
     },
     {
-      "id": "34e0f0fdafad81b4a4b3c8e073421f91",
-      "title": "【蔵サウナ】上野原市政策秘書課 山田さんに資料持参で再訪問",
-      "date": "2026-06-21",
-      "category": "補助金・資金",
-      "business": "蔵サウナ",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "高",
-      "_notion_url": "https://app.notion.com/p/34e0f0fdafad81b4a4b3c8e073421f91"
-    },
-    {
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
       "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
       "date": "2026-06-15",
@@ -168,19 +142,6 @@
       "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://app.notion.com/p/SATOYAMA-3480f0fdafad81b5adedef94d08d6bb4"
-    },
-    {
-      "id": "3480f0fdafad8112aec1dae321087ab6",
-      "title": "【蔵サウナ】ローカル10000 次ステップ推進（戸田工務店 見積もり催促・都留信組アポ準備）",
-      "date": "2026-06-16",
-      "category": "補助金・資金",
-      "business": "蔵サウナ",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "進行中",
-      "_priority": null,
-      "_notion_url": "https://app.notion.com/p/10000-3480f0fdafad8112aec1dae321087ab6"
     },
     {
       "id": "3480f0fdafad814a929cc84db1e93be3",
@@ -196,31 +157,70 @@
       "_notion_url": "https://app.notion.com/p/4-3480f0fdafad814a929cc84db1e93be3"
     },
     {
-      "id": "33c0f0fdafad81768f81fe0b35b91cff",
-      "title": "【蔵サウナ】ポンチ絵（A4横1枚）の作成",
-      "date": "2026-06-15",
+      "id": "3480f0fdafad81a9b605d5bbd29a76d3",
+      "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
+      "date": "2026-09-01",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
       "notes": "",
       "_gtd": "次にやること",
-      "_priority": "中",
-      "_notion_url": "https://app.notion.com/p/A4-1-33c0f0fdafad81768f81fe0b35b91cff"
+      "_priority": null,
+      "_notion_url": "https://app.notion.com/p/3480f0fdafad81a9b605d5bbd29a76d3"
     },
     {
-      "id": "33c0f0fdafad819ea527f18382dc96a7",
-      "title": "【蔵サウナ】見積もり反映→事業計画書を最終化",
-      "date": "2026-06-16",
+      "id": "33c0f0fdafad8132af5fcda8a5fe693c",
+      "title": "【蔵サウナ】山田さん（政策秘書課）に事業計画書を送付",
+      "date": "2026-06-15",
+      "category": "行政手続き",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "進行中",
+      "_priority": "高",
+      "_notion_url": "https://app.notion.com/p/33c0f0fdafad8132af5fcda8a5fe693c"
+    },
+    {
+      "id": "33c0f0fdafad8194949af1bb4910b579",
+      "title": "【蔵サウナ】都留信金から融資の内諾を取得",
+      "date": "2026-06-22",
       "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
       "notes": "",
-      "_gtd": "次にやること",
+      "_gtd": "進行中",
       "_priority": "高",
-      "_notion_url": "https://app.notion.com/p/33c0f0fdafad819ea527f18382dc96a7"
+      "_notion_url": "https://app.notion.com/p/33c0f0fdafad8194949af1bb4910b579"
+    },
+    {
+      "id": "33c0f0fdafad81fcaecfd41e18d13ff8",
+      "title": "【蔵サウナ】山田さんから見解・情報を受領→書類に反映",
+      "date": "2026-06-22",
+      "category": "行政手続き",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "進行中",
+      "_priority": "高",
+      "_notion_url": "https://app.notion.com/p/33c0f0fdafad81fcaecfd41e18d13ff8"
+    },
+    {
+      "id": "3390f0fdafad812586ace8bbd77d894c",
+      "title": "クラウドファンディング戦略の立案",
+      "date": "2026-07-06",
+      "category": "補助金・資金",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "保留",
+      "_priority": "中",
+      "_notion_url": "https://app.notion.com/p/3390f0fdafad812586ace8bbd77d894c"
     }
   ],
-  "generated_at": "2026-06-15T00:37:03.755Z"
+  "generated_at": "2026-06-15T00:42:02.843Z"
 }
