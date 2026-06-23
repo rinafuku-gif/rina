@@ -53,8 +53,21 @@
       "_notion_url": "https://app.notion.com/p/3480f0fdafad81a9b605d5bbd29a76d3"
     },
     {
+      "id": "3480f0fdafad81bfafceea2c6681f5e0",
+      "title": "【Basecamp】キッチン関連ギア追加購入",
+      "date": "2026-04-23",
+      "category": "その他",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "完���",
+      "_priority": null,
+      "_notion_url": "https://app.notion.com/p/Basecamp-3480f0fdafad81bfafceea2c6681f5e0"
+    },
+    {
       "id": "33c0f0fdafad8194949af1bb4910b579",
-      "title": "【蔵サウナ】都留信金から融資の内諾を取得",
+      "title": "",
       "date": "2026-06-24",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -92,5 +105,5 @@
       "_notion_url": "https://app.notion.com/p/3390f0fdafad812586ace8bbd77d894c"
     }
   ],
-  "generated_at": "2026-06-23T00:47:05.465Z"
+  "generated_at": "2026-06-23T00:52:01.919Z"
 }
