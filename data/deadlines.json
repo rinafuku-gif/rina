@@ -43,7 +43,7 @@
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
       "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
       "date": "2026-09-01",
-      "category": "��助金・資金",
+      "category": "補助金・資金",
       "business": "蔵サウナ",
       "status": "進行中",
       "checklist": [],
@@ -51,6 +51,19 @@
       "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://app.notion.com/p/3480f0fdafad81a9b605d5bbd29a76d3"
+    },
+    {
+      "id": "33d0f0fdafad81899996ed29d9b5dc24",
+      "title": "キーボックス 紛失防止チェーン取り付け",
+      "date": "2026-05-12",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "��了",
+      "_priority": "高",
+      "_notion_url": "https://app.notion.com/p/33d0f0fdafad81899996ed29d9b5dc24"
     },
     {
       "id": "33c0f0fdafad8194949af1bb4910b579",
@@ -92,5 +105,5 @@
       "_notion_url": "https://app.notion.com/p/3390f0fdafad812586ace8bbd77d894c"
     }
   ],
-  "generated_at": "2026-06-24T19:47:01.706Z"
+  "generated_at": "2026-06-24T19:52:02.042Z"
 }
