@@ -1,19 +1,6 @@
 {
   "deadlines": [
     {
-      "id": "35a0f0fdafad81329c7fce158c2338c5",
-      "title": "【Basecamp Torisawa】民泊運営パッケージ v0 設計（汎用化）",
-      "date": "2026-06-26",
-      "category": "設計・施工",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "次にやること",
-      "_priority": "中",
-      "_notion_url": "https://app.notion.com/p/Basecamp-Torisawa-v0-35a0f0fdafad81329c7fce158c2338c5"
-    },
-    {
       "id": "34e0f0fdafad8122a61adbc82a8c4af5",
       "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
       "date": "2026-06-29",
@@ -51,6 +38,19 @@
       "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://app.notion.com/p/3480f0fdafad81a9b605d5bbd29a76d3"
+    },
+    {
+      "id": "33d0f0fdafad81899996ed29d9b5dc24",
+      "title": "キーボックス 紛失防止チェーン取り付け",
+      "date": "2026-05-12",
+      "category": "設計・施工",
+      "business": "Basecamp Torisawa",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "��了",
+      "_priority": "高",
+      "_notion_url": "https://app.notion.com/p/33d0f0fdafad81899996ed29d9b5dc24"
     },
     {
       "id": "33c0f0fdafad8194949af1bb4910b579",
@@ -92,5 +92,5 @@
       "_notion_url": "https://app.notion.com/p/3390f0fdafad812586ace8bbd77d894c"
     }
   ],
-  "generated_at": "2026-06-24T22:12:06.266Z"
+  "generated_at": "2026-06-24T22:17:02.249Z"
 }
