@@ -108,94 +108,96 @@ function isCompletionCommit(message) {
 }
 
 // --- Main scan ---
-function scanAllRepos() {
-  const state = loadState();
-  const processedSet = new Set(state.processedCommits || []);
-  const openTasks = taskStore.getAllOpen();
+// バグ③修正: taskStore.getAllOpen() は async (task-store.js:132) だが、旧コードは
+// await せずに呼んでいたため openTasks が Promise のまま for...of に渡り
+// "TypeError: openTasks is not iterable" で毎回クラッシュしていた（KeepAliveで再起動ループ化）。
+// scanAllRepos 自体を async 化し、呼び出し元(setInterval/setTimeout)からの
+// 未捕捉rejectionでプロセスが落ちないよう全体を try/catch で包む。
+//
+// 併せて発見: 旧コードは taskStore.loadTasks() / taskStore.saveTasks() を呼んでいたが、
+// task-store.js は既にJSON直書き方式からDB(unified.db)方式へ移行済みで、この2関数は
+// もう存在しない（module.exportsに無い）。await修正だけではこの呼び出しで
+// "taskStore.loadTasks is not a function" として同種のクラッシュが再発するため、
+// 現行の非同期DB API (taskStore.updateTask) に置き換える。
+// なお relatedCommits / history フィールドは現行DBスキーマ(tasks table)に存在しない
+// カラムのため、これらへの追記はここでは行わない（元々DBには永続化されていなかった）。
+async function scanAllRepos() {
+  try {
+    const state = loadState();
+    const processedSet = new Set(state.processedCommits || []);
+    const openTasks = await taskStore.getAllOpen();
 
-  if (openTasks.length === 0) {
-    state.lastScan = new Date().toISOString();
-    saveState(state);
-    return { scanned: 0, updated: 0 };
-  }
+    if (openTasks.length === 0) {
+      state.lastScan = new Date().toISOString();
+      saveState(state);
+      return { scanned: 0, updated: 0 };
+    }
 
-  let totalCommits = 0;
-  let updatedTasks = 0;
-  const newProcessed = [];
+    let totalCommits = 0;
+    let updatedTasks = 0;
+    const newProcessed = [];
 
-  for (const repo of REPOS) {
-    if (!fs.existsSync(repo.path)) continue;
+    for (const repo of REPOS) {
+      if (!fs.existsSync(repo.path)) continue;
 
-    const commits = getRecentCommits(repo.path);
-    for (const commit of commits) {
-      if (processedSet.has(commit.hash)) continue;
-      newProcessed.push(commit.hash);
-      totalCommits++;
+      const commits = getRecentCommits(repo.path);
+      for (const commit of commits) {
+        if (processedSet.has(commit.hash)) continue;
+        newProcessed.push(commit.hash);
+        totalCommits++;
 
-      // 各タスクとのマッチングスコアを計算
-      for (const task of openTasks) {
-        const score = scoreMatch(task, commit, repo.project);
+        // 各タスクとのマッチングスコアを計算
+        for (const task of openTasks) {
+          const score = scoreMatch(task, commit, repo.project);
 
-        if (score >= 3) {
-          // タスクに関連コミットを追加
-          const data = taskStore.loadTasks();
-          const t = data.tasks.find(x => x.id === task.id);
-          if (!t) continue;
-
-          if (!t.relatedCommits) t.relatedCommits = [];
-          if (!t.relatedCommits.includes(commit.hash)) {
-            t.relatedCommits.push(commit.hash);
+          if (score >= 3) {
+            // 完了判定
+            if (isCompletionCommit(commit.message) && score >= 4) {
+              // 完了キーワード + 高スコア → 自動完了
+              await taskStore.updateTask(
+                task.id,
+                { status: "done", completed_at: new Date().toISOString() },
+                "git-scanner",
+                `${repo.project}: ${commit.message} (${commit.hash.slice(0, 7)})`
+              );
+              console.log(`[git-scanner] Auto-completed: "${task.title}" via commit ${commit.hash.slice(0, 7)}`);
+              updatedTasks++;
+            } else if (task.status === "open" || task.status === "pending") {
+              // 進行中に更新（"open"=旧形式, "pending"=現行DB形式の両方を対応）
+              await taskStore.updateTask(
+                task.id,
+                { status: "in_progress" },
+                "git-scanner",
+                `進行中: ${repo.project}: ${commit.message} (${commit.hash.slice(0, 7)})`
+              );
+              console.log(`[git-scanner] In progress: "${task.title}" via commit ${commit.hash.slice(0, 7)}`);
+              updatedTasks++;
+            }
           }
-
-          // 完了判定
-          if (isCompletionCommit(commit.message) && score >= 4) {
-            // 完了キーワード + 高スコア → 自動完了
-            t.status = "done";
-            t.completedAt = new Date().toISOString();
-            t.updatedAt = new Date().toISOString();
-            t.history.push({
-              timestamp: new Date().toISOString(),
-              action: "completed",
-              by: "git-scanner",
-              note: `${repo.project}: ${commit.message} (${commit.hash.slice(0, 7)})`,
-            });
-            console.log(`[git-scanner] Auto-completed: "${t.title}" via commit ${commit.hash.slice(0, 7)}`);
-            updatedTasks++;
-          } else if (t.status === "open") {
-            // 進行中に更新
-            t.status = "in_progress";
-            t.updatedAt = new Date().toISOString();
-            t.history.push({
-              timestamp: new Date().toISOString(),
-              action: "updated",
-              by: "git-scanner",
-              note: `進行中: ${repo.project}: ${commit.message} (${commit.hash.slice(0, 7)})`,
-            });
-            console.log(`[git-scanner] In progress: "${t.title}" via commit ${commit.hash.slice(0, 7)}`);
-            updatedTasks++;
-          }
-
-          taskStore.saveTasks(data);
         }
       }
     }
+
+    // State更新（最新500件だけ保持）
+    state.processedCommits = [...(state.processedCommits || []), ...newProcessed].slice(-500);
+    state.lastScan = new Date().toISOString();
+    saveState(state);
+
+    // 古い完了タスクのアーカイブ（未実装の場合はスキップ）
+    if (typeof taskStore.archiveOldCompleted === "function") {
+      await taskStore.archiveOldCompleted(30);
+    }
+
+    if (totalCommits > 0) {
+      console.log(`[git-scanner] Scanned ${totalCommits} new commits across ${REPOS.length} repos, updated ${updatedTasks} tasks`);
+    }
+
+    return { scanned: totalCommits, updated: updatedTasks };
+  } catch (e) {
+    // 想定外のエラーでもプロセスをクラッシュさせない（土台のクラッシュループ再発防止）
+    console.error("[git-scanner] scanAllRepos error:", e.message);
+    return { scanned: 0, updated: 0, error: e.message };
   }
-
-  // State更新（最新500件だけ保持）
-  state.processedCommits = [...(state.processedCommits || []), ...newProcessed].slice(-500);
-  state.lastScan = new Date().toISOString();
-  saveState(state);
-
-  // 古い完了タスクのアーカイブ（未実装の場合はスキップ）
-  if (typeof taskStore.archiveOldCompleted === "function") {
-    taskStore.archiveOldCompleted(30);
-  }
-
-  if (totalCommits > 0) {
-    console.log(`[git-scanner] Scanned ${totalCommits} new commits across ${REPOS.length} repos, updated ${updatedTasks} tasks`);
-  }
-
-  return { scanned: totalCommits, updated: updatedTasks };
 }
 
 module.exports = { scanAllRepos, REPOS };
@@ -203,6 +205,7 @@ module.exports = { scanAllRepos, REPOS };
 // CLI mode
 if (require.main === module) {
   console.log("Running git scanner...");
-  const result = scanAllRepos();
-  console.log(`Done: ${result.scanned} commits scanned, ${result.updated} tasks updated`);
+  scanAllRepos().then(result => {
+    console.log(`Done: ${result.scanned} commits scanned, ${result.updated} tasks updated`);
+  });
 }
