@@ -55,7 +55,8 @@ function buildPrompt(todayData) {
   if (items.length === 0) return null;
 
   // Airbnb予約情報（今日〜3日以内のもの）
-  const bookings = safeReadJSON(BOOKINGS_FILE, []);
+  // tombstone(status:"cancelled")化した予約は除外（legacyでstatus無しは有効扱いを維持）
+  const bookings = safeReadJSON(BOOKINGS_FILE, []).filter(b => b.status !== "cancelled");
   const today = todayData.date || new Date().toISOString().slice(0, 10);
   const relevantBookings = bookings.filter((b) => {
     const diff = (new Date(b.checkin) - new Date(today)) / 86400000;

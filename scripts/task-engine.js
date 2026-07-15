@@ -195,6 +195,8 @@ function extractBookingActions() {
 
   let bookings = [];
   try { bookings = JSON.parse(fs.readFileSync(BOOKINGS_FILE, "utf-8")); } catch { return items; }
+  // tombstone(status:"cancelled")化した予約は除外（legacyでstatus無しは有効扱いを維持）
+  bookings = bookings.filter(b => b.status !== "cancelled");
 
   for (const b of bookings) {
     const ciDays = daysFromToday(b.checkin);

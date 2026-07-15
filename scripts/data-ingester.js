@@ -29,6 +29,8 @@ async function ingestAirbnbBookings() {
     console.log("[ingester] Airbnb予約ログなし、スキップ");
     return { events: 0, transactions: 0, customers: 0 };
   }
+  // tombstone(status:"cancelled")化した予約は除外（legacyでstatus無しは有効扱いを維持）
+  bookings = bookings.filter(b => b.status !== "cancelled");
 
   let events = 0, transactions = 0, customers = 0;
 
