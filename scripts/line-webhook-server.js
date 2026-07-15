@@ -356,9 +356,18 @@ async function syncAirbnbBookings(gToken) {
       const calEndDate = checkoutDate;
 
       // 重複チェック: 同じ日付範囲に同じゲスト名の予定が既にあればスキップ
+      // 修正: ゲスト名一致だけでなく日付完全一致も必須にする。
+      // 実運用で判明: Airbnbの日程変更は「旧confirmationCodeのキャンセル＋新codeでの再予約確定」
+      // で通知される（同一guestName・重複する日付レンジ・別code）。ゲスト名だけでdup判定すると、
+      // 旧日程イベント(例:8/19-20)がまだカレンダーに残っている間に新日程(例:8/19-21)の予約確定が
+      // 来た場合、新予約が誤って「重複」としてスキップされ、延泊・変更後の予約がカレンダーに
+      // 反映されない事故になる。日付レンジが完全一致する場合のみ真の重複とみなす。
       const searchUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${checkinDate}T00:00:00Z&timeMax=${calEndDate}T00:00:00Z&singleEvents=true&maxResults=20`;
       const existingEvents = await googleApiRequest("GET", searchUrl, null, gToken);
-      const isDuplicate = existingEvents.items && existingEvents.items.some(ev => ev.summary && ev.summary.includes(guestName));
+      const isDuplicate = existingEvents.items && existingEvents.items.some(ev =>
+        ev.summary && ev.summary.includes(guestName) &&
+        ev.start?.date === checkinDate && ev.end?.date === calEndDate
+      );
       if (isDuplicate) {
         console.log(`Calendar duplicate skipped: ${guestName} (${parsed.confirmationCode}) already exists on ${checkinDate}`);
         // ログには追加する（次回のメールスキャンで再チェックしないように）
@@ -484,10 +493,15 @@ async function syncAirbnbBookings(gToken) {
             const evResult = await googleApiRequest("GET", evUrl, null, gToken);
             if (evResult.items) {
               for (const ev of evResult.items) {
-                // 確認コードまたはゲスト名でマッチ
+                // 確認コード一致 を優先マッチとする。ゲスト名のみでのフォールバックマッチは
+                // 日付完全一致も必須にする（修正: 日程変更で同一ゲスト名の新日程イベントが
+                // 既に作成済みの場合、ゲスト名だけで判定すると誤ってその新イベントまで
+                // 削除してしまう事故になるため）
                 const desc = ev.description || "";
                 const summary = ev.summary || "";
-                if (desc.includes(code) || summary.includes(booking.guestName)) {
+                const isExactGuestDateMatch = summary.includes(booking.guestName) &&
+                  ev.start?.date === booking.checkin && ev.end?.date === booking.checkout;
+                if (desc.includes(code) || isExactGuestDateMatch) {
                   const delUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${ev.id}`;
                   await googleApiRequest("DELETE", delUrl, null, gToken);
                   console.log(`[cancel] Calendar event deleted: ${booking.guestName} (${code}) from ${calId === ENGAWA_HIBA_CAL ? "HIBA" : calId === BC_TORISAWA_CAL ? "TORISAWA" : "UME"}`);
@@ -569,7 +583,22 @@ async function syncAirbnbBookings(gToken) {
         const existing = currentBookings.find(b => b.confirmationCode === confirmCode);
         if (!existing) continue;
 
+        // 既にtombstone済み(キャンセル済み)のbookingは対象外。
+        // 実運用で判明: 日程変更は「旧confirmationCodeのキャンセル＋新codeでの再予約確定」で
+        // 通知されることが多く、このメールが指す旧codeは既に死んでいる（新codeの予約確定は
+        // 通常の新規予約フローで別途正しく反映される）。旧codeの死んだイベントを新日程で
+        // 復活させると、直後のキャンセル処理での削除と競合し、最終的にどちらの日程も
+        // カレンダーに残らない事故になるため、ここでは何もしない。
+        if (existing.status === "cancelled") {
+          console.log(`[modify] Skip ${confirmCode}: already cancelled (tombstoned) — new dates are expected to arrive via a new confirmationCode`);
+          continue;
+        }
+
         // 新しい日程をメール本文からパース
+        // 実メール確認済み(2026-07-16)フォーマット: 「元の日付 YYYY年M月D日 - YYYY年M月D日 /
+        // 変更後の日付 YYYY年M月D日 - YYYY年M月D日」（件名例:「〇〇さんが予約変更をご希望です」）
+        const newRangeMatch = body.match(/変更後の日付[^0-9]{0,10}(\d{4})年(\d{1,2})月(\d{1,2})日\s*[-〜～]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+        // 旧フォーマット（実メールでの一致は未確認・後方互換のため維持）
         const checkinMatch = body.match(/チェックイン[:\s]*(\d{4})[年/](\d{1,2})[月/](\d{1,2})/);
         const checkoutMatch = body.match(/チェックアウト[:\s]*(\d{4})[年/](\d{1,2})[月/](\d{1,2})/);
         // 英語パターンも対応
@@ -578,11 +607,17 @@ async function syncAirbnbBookings(gToken) {
 
         let newCheckin = null, newCheckout = null;
 
-        if (checkinMatch) {
-          newCheckin = `${checkinMatch[1]}-${String(checkinMatch[2]).padStart(2, "0")}-${String(checkinMatch[3]).padStart(2, "0")}`;
-        }
-        if (checkoutMatch) {
-          newCheckout = `${checkoutMatch[1]}-${String(checkoutMatch[2]).padStart(2, "0")}-${String(checkoutMatch[3]).padStart(2, "0")}`;
+        if (newRangeMatch) {
+          newCheckin = `${newRangeMatch[1]}-${String(newRangeMatch[2]).padStart(2, "0")}-${String(newRangeMatch[3]).padStart(2, "0")}`;
+          newCheckout = `${newRangeMatch[4]}-${String(newRangeMatch[5]).padStart(2, "0")}-${String(newRangeMatch[6]).padStart(2, "0")}`;
+        } else {
+          // 旧フォーマット判定（元の独立if構造を維持: 片方だけ一致しても反映する）
+          if (checkinMatch) {
+            newCheckin = `${checkinMatch[1]}-${String(checkinMatch[2]).padStart(2, "0")}-${String(checkinMatch[3]).padStart(2, "0")}`;
+          }
+          if (checkoutMatch) {
+            newCheckout = `${checkoutMatch[1]}-${String(checkoutMatch[2]).padStart(2, "0")}-${String(checkoutMatch[3]).padStart(2, "0")}`;
+          }
         }
 
         // ゲスト数の変更
@@ -609,7 +644,11 @@ async function syncAirbnbBookings(gToken) {
             for (const ev of evResult.items) {
               const desc = ev.description || "";
               const summary = ev.summary || "";
-              if (desc.includes(confirmCode) || summary.includes(existing.guestName)) {
+              // 確認コード一致を優先。ゲスト名フォールバックは対象イベントの現行日程と
+              // 完全一致する場合のみ（他の防御と同様、誤って別イベントを更新しないため）
+              const isExactGuestDateMatch = summary.includes(existing.guestName) &&
+                ev.start?.date === existing.checkin && ev.end?.date === existing.checkout;
+              if (desc.includes(confirmCode) || isExactGuestDateMatch) {
                 // イベント更新
                 const updatedEvent = { ...ev };
                 if (newCheckin) updatedEvent.start = { date: newCheckin };
