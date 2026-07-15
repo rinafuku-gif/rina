@@ -40,8 +40,21 @@
       "_notion_url": "https://app.notion.com/p/3480f0fdafad81a9b605d5bbd29a76d3"
     },
     {
+      "id": "33d0f0fdafad81d59047dd512f6526bf",
+      "title": "【蔵サウナ】コンテンツ化促進事業 — 事務局に電話確認",
+      "date": "2026-04-02",
+      "category": "補助金・資金",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "��ミ箱",
+      "_priority": "高",
+      "_notion_url": "https://app.notion.com/p/33d0f0fdafad81d59047dd512f6526bf"
+    },
+    {
       "id": "33c0f0fdafad8194949af1bb4910b579",
-      "title": "【蔵サウナ】都留信金から融資の内諾を取得",
+      "title": "【蔵サ��ナ】都留信金から融資の内諾を取得",
       "date": "2026-07-23",
       "category": "補助金・資金",
       "business": "蔵サウナ",
@@ -79,5 +92,5 @@
       "_notion_url": "https://app.notion.com/p/3390f0fdafad812586ace8bbd77d894c"
     }
   ],
-  "generated_at": "2026-07-15T20:27:03.047Z"
+  "generated_at": "2026-07-15T20:32:02.464Z"
 }
