@@ -264,6 +264,7 @@ async function syncAirbnbBookings(gToken) {
   const existingCodes = new Set(existingBookings.map(b => b.confirmationCode));
   let synced = 0;
   let skipped = 0;
+  let duplicateLogged = 0; // バグ②修正: duplicate時もログ保存対象としてカウントする
 
   for (const msg of listResult.messages) {
     // メール本文取得
@@ -375,6 +376,7 @@ async function syncAirbnbBookings(gToken) {
           syncedAt: new Date().toISOString(),
         });
         existingCodes.add(parsed.confirmationCode);
+        duplicateLogged++;
         skipped++;
         continue;
       }
@@ -408,7 +410,10 @@ async function syncAirbnbBookings(gToken) {
     synced++;
   }
 
-  if (synced > 0) saveBookingsLog(existingBookings);
+  // バグ②修正: 新規(synced)だけでなくduplicate-skip(duplicateLogged)でも配列がmutateされているので保存する。
+  // 保存しないとそのconfirmationCodeが .airbnb-bookings.json に永久に載らず、後続のキャンセル判定(activeCodes)から
+  // 恒久的に漏れてキャンセルメールが来ても削除されなくなる。
+  if (synced > 0 || duplicateLogged > 0) saveBookingsLog(existingBookings);
 
   // キャンセルメールもチェックして反映
   let cancelled = 0;
@@ -419,7 +424,9 @@ async function syncAirbnbBookings(gToken) {
 
     if (cancelResult.messages && cancelResult.messages.length > 0) {
       const currentBookings = loadBookingsLog();
-      const activeCodes = new Set(currentBookings.map(b => b.confirmationCode));
+      // バグ①修正: 既にtombstone済み(status:"cancelled")のbookingはactiveから除外。
+      // こうしないとGmailの「キャンセル」検索が過去分を拾うたびに毎回削除処理を再実行してしまう。
+      const activeCodes = new Set(currentBookings.filter(b => b.status !== "cancelled").map(b => b.confirmationCode));
       const cancelledCodes = [];
 
       for (const msg of cancelResult.messages) {
@@ -495,12 +502,22 @@ async function syncAirbnbBookings(gToken) {
             console.error(`[cancel] Cleanup error (${code}):`, e.message);
           }
         }
-        // ログから削除
+        // バグ①修正(根本): ログから物理削除しない。
+        // Gmail検索は毎時「過去30日」ローリングウィンドウ(after:${after})なので予約確定メール自体は
+        // 消えない。物理削除でconfirmationCodeがログから消えると、次回サイクルで
+        // existingCodes.has(code) が false になり「新規予約」と誤解釈されカレンダーに再生成される
+        // （ゾンビ化）。論理削除(tombstone)としてログには残し、status:"cancelled"を付与するだけにする。
         const cancelSet = new Set(cancelledCodes);
-        const remaining = currentBookings.filter(b => !cancelSet.has(b.confirmationCode));
-        saveBookingsLog(remaining);
+        const cancelledAt = new Date().toISOString();
+        for (const b of currentBookings) {
+          if (cancelSet.has(b.confirmationCode)) {
+            b.status = "cancelled";
+            b.cancelledAt = cancelledAt;
+          }
+        }
+        saveBookingsLog(currentBookings);
         cancelled = cancelledCodes.length;
-        console.log(`[cancel] Removed ${cancelled} cancelled bookings from log`);
+        console.log(`[cancel] Marked ${cancelled} bookings as cancelled (tombstone, not deleted) in log`);
       }
     }
   } catch (cancelErr) {
@@ -3021,12 +3038,15 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
     (async () => {
       try {
         const bookings = loadBookingsLog();
+        // tombstone(status:"cancelled")化した予約はここでも除外する（バグ①修正の副作用対応:
+        // 物理削除→論理削除に変えたことで、除外しないとキャンセル済み予約が売上予測に混入する）
+        const activeBookings = bookings.filter(b => b.status !== "cancelled");
         // 今後の予約のみ（今日以降）
         const today = new Date().toISOString().split("T")[0];
-        const upcoming = bookings.filter(b => b.checkin >= today).sort((a, b) => a.checkin.localeCompare(b.checkin));
+        const upcoming = activeBookings.filter(b => b.checkin >= today).sort((a, b) => a.checkin.localeCompare(b.checkin));
         const totalUpcomingRevenue = upcoming.reduce((s, b) => s + (b.hostEarnings || 0), 0);
         res.writeHead(200, corsHeaders);
-        res.end(JSON.stringify({ upcoming, totalUpcomingRevenue, totalBookings: bookings.length }));
+        res.end(JSON.stringify({ upcoming, totalUpcomingRevenue, totalBookings: activeBookings.length }));
       } catch (e) {
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ error: e.message }));
