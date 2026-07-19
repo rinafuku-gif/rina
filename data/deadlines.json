@@ -1,6 +1,19 @@
 {
   "deadlines": [
     {
+      "id": "34e0f0fdafad8122a61adbc82a8c4af5",
+      "title": "【蔵サウナ】総務省へ計画書正式提出（市経由・月末締切）",
+      "date": "2026-07-20",
+      "category": "補助金・資金",
+      "business": "蔵サウナ",
+      "status": "進行中",
+      "checklist": [],
+      "notes": "",
+      "_gtd": "次にやること",
+      "_priority": "高",
+      "_notion_url": "https://app.notion.com/p/34e0f0fdafad8122a61adbc82a8c4af5"
+    },
+    {
       "id": "3480f0fdafad81b5adedef94d08d6bb4",
       "title": "【SATOYAMA】専門家登録申請書 最終確定（顔写真貼付・経歴年月確定）",
       "date": "2026-07-20",
@@ -66,5 +79,5 @@
       "_notion_url": "https://app.notion.com/p/3390f0fdafad812586ace8bbd77d894c"
     }
   ],
-  "generated_at": "2026-07-19T04:42:01.975Z"
+  "generated_at": "2026-07-19T04:47:02.665Z"
 }
