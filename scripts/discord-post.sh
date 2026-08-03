@@ -27,6 +27,7 @@ resolve_channel() {
     sns-drafts)    echo "1486662866026364928" ;;
     finance)       echo "1487350270630297701" ;;
     trading)       echo "1491998794487693343" ;;
+    maintenance)   echo "1515559955078320249" ;;  # repair-bot監視チャンネル(maintenance-ch)と共用
     *)             echo "$1" ;;  # IDがそのまま渡された場合
   esac
 }
@@ -36,7 +37,7 @@ MESSAGE="${2:-}"
 
 if [ -z "$CHANNEL_ARG" ] || [ -z "$MESSAGE" ]; then
   echo "Usage: discord-post.sh <channel-name|channel-id> <message>" >&2
-  echo "Channels: dev-log audit reports notifications general ai-news sns-drafts finance trading" >&2
+  echo "Channels: dev-log audit reports notifications general ai-news sns-drafts finance trading maintenance" >&2
   exit 1
 fi
 
