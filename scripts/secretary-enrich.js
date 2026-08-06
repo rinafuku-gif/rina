@@ -16,8 +16,10 @@ const BOOKINGS_FILE = path.join(REPO_DIR, "logs", ".airbnb-bookings.json");
 const CHAT_HISTORY_FILE = path.join(REPO_DIR, "logs", ".chat-history.json");
 const DEADLINES_FILE = path.join(REPO_DIR, "data", "deadlines.json");
 
-const CLAUDE_BIN = "/Users/Inaryo/.local/bin/claude";
-const ENV_PATH = "/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
+// 2026-08-07: 古いユーザー名(/Users/Inaryo/)のまま実在しないパスだった不具合を修正。
+// 実際のclaudeバイナリは/opt/homebrew/bin/claude(シンボリックリンク)。
+const CLAUDE_BIN = "/opt/homebrew/bin/claude";
+const ENV_PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
 
 /**
  * ファイルを安全に読み込む（存在しなければデフォルト値を返す）
