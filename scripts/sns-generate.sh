@@ -218,7 +218,11 @@ PROMPT_END
   local result_file
   result_file=$(mktemp)
 
-  (cd "$REPO_DIR" && cat "$prompt_file" | "$CLAUDE_PATH" -p --dangerously-skip-permissions > "$result_file") &
+  # 2026-08-07: stderrを明示的にログへ逃がす（未リダイレクト時、このバックグラウンドジョブの
+  # stderrが呼び出し元の `result=$(generate_for_account ... 2>&1)` に紛れ込み、$parsed の後段で
+  # format_for_line に渡すJSONが破損する競合を新規発見・修正。従来はCLAUDE_PATHが不正で
+  # この経路自体に到達していなかったため未検出だった）
+  (cd "$REPO_DIR" && cat "$prompt_file" | "$CLAUDE_PATH" -p --dangerously-skip-permissions > "$result_file" 2>>"$LOG_DIR/sns-generate-claude-stderr.log") &
   local claude_pid=$!
 
   # 3分タイムアウト
