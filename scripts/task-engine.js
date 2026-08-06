@@ -254,12 +254,15 @@ function extractGitSummary() {
   const items = [];
   const { execSync } = require("child_process");
 
+  // 2026-08-07: 古いユーザー名(/Users/Inaryo/)のまま実在しないパスだった不具合を修正。
+  // fs.existsSyncガードでスキップされるため落ちてはいなかったが、5リポジトリ分の
+  // git活動集計が常に0件（実質機能不全）だったと見られる。SATOYAMAは移設先も確認済み。
   const REPOS = [
-    { path: "/Users/Inaryo/hisho-shiratama", name: "しらたまPWA" },
-    { path: "/Users/Inaryo/satoyama-ai-base", name: "SATOYAMA" },
-    { path: "/Users/Inaryo/misoca-coffee", name: "三十日珈琲" },
-    { path: "/Users/Inaryo/fate-decoder", name: "CoreCompass" },
-    { path: "/Users/Inaryo/rina", name: "rina" },
+    { path: "/Users/ocmm/hisho-shiratama", name: "しらたまPWA" },
+    { path: "/Users/ocmm/satoyama-ai-base.broken-link", name: "SATOYAMA" },
+    { path: "/Users/ocmm/misoca-coffee", name: "三十日珈琲" },
+    { path: "/Users/ocmm/agents/fate-decoder", name: "CoreCompass" },
+    { path: "/Users/ocmm/rina", name: "rina" },
   ];
 
   for (const repo of REPOS) {
