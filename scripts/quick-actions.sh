@@ -40,5 +40,6 @@ echo "  → $LABEL"
 echo ""
 
 # claude を起動（rinaディレクトリで）
+# 2026-08-07: 古いユーザー名(/Users/Inaryo/)のまま実在しないパスだった不具合を修正
 cd "$(dirname "$0")/.." || exit 1
-exec /Users/Inaryo/.local/bin/claude "$PROMPT"
+exec /opt/homebrew/bin/claude "$PROMPT"
