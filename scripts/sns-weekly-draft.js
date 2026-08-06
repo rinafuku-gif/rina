@@ -12,8 +12,10 @@ const path = require("path");
 const { execSync } = require("child_process");
 
 const REPO_DIR = path.join(__dirname, "..");
-const MARKETING_STRATEGY = "/Users/Inaryo/agents/marketer/launch-marketing-final.md";
-const SNS_RULEBOOK = "/Users/Inaryo/agents/marketer/sns-weekly-template.md";
+// 2026-08-07: 古いユーザー名(/Users/Inaryo/)＋旧ディレクトリ構成(agents/marketer/)のまま
+// 実在しないパスだった不具合を修正。現在は agents/workspaces/marketer/ に配置されている。
+const MARKETING_STRATEGY = "/Users/ocmm/agents/workspaces/marketer/launch-marketing-final.md";
+const SNS_RULEBOOK = "/Users/ocmm/agents/workspaces/marketer/sns-weekly-template.md";
 const SNS_BRANDS_DIR = path.join(REPO_DIR, "config", "sns-brands");
 const DRAFTS_DIR = path.join(REPO_DIR, "data", "sns-drafts");
 
@@ -176,7 +178,7 @@ ${brand2.slice(0, 1200)}
         encoding: "utf-8",
         timeout: 120000, // 2分タイムアウト
         cwd: REPO_DIR,
-        env: { ...process.env, PATH: "/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin" },
+        env: { ...process.env, PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin" },
       }
     ).trim();
 
