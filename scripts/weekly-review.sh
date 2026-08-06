@@ -1,9 +1,10 @@
 #!/bin/bash
 # @critical: launchd com.openclaw.weekly-review から毎週日曜20:00実行
-# @stops-if-deleted: 週次レビュー（ロードマップ進捗・Notionタスク状況）がDiscord #notifications に届かなくなる
+# @stops-if-deleted: 週次のObsidianダッシュボード更新（update-obsidian-dashboard.js）が止まる
 # @depends: update-obsidian-dashboard.js
 # 週次レビュー自動生成 — 毎週日曜 20:00 に実行
-# roadmap-tasks.json + Notion Task DB → Discord #notifications に送信
+# roadmap-tasks.json + Notion Task DB からロードマップ集計・ログ保存
+# （2026-08-07 Ryo判断でDiscord通知は無効化。ロードマップ集計はログにのみ残す）
 # 最後に update-obsidian-dashboard.js でObsidianダッシュボードを更新
 
 set -euo pipefail
@@ -340,38 +341,11 @@ build_message() {
 
 DISCORD_MESSAGE=$(build_message)
 
-# --- Discord Bot Token 送信 ---
-DISCORD_BOT_TOKEN=$(grep '^DISCORD_BOT_TOKEN=' "$HOME/.claude/channels/discord/.env" 2>/dev/null | cut -d= -f2)
-DISCORD_CHANNEL_ID="1486651097157472307"  # #notifications
-
-if [ -z "${DISCORD_BOT_TOKEN:-}" ]; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: DISCORD_BOT_TOKEN が未設定です"
-  exit 1
-fi
-
-# 2000文字ずつ分割送信
-REMAINING="$DISCORD_MESSAGE"
-SEND_OK=true
-while [ ${#REMAINING} -gt 0 ]; do
-  CHUNK="${REMAINING:0:2000}"
-  REMAINING="${REMAINING:2000}"
-  RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
-    -d "$(jq -n --arg text "$CHUNK" '{content: $text}')")
-  if [ "$RESPONSE" != "200" ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Discord送信失敗 (HTTP $RESPONSE)"
-    SEND_OK=false
-    break
-  fi
-  [ ${#REMAINING} -gt 0 ] && sleep 1
-done
-
-if [ "$SEND_OK" = true ]; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Discord送信成功"
-else
-  exit 1
-fi
+# --- Discord送信は2026-08-07 Ryo判断で無効化 ---
+# 週次レビューのDiscord通知自体は不要と判断。ロードマップ集計とObsidianダッシュボード更新
+# （下のupdate-obsidian-dashboard.js呼び出し）は引き続き必要なため、Discord送信部分だけを止める。
+# 再有効化する場合はこのブロックを元のcurl送信に戻す（git履歴参照）。
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Discord送信は無効化済み(2026-08-07)。ログのみ記録します"
 
 # ログ保存
 echo -e "$DISCORD_MESSAGE" > "$LOG_DIR/weekly-review-${TODAY}.md"

@@ -6,11 +6,10 @@
  *   1. ~/rina/data/deadlines.json（アクティブタスク）
  *   2. ~/rina/data/unified.db tasksテーブル（upsert）
  *
- * GTD矛盾スキャン:
- *   日次で1回、いつかやるかも+期日あり / 日付指定で7日以内 / 期限超過 を検出し
- *   Discord に通知（~/rina/logs/.gtd-scan-sent-YYYY-MM-DD でべき等性保証）
+ * GTD矛盾スキャン（いつかやるかも+期日あり / 日付指定で7日以内 / 期限超過の検出＋Discord通知）は
+ * 2026-08-07 Ryo判断で撤去済み（hub参照の期限アラートに統合されたため不要）。
  *
- * Usage: node notion-sync-pull.js [--dry-run] [--no-discord]
+ * Usage: node notion-sync-pull.js [--dry-run]
  */
 
 const fs = require("fs");
@@ -33,7 +32,6 @@ const LOCK_FILE = path.join(LOG_DIR, ".notion-sync-pull.lock");
 const DATABASE_ID = "500a3ff0-900d-4933-ba83-b511102f6779";
 const ARGV = new Set(process.argv.slice(2));
 const DRY_RUN = ARGV.has("--dry-run");
-const NO_DISCORD = ARGV.has("--no-discord");
 
 // ---- Env loading ----
 function loadEnv() {
@@ -54,8 +52,6 @@ if (!NOTION_API_KEY) {
   console.error("SHIRATAMA_NOTION_API_KEY (or NOTION_API_KEY) not found");
   process.exit(1);
 }
-const DISCORD_CHANNEL_ID = "1486651097157472307"; // #notifications
-
 // ---- Logging ----
 fs.mkdirSync(LOG_DIR, { recursive: true });
 // cron invokes this with ">> LOG_FILE 2>&1", so stdout is captured.
@@ -269,74 +265,6 @@ function atomicWrite(filepath, content) {
   fs.renameSync(tmp, filepath);
 }
 
-// ---- GTD矛盾スキャン ----
-function scanInconsistencies(tasks) {
-  const issues = { staleMaybe: [], shouldPromote: [], overdue: [] };
-  for (const t of tasks) {
-    if (t.gtd === "いつかやるかも" && t.date) issues.staleMaybe.push(t);
-    if (t.gtd === "日付指定" && t.date && daysBetween(t.date) <= 7 && daysBetween(t.date) >= 0) issues.shouldPromote.push(t);
-    if (t.gtd === "次にやること" && t.date && daysBetween(t.date) < 0) issues.overdue.push(t);
-  }
-  return issues;
-}
-
-async function sendDiscordIfNeeded(issues) {
-  const total = issues.staleMaybe.length + issues.shouldPromote.length + issues.overdue.length;
-  if (total === 0) return;
-  return; // disabled 2026-05-18: Task-Bot 7:00 briefing が代替（再有効化はこの行削除）
-  const sentFlag = path.join(LOG_DIR, `.gtd-scan-sent-${today()}`);
-  if (fs.existsSync(sentFlag)) { log(`GTD scan already sent today (${total} issues)`); return; }
-  if (NO_DISCORD || DRY_RUN) { log(`DRY/NO_DISCORD: would send GTD scan (${total} issues)`); return; }
-
-  const discordEnv = path.join(HOME, ".claude", "channels", "discord", ".env");
-  if (!fs.existsSync(discordEnv)) { log("Discord env not found, skipping notification"); return; }
-  const discEnv = {};
-  for (const line of fs.readFileSync(discordEnv, "utf8").split("\n")) {
-    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-    if (m) discEnv[m[1]] = m[2].replace(/^["']|["']$/g, "");
-  }
-  const token = discEnv.DISCORD_BOT_TOKEN || discEnv.DISCORD_TOKEN;
-  if (!token) { log("Discord token not found"); return; }
-
-  const fmtList = (list, prefix) => list.slice(0, 10).map((t) => {
-    const dateStr = t.date ? `(${fmtMD(t.date)})` : "";
-    return `- ${prefix} **[${t.project || "？"}]** ${t.title} ${dateStr}`;
-  }).join("\n");
-  const parts = [];
-  parts.push("🔄 **GTD矛盾スキャン** — 日次");
-  if (issues.overdue.length) parts.push(`\n🔴 **期限超過** (${issues.overdue.length})\n` + fmtList(issues.overdue, "🔴"));
-  if (issues.shouldPromote.length) parts.push(`\n🟡 **昇格候補（期日≤7日、日付指定→次にやること）** (${issues.shouldPromote.length})\n` + fmtList(issues.shouldPromote, "🟡"));
-  if (issues.staleMaybe.length) parts.push(`\n⚠️ **期日あり＋いつかやるかも（矛盾）** (${issues.staleMaybe.length})\n` + fmtList(issues.staleMaybe, "⚠️"));
-  parts.push("\nNotionで修正してください。5分後の次回同期に反映されます。");
-  const content = parts.join("\n");
-
-  await new Promise((resolve, reject) => {
-    const body = JSON.stringify({ content });
-    const req = https.request({
-      hostname: "discord.com",
-      path: `/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`,
-      method: "POST",
-      headers: {
-        "Authorization": `Bot ${token}`,
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(body),
-      },
-    }, (res) => {
-      let buf = "";
-      res.on("data", (c) => buf += c);
-      res.on("end", () => {
-        if (res.statusCode >= 400) reject(new Error(`Discord ${res.statusCode}: ${buf.slice(0, 200)}`));
-        else resolve();
-      });
-    });
-    req.on("error", reject);
-    req.write(body);
-    req.end();
-  });
-  fs.writeFileSync(sentFlag, new Date().toISOString());
-  log(`GTD scan notified to Discord (${total} issues)`);
-}
-
 // ---- Main ----
 (async () => {
   const t0 = Date.now();
@@ -347,14 +275,10 @@ async function sendDiscordIfNeeded(issues) {
     const active = tasks.filter((t) => !["完了", "資料", "ゴミ箱", "できなかった"].includes(t.gtd));
     const groups = groupTasks(tasks);
 
-    const issues = scanInconsistencies(tasks);
-
     writeDeadlines(tasks);
     upsertUnifiedDb(tasks);
 
-    await sendDiscordIfNeeded(issues);
-
-    log(`sync done: total=${tasks.length} active=${active.length} overdue=${groups.overdue.length} thisWeek=${groups.thisWeek.length} inProgress=${groups.inProgress.length} issues=${issues.staleMaybe.length + issues.shouldPromote.length + issues.overdue.length} took=${Date.now() - t0}ms`);
+    log(`sync done: total=${tasks.length} active=${active.length} overdue=${groups.overdue.length} thisWeek=${groups.thisWeek.length} inProgress=${groups.inProgress.length} took=${Date.now() - t0}ms`);
   } catch (err) {
     log(`ERROR: ${err.message}`);
     console.error(err);
