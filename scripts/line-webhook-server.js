@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const { execSync, spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const webpush = require("web-push");
 const unifiedApi = require("./unified-api");
 const dataIngester = require("./data-ingester");
@@ -26,15 +27,19 @@ const USER_ID = env.LINE_USER_ID;
 const PORT = 3100;
 
 // Discord通知設定（DXワークフロー用）
-const DISCORD_NOTIFICATIONS_CHANNEL_ID = "1486651097157472307";
+// 2026-08-07: #notifications→#dx-inbox（DX案件専用チャンネル）へ変更。
+// あわせて、トークン読み込みパスが旧ユーザー名(/Users/Inaryo/)のまま残っていて
+// 実在しないパスだった不具合を修正（該当パスが存在しなかったため、この通知は
+// 常にDISCORD_BOT_TOKEN未設定→LINEへフォールバックしていたと見られる）。
+const DISCORD_NOTIFICATIONS_CHANNEL_ID = "1505158320279785592"; // #dx-inbox
 const DISCORD_BOT_TOKEN = (() => {
   try {
-    const discordEnvPath = "/Users/Inaryo/.claude/channels/discord/.env";
+    const discordEnvPath = path.join(os.homedir(), ".claude/channels/discord/.env");
     const discordEnv = fs.readFileSync(discordEnvPath, "utf-8");
     const match = discordEnv.match(/^DISCORD_BOT_TOKEN=(.*)$/m);
     return match ? match[1].trim() : "";
   } catch {
-    console.error("[Discord] Bot token not found at /Users/Inaryo/.claude/channels/discord/.env");
+    console.error("[Discord] Bot token not found at ~/.claude/channels/discord/.env");
     return "";
   }
 })();
