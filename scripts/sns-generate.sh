@@ -14,9 +14,10 @@ REPO_DIR="$(dirname "$SCRIPT_DIR")"
 BRANDS_DIR="$REPO_DIR/config/sns-brands"
 LOG_DIR="$REPO_DIR/logs"
 OUTPUT_DIR="$LOG_DIR/.sns-drafts"
-CLAUDE_PATH="/Users/Inaryo/.local/bin/claude"
+# 2026-08-07: 古いユーザー名(/Users/Inaryo/)のまま実在しないパスだった不具合を修正
+CLAUDE_PATH="/opt/homebrew/bin/claude"
 
-export PATH="/Users/Inaryo/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 unset CLAUDECODE 2>/dev/null || true
 source "$REPO_DIR/.env"
 
