@@ -3961,10 +3961,6 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 
   // ========== POST /api/dx-cases/:caseId/status — DX案件ステータス更新 ==========
   } else if (req.method === "POST" && pathname.match(/^\/api\/dx-cases\/[^/]+\/status$/)) {
-    // 2026-08-09 退役: DX受付はsatoyama-web /dx-intake/ に一本化（Ryo GO済み）。GO/修正実行トリガーのため410
-    res.writeHead(410, { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "retired", message: "この受付は終了しました。新しい窓口: https://web.satoyama-ai-base.com/dx-intake/" }));
-    return;
     const dxCorsHeaders = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
     const urlObj = new URL(req.url, `http://localhost:${PORT}`);
     const qToken = urlObj.searchParams.get("token") || req.headers["authorization"]?.replace("Bearer ", "");
@@ -4087,10 +4083,6 @@ ${JSON.stringify(styleGuide.accounts, null, 2)}
 
   // ========== POST /api/dx-hearing — DXヒアリング回答受信 → AI提案書自動生成 + LINE通知 (v2) ==========
   } else if (req.method === "POST" && pathname === "/api/dx-hearing") {
-    // 2026-08-09 退役: DX受付はsatoyama-web /dx-intake/ に一本化（Ryo GO済み）
-    res.writeHead(410, { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "retired", message: "この受付は終了しました。新しい窓口: https://web.satoyama-ai-base.com/dx-intake/" }));
-    return;
     const dxCorsHeaders = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
     let bodyChunks = [];
     req.on("data", (chunk) => bodyChunks.push(chunk));
