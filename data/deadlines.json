@@ -27,19 +27,6 @@
       "_notion_url": "https://app.notion.com/p/SATOYAMA-3480f0fdafad81b5adedef94d08d6bb4"
     },
     {
-      "id": "3480f0fdafad8190b484d7777614f759",
-      "title": "【Basecamp】清掃オペレーション確立",
-      "date": "2026-05-06",
-      "category": "設計・施工",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "��了",
-      "_priority": null,
-      "_notion_url": "https://app.notion.com/p/Basecamp-3480f0fdafad8190b484d7777614f759"
-    },
-    {
       "id": "3480f0fdafad81a9b605d5bbd29a76d3",
       "title": "【任屋】持続化補助金 創業枠 計画書作成着手（大神田さん名義）",
       "date": "2026-09-01",
@@ -51,19 +38,6 @@
       "_gtd": "次にやること",
       "_priority": null,
       "_notion_url": "https://app.notion.com/p/3480f0fdafad81a9b605d5bbd29a76d3"
-    },
-    {
-      "id": "33d0f0fdafad81c5ae0efa13c0a074c2",
-      "title": "2階客室 網戸張替え",
-      "date": "2026-04-20",
-      "category": "設計・施工",
-      "business": "Basecamp Torisawa",
-      "status": "進行中",
-      "checklist": [],
-      "notes": "",
-      "_gtd": "完��",
-      "_priority": "中",
-      "_notion_url": "https://app.notion.com/p/2-33d0f0fdafad81c5ae0efa13c0a074c2"
     },
     {
       "id": "33c0f0fdafad8194949af1bb4910b579",
@@ -105,5 +79,5 @@
       "_notion_url": "https://app.notion.com/p/3390f0fdafad812586ace8bbd77d894c"
     }
   ],
-  "generated_at": "2026-08-09T00:57:01.963Z"
+  "generated_at": "2026-08-09T01:02:02.040Z"
 }
