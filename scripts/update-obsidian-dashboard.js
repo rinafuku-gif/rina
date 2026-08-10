@@ -2,13 +2,16 @@
  * update-obsidian-dashboard.js — 週次レビュー用Obsidianダッシュボード更新
  *
  * weekly-review.sh の最後に呼び出される。
- * roadmap-tasks.json（来週のWeek）+ Notion Task DB（来週の行動予定日）を
+ * roadmap-tasks.json（来週のWeek）+ タスクハブ（来週のdue・直近完了）を
  * マージしてダッシュボードの「今週やること」と「完了（直近7日）」を更新する。
+ *
+ * (2026-08-11: Notion Task DB直読みから正本=タスクハブ(task_store)参照へ移行。
+ *  Notionはタスク管理から降格済み。NOTION_API_KEY はこのファイルでは読まなくなったが、
+ *  他スクリプトが使用中のため .env からは削除しない)
  */
 
 const fs = require("fs");
 const path = require("path");
-const https = require("https");
 const os = require("os");
 const { execSync } = require("child_process");
 
@@ -25,16 +28,14 @@ const OBSIDIAN_BASE = path.join(
 );
 const DASHBOARD_FILE = path.join(OBSIDIAN_BASE, "ダッシュボード.md");
 
-// --- 環境変数の読み込み ---
-const envContent = fs.readFileSync(path.join(REPO_DIR, ".env"), "utf-8");
-const env = {};
-for (const line of envContent.split("\n")) {
-  const match = line.match(/^([^=]+)=(.*)$/);
-  if (match) env[match[1].trim()] = match[2].trim();
-}
+// --- タスクハブ(task_store)の場所 ---
+const HUB_SCRIPTS_DIR = "/Users/ocmm/agents/ceo/scripts";
 
-// --- Notion DB ID ---
-const NOTION_TASK_DB = "500a3ff0900d4933ba83b511102f6779";
+// --- ビジネスタグ（title/contextの部分一致でビジネスを推定する） ---
+const BUSINESS_TAGS = [
+  "三十日珈琲", "えんがわ", "となりにとまる", "SATOYAMA AI BASE",
+  "Basecamp Torisawa", "蔵サウナ", "地域おこし協力隊",
+];
 
 // --- 日付ユーティリティ ---
 function todayStr() {
@@ -55,126 +56,46 @@ function formatMD(dateStr) {
   return `${parseInt(m)}/${parseInt(d)}`;
 }
 
-// --- Notion API ---
-function notionApiPost(endpoint, body) {
-  return new Promise((resolve, reject) => {
-    const postData = JSON.stringify(body);
-    const req = https.request({
-      hostname: "api.notion.com",
-      path: `/v1/${endpoint}`,
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${env.NOTION_API_KEY}`,
-        "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28",
-        "Content-Length": Buffer.byteLength(postData),
-      },
-    }, (res) => {
-      let data = "";
-      res.on("data", (c) => (data += c));
-      res.on("end", () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try { resolve(JSON.parse(data)); } catch { resolve(data); }
-        } else {
-          reject(new Error(`Notion API ${res.statusCode}: ${data.slice(0, 300)}`));
-        }
-      });
-    });
-    req.on("error", reject);
-    req.write(postData);
-    req.end();
+// --- タスクハブ取得（来週 + 直近完了） ---
+function fetchHubTasks(nextWeekStart, nextWeekEnd) {
+  const raw = execSync("python3 -m task_store list", {
+    cwd: HUB_SCRIPTS_DIR,
+    encoding: "utf-8",
+    maxBuffer: 10 * 1024 * 1024,
   });
-}
-
-// --- Notionタスク取得（来週 + 直近完了） ---
-async function fetchNotionTasks(nextWeekStart, nextWeekEnd) {
-  if (!env.NOTION_API_KEY) throw new Error("NOTION_API_KEY not set");
+  const allTasks = JSON.parse(raw);
 
   const today = todayStr();
   const sevenDaysAgo = addDays(today, -7);
 
-  // 来週の未完了タスク
-  const upcomingResult = await notionApiPost(`databases/${NOTION_TASK_DB}/query`, {
-    page_size: 100,
-    filter: {
-      and: [
-        {
-          property: "行動予定日",
-          date: { on_or_after: nextWeekStart },
-        },
-        {
-          property: "行動予定日",
-          date: { on_or_before: nextWeekEnd },
-        },
-        {
-          property: "GTD",
-          status: { does_not_equal: "完了" },
-        },
-        {
-          property: "GTD",
-          status: { does_not_equal: "ゴミ箱" },
-        },
-        {
-          property: "GTD",
-          status: { does_not_equal: "資料" },
-        },
-        {
-          property: "GTD",
-          status: { does_not_equal: "できなかった" },
-        },
-        {
-          property: "GTD",
-          status: { does_not_equal: "いつかやるかも" },
-        },
-      ],
-    },
+  // 来週の未完了タスク（due が来週範囲内・state が done/blocked 以外）
+  const upcoming = allTasks.filter((t) => {
+    if (t.state === "done" || t.state === "blocked") return false;
+    if (!t.due) return false;
+    return t.due >= nextWeekStart && t.due <= nextWeekEnd;
   });
 
-  // 直近7日に完了したタスク
-  const doneResult = await notionApiPost(`databases/${NOTION_TASK_DB}/query`, {
-    page_size: 50,
-    filter: {
-      and: [
-        {
-          property: "GTD",
-          status: { equals: "完了" },
-        },
-        {
-          timestamp: "last_edited_time",
-          last_edited_time: { on_or_after: sevenDaysAgo + "T00:00:00+09:00" },
-        },
-      ],
-    },
+  // 直近7日に完了したタスク（state=done・last_activity_at が7日以内）
+  const done = allTasks.filter((t) => {
+    if (t.state !== "done") return false;
+    if (!t.last_activity_at) return false;
+    return t.last_activity_at.slice(0, 10) >= sevenDaysAgo;
   });
 
-  return {
-    upcoming: upcomingResult.results || [],
-    done: doneResult.results || [],
-  };
+  return { upcoming, done };
 }
 
-// --- Notionページからタスク情報を抽出 ---
-function parseNotionTask(page) {
-  const props = page.properties || {};
-
-  let title = "";
-  for (const key of Object.keys(props)) {
-    const prop = props[key];
-    if (prop.type === "title" && prop.title && prop.title.length > 0) {
-      title = prop.title.map(t => t.plain_text).join("").trim();
-      break;
-    }
-  }
+// --- タスクハブのタスクから情報を抽出 ---
+function parseHubTask(task) {
+  const title = task.title || "";
   if (!title) return null;
 
-  const actionDate = props["行動予定日"]?.date?.start || null;
-  const tags = (props["タグ"]?.multi_select || []).map(t => t.name);
+  const actionDate = task.due || null;
 
-  const BUSINESS_TAGS = new Set([
-    "三十日珈琲", "えんがわ", "となりにとまる", "SATOYAMA AI BASE",
-    "Basecamp Torisawa", "蔵サウナ", "地域おこし協力隊",
-  ]);
-  const bizTags = tags.filter(t => BUSINESS_TAGS.has(t));
+  // タスクハブにはNotionのような構造化タグが無いため、
+  // title + context の部分一致でビジネスを推定する
+  const searchText = `${task.context || ""} ${title}`;
+  const bizTags = BUSINESS_TAGS.filter((tag) => searchText.includes(tag));
   const business = bizTags.join("・") || "";
 
   return { title, actionDate, business };
@@ -223,16 +144,16 @@ async function main() {
 
   console.log(`[update-obsidian-dashboard] 来週: ${nextWeekStart} 〜 ${nextWeekEnd}`);
 
-  // Notionタスク取得
-  let notionUpcoming = [];
-  let notionDone = [];
+  // タスクハブ取得
+  let hubUpcoming = [];
+  let hubDone = [];
   try {
-    const result = await fetchNotionTasks(nextWeekStart, nextWeekEnd);
-    notionUpcoming = result.upcoming.map(parseNotionTask).filter(Boolean);
-    notionDone = result.done.map(parseNotionTask).filter(Boolean);
-    console.log(`[update-obsidian-dashboard] Notion: 来週${notionUpcoming.length}件, 完了${notionDone.length}件`);
+    const result = fetchHubTasks(nextWeekStart, nextWeekEnd);
+    hubUpcoming = result.upcoming.map(parseHubTask).filter(Boolean);
+    hubDone = result.done.map(parseHubTask).filter(Boolean);
+    console.log(`[update-obsidian-dashboard] タスクハブ: 来週${hubUpcoming.length}件, 完了${hubDone.length}件`);
   } catch (err) {
-    console.error("[update-obsidian-dashboard] Notion取得エラー:", err.message);
+    console.error("[update-obsidian-dashboard] タスクハブ取得エラー:", err.message);
   }
 
   // roadmap-tasks.json から来週のタスクを取得
@@ -265,7 +186,7 @@ async function main() {
   }
 
   // マージ＋重複排除
-  const allUpcoming = deduplicateTasks([...notionUpcoming, ...roadmapUpcoming]);
+  const allUpcoming = deduplicateTasks([...hubUpcoming, ...roadmapUpcoming]);
 
   // 来週タスクのMarkdown行を生成
   const upcomingLines = allUpcoming.map(t => {
@@ -275,7 +196,7 @@ async function main() {
   });
 
   // 完了タスクのMarkdown行を生成
-  const doneLines = notionDone.map(t => {
+  const doneLines = hubDone.map(t => {
     const prefix = t.business ? `**${t.business}**: ` : "";
     return `- [x] ${prefix}${t.title}`;
   });

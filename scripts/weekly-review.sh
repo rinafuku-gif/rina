@@ -3,8 +3,9 @@
 # @stops-if-deleted: 週次のObsidianダッシュボード更新（update-obsidian-dashboard.js）が止まる
 # @depends: update-obsidian-dashboard.js
 # 週次レビュー自動生成 — 毎週日曜 20:00 に実行
-# roadmap-tasks.json + Notion Task DB からロードマップ集計・ログ保存
+# roadmap-tasks.json + タスクハブ(hub/events.jsonl) からロードマップ集計・ログ保存
 # （2026-08-07 Ryo判断でDiscord通知は無効化。ロードマップ集計はログにのみ残す）
+# （2026-08-11 完了タスク取得をNotion Task DB直読みからタスクハブ(task_store)参照へ移行）
 # 最後に update-obsidian-dashboard.js でObsidianダッシュボードを更新
 
 set -euo pipefail
@@ -142,91 +143,29 @@ if donts:
 PYEOF
 )
 
-# --- Notion Task DBから今週完了タスクを取得 ---
-NOTION_DONE=$(node - "$WEEK_START" "$TODAY" << 'JSEOF'
-const https = require("https");
-const fs = require("fs");
-const path = require("path");
+# --- タスクハブ(hub/events.jsonl)から今週完了タスクを取得 ---
+# (2026-08-11: Notion Task DB直読みから正本=タスクハブ参照へ移行。
+#  Notionはタスク管理から降格済み。~/agents/ceo/scripts/task_store の list_tasks を直読みする)
+HUB_DONE=$(python3 - "$WEEK_START" "$TODAY" << 'PYEOF' 2>/dev/null || true
+import sys
 
-const REPO_DIR = path.join(__dirname, "..", "..");
-const envContent = fs.readFileSync(path.join("/Users/ocmm/rina", ".env"), "utf-8");
-const env = {};
-for (const line of envContent.split("\n")) {
-  const m = line.match(/^([^=]+)=(.*)$/);
-  if (m) env[m[1].trim()] = m[2].trim();
-}
+HUB_SCRIPTS_DIR = "/Users/ocmm/agents/ceo/scripts"
+if HUB_SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, HUB_SCRIPTS_DIR)
 
-const [,, weekStart, weekEnd] = process.argv;
+week_start, today = sys.argv[1], sys.argv[2]
 
-function notionPost(endpoint, body) {
-  return new Promise((resolve, reject) => {
-    const postData = JSON.stringify(body);
-    const req = https.request({
-      hostname: "api.notion.com",
-      path: `/v1/${endpoint}`,
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${env.NOTION_API_KEY}`,
-        "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28",
-        "Content-Length": Buffer.byteLength(postData),
-      },
-    }, (res) => {
-      let data = "";
-      res.on("data", c => data += c);
-      res.on("end", () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try { resolve(JSON.parse(data)); } catch { resolve(data); }
-        } else {
-          reject(new Error(`Notion ${res.statusCode}: ${data.slice(0,200)}`));
-        }
-      });
-    });
-    req.on("error", reject);
-    req.write(postData);
-    req.end();
-  });
-}
+try:
+    from task_store.task_store import list_tasks
 
-async function main() {
-  const result = await notionPost("databases/500a3ff0900d4933ba83b511102f6779/query", {
-    page_size: 100,
-    filter: {
-      and: [
-        { property: "GTD", status: { equals: "完了" } },
-        {
-          timestamp: "last_edited_time",
-          last_edited_time: { on_or_after: weekStart + "T00:00:00+09:00" },
-        },
-        {
-          timestamp: "last_edited_time",
-          last_edited_time: { on_or_before: weekEnd + "T23:59:59+09:00" },
-        },
-      ],
-    },
-  });
-
-  const pages = result.results || [];
-  for (const page of pages) {
-    const props = page.properties || {};
-    let title = "";
-    for (const key of Object.keys(props)) {
-      const prop = props[key];
-      if (prop.type === "title" && prop.title && prop.title.length > 0) {
-        title = prop.title.map(t => t.plain_text).join("").trim();
-        break;
-      }
-    }
-    if (title) process.stdout.write(title + "\n");
-  }
-}
-
-main().catch(err => {
-  process.stderr.write("Notion error: " + err.message + "\n");
-  process.exit(0); // エラーでも続行
-});
-JSEOF
-2>/dev/null || true)
+    for t in list_tasks(state="done"):
+        activity_date = (t.last_activity_at or t.created or "")[:10]
+        if week_start <= activity_date <= today:
+            print(t.title)
+except Exception as e:
+    sys.stderr.write("task_store error: " + str(e) + "\n")
+PYEOF
+)
 
 # --- 今週のロードマップタスク数と完了数を集計 ---
 TOTAL_TASKS=0
@@ -236,9 +175,9 @@ fi
 
 DONE_TASKS=0
 DONE_TITLES=""
-if [ -n "$NOTION_DONE" ]; then
-  DONE_TASKS=$(echo "$NOTION_DONE" | grep -c . || echo 0)
-  DONE_TITLES="$NOTION_DONE"
+if [ -n "$HUB_DONE" ]; then
+  DONE_TASKS=$(echo "$HUB_DONE" | grep -c . || echo 0)
+  DONE_TITLES="$HUB_DONE"
 fi
 
 # 完了率の計算
